@@ -25,7 +25,27 @@ const fromParts = (kind: string, folder: string, parts: Record<string, { id: str
     Object.keys(parts).map((id) => [id, layerAsset(kind, folder, id)]),
   ) as Record<string, AssetMeta>
 
+/**
+ * 레이어로 나뉘지 않은 통짜 캐릭터 이미지.
+ * 감정별로 한 장씩 그려진 에셋을 쓸 때 이 경로에 넣는다.
+ * 이게 있으면 레이어 합성을 건너뛰고 이 이미지만 그린다.
+ */
+const fullAsset = (emotion: EmotionId): AssetMeta => ({
+  id: `character.full.${emotion}`,
+  type: 'CHARACTER_FULL',
+  src: `/assets/characters/full/${emotion.toLowerCase()}.webp`,
+  anchorX: ANCHOR_X,
+  anchorY: 0.99,
+  defaultScale: 1,
+  worldWidth: CHARACTER_WORLD_WIDTH,
+  layer: 'character',
+})
+
 export const characterAssets = {
+  full: Object.fromEntries(EMOTION_IDS.map((id) => [id, fullAsset(id)])) as Record<
+    EmotionId,
+    AssetMeta
+  >,
   body: fromParts('body', 'body', BODIES),
   emotion: Object.fromEntries(
     EMOTION_IDS.map((id) => [id, layerAsset('emotion', 'emotions', id.toLowerCase())]),

@@ -24,6 +24,7 @@ export const getDecorationAsset = (type: DecorationType): AssetMeta => decoratio
 
 export const getNpcAsset = (type: NpcType): AssetMeta => npcAssets[type]
 
+export const getCharacterFullAsset = (id: EmotionId): AssetMeta => characterAssets.full[id]
 export const getCharacterBodyAsset = (id: string): AssetMeta | undefined => characterAssets.body[id]
 export const getCharacterEmotionAsset = (id: EmotionId): AssetMeta => characterAssets.emotion[id]
 export const getCharacterHairAsset = (id: string): AssetMeta | undefined => characterAssets.hair[id]

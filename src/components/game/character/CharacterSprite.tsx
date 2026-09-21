@@ -4,9 +4,11 @@ import {
   getCharacterAccessoryAsset,
   getCharacterBodyAsset,
   getCharacterEmotionAsset,
+  getCharacterFullAsset,
   getCharacterHairAsset,
   getCharacterOutfitAsset,
 } from '@/data/assets'
+import { useAssetSrc } from '@/hooks/useAssetReady'
 import { ACCESSORIES, BODIES, HAIRS, OUTFITS } from '@/data/characterParts'
 import type { AssetMeta, CharacterAppearance, EmotionId } from '@/types'
 import { AccessoryLayer, BodyLayer, HairLayer, OutfitLayer } from './CharacterLayers'
@@ -46,9 +48,23 @@ function Layer({
  * 감정이 바뀌면 face 레이어만 교체되고 나머지는 그대로다.
  */
 export function CharacterSprite({ emotion, body, hair, outfit, accessories }: Props) {
+  const fullSrc = useAssetSrc(getCharacterFullAsset(emotion).src)
   const skin = BODIES[body]?.color ?? BODIES.body_default.color
   const hairDef = HAIRS[hair] ?? HAIRS.hair_short
   const outfitDef = OUTFITS[outfit] ?? OUTFITS.outfit_tee_blue
+
+  // 감정별 통짜 이미지가 있으면 레이어 합성을 건너뛴다.
+  if (fullSrc) {
+    return (
+      <img
+        className="character-sprite character-sprite--full"
+        src={fullSrc}
+        alt=""
+        draggable={false}
+        decoding="async"
+      />
+    )
+  }
 
   return (
     <div className="character-sprite">

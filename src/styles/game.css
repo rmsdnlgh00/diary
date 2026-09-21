@@ -168,6 +168,13 @@
   transform-origin: bottom center;
 }
 
+/* 통짜 이미지는 원본 비율을 그대로 쓴다. */
+.character-sprite--full {
+  aspect-ratio: auto;
+  height: auto;
+  display: block;
+}
+
 .character-sprite__layer {
   position: absolute;
   inset: 0;
