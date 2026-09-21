@@ -19,7 +19,7 @@ function seededRandom(seed: string): () => number {
 
 /** 16:9 월드에서 y는 세로 방향이라, 거리 비교 전에 가로 기준으로 환산한다. */
 const Y_TO_X = 9 / 16
-const CHARACTER_RADIUS = 0.036
+const CHARACTER_RADIUS = 0.02
 
 /** 이미 무언가 서 있는 자리. radius는 월드 가로 대비 반지름. */
 export interface Occupant extends Point {

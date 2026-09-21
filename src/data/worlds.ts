@@ -10,7 +10,8 @@ export const WORLD_2026_09: WorldDefinition = {
   year: 2026,
   month: 9,
   label: '2026년 9월',
-  horizonY: 0.46,
+  // 쿼터뷰 배경이라 지평선이 위쪽에 있다. 깊이 스케일 계산 기준.
+  horizonY: 0.25,
   palette: {
     skyTop: '#a9e2ff',
     skyBottom: '#e7f6ff',
@@ -19,42 +20,22 @@ export const WORLD_2026_09: WorldDefinition = {
     groundBack: '#a3d97f',
     groundFront: '#8fcd6a',
   },
-  environment: [
-    { id: 'path-main', kind: 'PATH', x: 0.48, y: 0.82, width: 0.84, flat: true },
-    { id: 'pond-right', kind: 'POND', x: 0.85, y: 0.62, width: 0.18, flat: true },
-    { id: 'shop-left', kind: 'SHOP', x: 0.19, y: 0.62 },
-    { id: 'bridge-right', kind: 'BRIDGE', x: 0.85, y: 0.6, width: 0.13 },
-    { id: 'tree-left', kind: 'BIG_TREE', x: 0.04, y: 0.6, width: 0.13 },
-    { id: 'tree-back-right', kind: 'BIG_TREE', x: 0.71, y: 0.545, width: 0.1, flipX: true },
-    { id: 'tree-front-right', kind: 'BIG_TREE', x: 0.96, y: 1.0, width: 0.19 },
-    { id: 'bush-a', kind: 'BUSH', x: 0.36, y: 0.545 },
-    { id: 'bush-b', kind: 'BUSH', x: 0.58, y: 0.535, width: 0.055 },
-    { id: 'bush-c', kind: 'BUSH', x: 0.09, y: 0.88, width: 0.08 },
-    { id: 'fence-a', kind: 'FENCE', x: 0.27, y: 0.515 },
-    { id: 'fence-b', kind: 'FENCE', x: 0.44, y: 0.51 },
-    { id: 'fence-c', kind: 'FENCE', x: 0.61, y: 0.505 },
-  ],
-  decorations: [
-    { id: 'deco-tree-1', type: 'TREE', x: 0.32, y: 0.65, scale: 1, rotation: 0, createdAt: 0 },
-    { id: 'deco-picnic-1', type: 'PICNIC_MAT', x: 0.44, y: 0.7, scale: 1, rotation: 0, createdAt: 0 },
-    { id: 'deco-lamp-1', type: 'LAMP', x: 0.57, y: 0.69, scale: 1, rotation: 0, createdAt: 0 },
-    { id: 'deco-bench-1', type: 'BENCH', x: 0.67, y: 0.77, scale: 1, rotation: 0, createdAt: 0 },
-    { id: 'deco-bicycle-1', type: 'BICYCLE', x: 0.24, y: 0.78, scale: 1, rotation: 0, createdAt: 0 },
-    { id: 'deco-flower-1', type: 'FLOWER', x: 0.13, y: 0.85, scale: 1, rotation: 0, createdAt: 0 },
-    { id: 'deco-flower-2', type: 'FLOWER', x: 0.82, y: 0.86, scale: 1, rotation: 0, createdAt: 0 },
-  ],
-  npcs: [{ id: 'npc-dog-1', type: 'DOG', x: 0.29, y: 0.7, scale: 1 }],
-  // 하단 UI에 캐릭터가 가리지 않도록 y는 0.85까지만 쓴다.
+  // 상점 · 연못 · 다리 · 벤치 · 가로등은 배경 그림에 이미 들어 있다.
+  // 사용자가 새로 놓는 물체만 별도 오브젝트로 올린다.
+  environment: [],
+  decorations: [],
+  npcs: [],
+  // 배경 그림의 잔디밭에 맞춘 영역. 하단 UI에 가리지 않도록 y는 0.78까지만 쓴다.
   walkableAreas: [
-    { id: 'lawn-back', x: [0.32, 0.68], y: [0.56, 0.66] },
-    { id: 'lawn-mid', x: [0.12, 0.72], y: [0.66, 0.76] },
-    { id: 'lawn-front', x: [0.1, 0.82], y: [0.76, 0.85] },
+    { id: 'lawn-upper', x: [0.37, 0.58], y: [0.36, 0.46] },
+    { id: 'lawn-mid', x: [0.33, 0.78], y: [0.46, 0.62] },
+    { id: 'lawn-lower', x: [0.3, 0.8], y: [0.62, 0.78] },
   ],
   blockedAreas: [
-    { id: 'pond', x: [0.72, 0.98], y: [0.5, 0.74] },
-    { id: 'shop', x: [0.06, 0.32], y: [0.44, 0.66] },
-    { id: 'tree-front-right', x: [0.84, 1.0], y: [0.72, 1.0] },
-    { id: 'tree-left', x: [0.0, 0.12], y: [0.48, 0.64] },
+    { id: 'pond', x: [0.0, 0.39], y: [0.28, 0.7] },
+    { id: 'bench', x: [0.57, 0.73], y: [0.28, 0.44] },
+    { id: 'right-edge', x: [0.8, 1.0], y: [0.36, 1.0] },
+    { id: 'front-left-trees', x: [0.0, 0.29], y: [0.7, 1.0] },
   ],
 }
 

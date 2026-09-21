@@ -144,19 +144,28 @@
   filter: drop-shadow(0 0 0.7cqw var(--accent));
 }
 
+/* 평소에는 숨기고, 마우스를 올리거나 선택했을 때만 날짜를 띄운다. */
 .diary-character__tag {
   position: absolute;
-  top: -1.4cqw;
+  top: -1.3cqw;
   left: 50%;
   transform: translateX(-50%);
-  padding: 0.15cqw 0.8cqw;
+  padding: 0.1cqw 0.6cqw;
   border-radius: var(--radius-pill);
-  background: rgba(255, 250, 242, 0.92);
+  background: rgba(255, 250, 242, 0.94);
   color: var(--ink-soft);
-  font-size: 1.05cqw;
+  font-size: 0.9cqw;
   line-height: 1.5;
   white-space: nowrap;
-  box-shadow: 0 0.2cqw 0.4cqw rgba(88, 62, 45, 0.18);
+  box-shadow: 0 0.2cqw 0.4cqw rgba(88, 62, 45, 0.2);
+  opacity: 0;
+  transition: opacity 130ms ease;
+  pointer-events: none;
+}
+
+.world-object--interactive:hover .diary-character__tag,
+.diary-character--selected .diary-character__tag {
+  opacity: 1;
 }
 
 /* 레이어를 겹쳐 쌓는 캐릭터 박스. 모든 레이어가 같은 좌표계를 공유한다. */

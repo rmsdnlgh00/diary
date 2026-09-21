@@ -3,7 +3,7 @@ import { EMOTION_IDS } from '@/data/emotions'
 import type { AssetMeta, EmotionId } from '@/types'
 
 /** 캐릭터 레이어는 모두 같은 박스를 채우므로 anchor(발 위치)를 공유한다. */
-const CHARACTER_WORLD_WIDTH = 0.07
+const CHARACTER_WORLD_WIDTH = 0.029
 const ANCHOR_X = 0.5
 const ANCHOR_Y = 130 / 132
 
@@ -30,10 +30,10 @@ const fromParts = (kind: string, folder: string, parts: Record<string, { id: str
  * 감정별로 한 장씩 그려진 에셋을 쓸 때 이 경로에 넣는다.
  * 이게 있으면 레이어 합성을 건너뛰고 이 이미지만 그린다.
  */
-const fullAsset = (emotion: EmotionId): AssetMeta => ({
-  id: `character.full.${emotion}`,
+const fullAsset = (name: string): AssetMeta => ({
+  id: `character.full.${name}`,
   type: 'CHARACTER_FULL',
-  src: `/assets/characters/full/${emotion.toLowerCase()}.webp`,
+  src: `/assets/characters/full/${name}.webp`,
   anchorX: ANCHOR_X,
   anchorY: 0.99,
   defaultScale: 1,
@@ -41,11 +41,13 @@ const fullAsset = (emotion: EmotionId): AssetMeta => ({
   layer: 'character',
 })
 
+/** 감정별 그림이 아직 없을 때 쓰는 기본 전신 그림. */
+export const characterFullBase = fullAsset('base')
+
 export const characterAssets = {
-  full: Object.fromEntries(EMOTION_IDS.map((id) => [id, fullAsset(id)])) as Record<
-    EmotionId,
-    AssetMeta
-  >,
+  full: Object.fromEntries(
+    EMOTION_IDS.map((id) => [id, fullAsset(id.toLowerCase())]),
+  ) as Record<EmotionId, AssetMeta>,
   body: fromParts('body', 'body', BODIES),
   emotion: Object.fromEntries(
     EMOTION_IDS.map((id) => [id, layerAsset('emotion', 'emotions', id.toLowerCase())]),

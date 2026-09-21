@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Sprite } from '@/components/game/Sprite'
 import {
+  characterFullBase,
   getCharacterAccessoryAsset,
   getCharacterBodyAsset,
   getCharacterEmotionAsset,
@@ -48,7 +49,10 @@ function Layer({
  * 감정이 바뀌면 face 레이어만 교체되고 나머지는 그대로다.
  */
 export function CharacterSprite({ emotion, body, hair, outfit, accessories }: Props) {
-  const fullSrc = useAssetSrc(getCharacterFullAsset(emotion).src)
+  // 감정별 그림 → 없으면 기본 전신 그림 → 없으면 레이어 합성
+  const emotionSrc = useAssetSrc(getCharacterFullAsset(emotion).src)
+  const baseSrc = useAssetSrc(characterFullBase.src)
+  const fullSrc = emotionSrc ?? baseSrc
   const skin = BODIES[body]?.color ?? BODIES.body_default.color
   const hairDef = HAIRS[hair] ?? HAIRS.hair_short
   const outfitDef = OUTFITS[outfit] ?? OUTFITS.outfit_tee_blue
