@@ -19,22 +19,22 @@ const SAMPLE_DIARIES: Array<{
   {
     date: '2026-09-17',
     text: '오늘 친구와 카페에 가서 즐거운 시간을 보냈다. 날씨가 좋아서 공원도 걸었다.',
-    hair: 'hair_bob',
-    outfit: 'outfit_tee_blue',
-    accessories: ['acc_backpack'],
+    hair: 'hair_short',
+    outfit: 'outfit_sweater_yellow',
+    accessories: ['acc_cap', 'acc_backpack'],
   },
   {
     date: '2026-09-18',
     text: '일이 너무 많아서 하루 종일 피곤하고 짜증이 났다.',
     hair: 'hair_short',
     outfit: 'outfit_hoodie_mint',
-    accessories: [],
+    accessories: ['acc_cap'],
   },
   {
     date: '2026-09-19',
     text: '그냥 평범한 하루였다. 특별한 일은 없었다.',
     hair: 'hair_curly',
-    outfit: 'outfit_sweater_yellow',
+    outfit: 'outfit_tee_blue',
     accessories: ['acc_glasses'],
   },
   {
@@ -49,7 +49,7 @@ const SAMPLE_DIARIES: Array<{
     text: '오늘 정말 행복했다. 오랜만에 가족들과 저녁을 먹어서 따뜻한 하루였다.',
     hair: 'hair_bob',
     outfit: 'outfit_sweater_yellow',
-    accessories: ['acc_cap'],
+    accessories: ['acc_cap', 'acc_backpack'],
   },
 ]
 

@@ -57,7 +57,7 @@ export function CharacterSprite({ emotion, body, hair, outfit, accessories }: Pr
       </Layer>
 
       <Layer name="outfit" asset={getCharacterOutfitAsset(outfit)}>
-        <OutfitLayer color={outfitDef.color} accent={outfitDef.accent} />
+        <OutfitLayer color={outfitDef.color} accent={outfitDef.accent} bottom={outfitDef.bottom} />
       </Layer>
 
       <Layer name="face" asset={getCharacterEmotionAsset(emotion)}>

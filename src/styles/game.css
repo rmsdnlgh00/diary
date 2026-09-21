@@ -163,7 +163,7 @@
 .character-sprite {
   position: relative;
   width: 100%;
-  aspect-ratio: 100 / 160;
+  aspect-ratio: 100 / 132;
   animation: bob 3.4s ease-in-out infinite;
   transform-origin: bottom center;
 }

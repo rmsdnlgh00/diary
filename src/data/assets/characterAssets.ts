@@ -3,9 +3,9 @@ import { EMOTION_IDS } from '@/data/emotions'
 import type { AssetMeta, EmotionId } from '@/types'
 
 /** 캐릭터 레이어는 모두 같은 박스를 채우므로 anchor(발 위치)를 공유한다. */
-const CHARACTER_WORLD_WIDTH = 0.062
+const CHARACTER_WORLD_WIDTH = 0.07
 const ANCHOR_X = 0.5
-const ANCHOR_Y = 0.9
+const ANCHOR_Y = 130 / 132
 
 function layerAsset(kind: string, folder: string, id: string): AssetMeta {
   return {

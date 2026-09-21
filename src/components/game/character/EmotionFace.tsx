@@ -1,111 +1,132 @@
 import type { EmotionId } from '@/types'
 import { RIG } from './rig'
 
-const INK = '#4c3a32'
-const BLUSH = '#ffa9a9'
+const INK = '#4b3b33'
+const BLUSH = '#f4a59b'
 
 interface Props {
   emotion: EmotionId
 }
 
-function Blush() {
+function Blush({ strong = false }: { strong?: boolean }) {
   return (
-    <g opacity={0.55}>
-      <ellipse cx={RIG.blush.left} cy={RIG.blush.y} rx={RIG.blush.rx} ry={RIG.blush.ry} fill={BLUSH} />
-      <ellipse cx={RIG.blush.right} cy={RIG.blush.y} rx={RIG.blush.rx} ry={RIG.blush.ry} fill={BLUSH} />
+    <g opacity={strong ? 0.75 : 0.5}>
+      <ellipse
+        cx={RIG.blush.left}
+        cy={RIG.blush.y}
+        rx={RIG.blush.rx}
+        ry={RIG.blush.ry}
+        fill={BLUSH}
+      />
+      <ellipse
+        cx={RIG.blush.right}
+        cy={RIG.blush.y}
+        rx={RIG.blush.rx}
+        ry={RIG.blush.ry}
+        fill={BLUSH}
+      />
     </g>
   )
 }
 
-function DotEyes() {
+/** 기본 눈. 작고 둥근 갈색 타원. */
+function OvalEyes() {
   return (
     <>
-      <circle cx={RIG.eye.left} cy={RIG.eye.y} r={RIG.eye.r} fill={INK} />
-      <circle cx={RIG.eye.right} cy={RIG.eye.y} r={RIG.eye.r} fill={INK} />
+      <ellipse cx={RIG.eye.left} cy={RIG.eye.y} rx={RIG.eye.rx} ry={RIG.eye.ry} fill={INK} />
+      <ellipse cx={RIG.eye.right} cy={RIG.eye.y} rx={RIG.eye.rx} ry={RIG.eye.ry} fill={INK} />
     </>
   )
 }
 
-function ArcEyes() {
-  const stroke = { stroke: INK, strokeWidth: 3, strokeLinecap: 'round' as const, fill: 'none' }
-  return (
-    <>
-      <path d="M34 46 Q39 40 44 46" {...stroke} />
-      <path d="M56 46 Q61 40 66 46" {...stroke} />
-    </>
-  )
-}
-
-function LineEyes() {
-  const stroke = { stroke: INK, strokeWidth: 3, strokeLinecap: 'round' as const, fill: 'none' }
-  return (
-    <>
-      <path d="M34 46 L44 46" {...stroke} />
-      <path d="M56 46 L66 46" {...stroke} />
-    </>
-  )
+const stroke = {
+  stroke: INK,
+  strokeWidth: 2.8,
+  strokeLinecap: 'round' as const,
+  fill: 'none',
 }
 
 /**
- * 감정이 바뀌어도 캐릭터 전체를 교체하지 않고 이 레이어만 갈아끼운다.
- * 나중에 emotion/{id}.png 로 교체할 지점이다.
+ * 감정이 바뀌면 캐릭터 전체가 아니라 이 레이어만 교체된다.
+ * 나중에 characters/emotions/{id}.webp 로 갈아끼울 지점이다.
  */
 export function EmotionFace({ emotion }: Props) {
-  const line = { stroke: INK, strokeWidth: 3, strokeLinecap: 'round' as const, fill: 'none' }
-
   switch (emotion) {
+    // 웃음 — 눈을 접고 살짝 미소
     case 'HAPPY':
       return (
         <>
           <Blush />
-          <ArcEyes />
-          <path d="M42 57 Q50 64 58 57" {...line} />
+          <path d="M31 52 Q37 45 43 52" {...stroke} />
+          <path d="M57 52 Q63 45 69 52" {...stroke} />
+          <path d="M45 62 Q50 67 55 62" {...stroke} />
         </>
       )
+
+    // 신남 — 눈을 크게 뜨고 입을 벌림
     case 'JOYFUL':
       return (
         <>
-          <Blush />
-          <ArcEyes />
-          <path d="M40 55 Q50 68 60 55 Z" fill={INK} />
-          <path d="M22 32 l2 -5 2 5 5 2 -5 2 -2 5 -2 -5 -5 -2 Z" fill="#ffd76e" />
-          <path d="M76 36 l1.5 -4 1.5 4 4 1.5 -4 1.5 -1.5 4 -1.5 -4 -4 -1.5 Z" fill="#ffd76e" />
+          <Blush strong />
+          <ellipse cx={RIG.eye.left} cy={RIG.eye.y - 1} rx={5} ry={6.4} fill={INK} />
+          <ellipse cx={RIG.eye.right} cy={RIG.eye.y - 1} rx={5} ry={6.4} fill={INK} />
+          <circle cx={RIG.eye.left + 1.6} cy={RIG.eye.y - 3.4} r={1.6} fill="#fff" />
+          <circle cx={RIG.eye.right + 1.6} cy={RIG.eye.y - 3.4} r={1.6} fill="#fff" />
+          <ellipse cx={50} cy={64} rx={5} ry={5.6} fill={INK} />
+          <ellipse cx={50} cy={66.5} rx={3} ry={2.6} fill="#f08a92" />
         </>
       )
+
+    // 기본 — 점 눈에 아주 작은 입
     case 'NORMAL':
       return (
         <>
-          <DotEyes />
-          <path d="M45 58 L55 58" {...line} />
+          <Blush />
+          <OvalEyes />
+          <path d="M47 63 Q50 65.5 53 63" {...stroke} strokeWidth={2.4} />
         </>
       )
+
+    // 슬픔 — 눈썹이 처지고 입꼬리가 내려감
     case 'SAD':
       return (
         <>
-          <DotEyes />
-          <path d="M33 38 Q39 35 45 38" {...line} strokeWidth={2.4} />
-          <path d="M55 38 Q61 35 67 38" {...line} strokeWidth={2.4} />
-          <path d="M43 62 Q50 55 57 62" {...line} />
-          <path d="M64 48 q3 6 0 8 q-3 -2 0 -8 Z" fill="#8fc7ef" />
+          <Blush />
+          <path d="M30 38 Q37 34 44 38" {...stroke} strokeWidth={2.4} />
+          <path d="M56 38 Q63 34 70 38" {...stroke} strokeWidth={2.4} />
+          <OvalEyes />
+          <path d="M45 66 Q50 61 55 66" {...stroke} strokeWidth={2.4} />
+          <path d="M67 54 q3.4 6 0 8.4 q-3.4 -2.4 0 -8.4 Z" fill="#8cc4e8" />
         </>
       )
+
+    // 화남 — 눈썹이 안쪽으로 모이고 화 표시
     case 'ANGRY':
       return (
         <>
-          <DotEyes />
-          <path d="M33 36 L45 40" {...line} strokeWidth={2.8} />
-          <path d="M67 36 L55 40" {...line} strokeWidth={2.8} />
-          <path d="M43 61 Q50 56 57 61" {...line} />
-          <path d="M70 30 l0 7 M74 32 l-3 5 M66 32 l3 5" stroke="#ff7a6a" strokeWidth={2.4} strokeLinecap="round" />
+          <Blush />
+          <path d="M30 35 L44 40" {...stroke} strokeWidth={2.8} />
+          <path d="M70 35 L56 40" {...stroke} strokeWidth={2.8} />
+          <OvalEyes />
+          <path d="M45 65 Q50 61 55 65" {...stroke} strokeWidth={2.4} />
+          <g stroke="#ef7f74" strokeWidth={2.4} strokeLinecap="round">
+            <path d="M76 24 l0 7" />
+            <path d="M81 26 l-3.4 5.6" />
+            <path d="M71 26 l3.4 5.6" />
+          </g>
         </>
       )
+
+    // 짜증 — 반쯤 감은 눈에 삐뚤어진 입
     case 'ANNOYED':
       return (
         <>
-          <LineEyes />
-          <path d="M33 38 L45 36" {...line} strokeWidth={2.4} />
-          <path d="M67 38 L55 36" {...line} strokeWidth={2.4} />
-          <path d="M43 59 q4 -4 7 0 q3 4 7 0" {...line} />
+          <Blush />
+          <path d="M30 37 L44 34" {...stroke} strokeWidth={2.4} />
+          <path d="M70 37 L56 34" {...stroke} strokeWidth={2.4} />
+          <path d="M31 50 Q37 54 43 50" {...stroke} />
+          <path d="M57 50 Q63 54 69 50" {...stroke} />
+          <path d="M44 63 q3.5 -3.5 6 0 q2.5 3.5 6 0" {...stroke} strokeWidth={2.4} />
         </>
       )
   }
