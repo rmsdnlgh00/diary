@@ -6,12 +6,17 @@ interface Props {
   y: number
   /** 월드 가로 길이 대비 비율 */
   width: number
+  /** 이미지 안에서 바닥에 닿는 지점. (x, y)가 이 점에 오도록 배치한다. */
+  anchorX?: number
+  anchorY?: number
   depthConfig?: DepthConfig
   scale?: number
   rotation?: number
   flipX?: boolean
-  /** 바닥에 깔리는 오브젝트(길, 연못, 매트)는 기준점이 중앙이고 깊이 정렬에서 빠진다. */
+  /** 바닥에 깔리는 오브젝트(길, 연못)는 깊이 정렬에서 빠진다. */
   flat?: boolean
+  /** y 기반 자동 계산 대신 직접 지정 */
+  zIndex?: number
   shadow?: boolean
   onClick?: () => void
   label?: string
@@ -21,17 +26,20 @@ interface Props {
 
 /**
  * 월드 좌표(0~1)를 화면 위치로 바꾸고 y에 따른 크기/렌더 순서를 적용한다.
- * 캐릭터, 장식물, 정적 오브젝트가 모두 이 컴포넌트를 통해 배치된다.
+ * 캐릭터, 장식물, NPC, 정적 오브젝트가 모두 이 컴포넌트를 통해 배치된다.
  */
 export function WorldObject({
   x,
   y,
   width,
+  anchorX = 0.5,
+  anchorY = 1,
   depthConfig,
   scale = 1,
   rotation = 0,
   flipX = false,
   flat = false,
+  zIndex,
   shadow = false,
   onClick,
   label,
@@ -40,7 +48,7 @@ export function WorldObject({
 }: Props) {
   const depthScale = getDepthScale(y, depthConfig)
   const transforms = [
-    `translate(-50%, ${flat ? '-50%' : '-100%'})`,
+    `translate(${-anchorX * 100}%, ${-anchorY * 100}%)`,
     `scale(${depthScale * scale})`,
     rotation ? `rotate(${rotation}deg)` : '',
     flipX ? 'scaleX(-1)' : '',
@@ -51,31 +59,37 @@ export function WorldObject({
     top: `${y * 100}%`,
     width: `${width * 100}%`,
     transform: transforms.join(' '),
-    transformOrigin: flat ? 'center' : 'bottom center',
-    zIndex: flat ? undefined : getRenderOrder(y),
+    transformOrigin: `${anchorX * 100}% ${anchorY * 100}%`,
+    zIndex: flat ? undefined : (zIndex ?? getRenderOrder(y)),
   }
 
-  const classes = [
-    'world-object',
-    flat ? 'world-object--flat' : '',
-    shadow ? 'world-object--shadow' : '',
-    onClick ? 'world-object--interactive' : '',
-    className,
-  ]
+  const classes = ['world-object', onClick ? 'world-object--interactive' : '', className]
     .filter(Boolean)
     .join(' ')
+
+  const content = (
+    <>
+      {shadow && (
+        <span
+          className="world-object__shadow"
+          style={{ left: `${anchorX * 100}%`, top: `${anchorY * 100}%` }}
+        />
+      )}
+      {children}
+    </>
+  )
 
   if (onClick) {
     return (
       <button type="button" className={classes} style={style} onClick={onClick} aria-label={label}>
-        {children}
+        {content}
       </button>
     )
   }
 
   return (
     <div className={classes} style={style}>
-      {children}
+      {content}
     </div>
   )
 }

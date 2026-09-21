@@ -5,16 +5,12 @@ const WOOD_DARK = '#b9814f'
 const LEAF = '#7cc45f'
 const LEAF_DARK = '#63ad49'
 
-interface Props {
-  kind: EnvironmentKind
-}
-
-/** 실제 PNG가 들어오기 전까지 쓰는 정적 환경 placeholder. */
-export function EnvSprite({ kind }: Props) {
+/** 실제 환경 에셋이 들어오기 전까지 쓰는 도형. */
+export function EnvironmentPlaceholder({ kind }: { kind: EnvironmentKind }) {
   switch (kind) {
     case 'SHOP':
       return (
-        <svg className="env-sprite" viewBox="0 0 100 110" role="presentation">
+        <svg className="sprite" viewBox="0 0 100 110" role="presentation">
           <rect x={14} y={44} width={72} height={56} rx={10} fill="#fff3e2" />
           <path d="M6 46 L50 12 L94 46 Z" fill="#f2938c" />
           <path d="M6 46 L50 12 L94 46 Z" fill="none" stroke="#e07c76" strokeWidth={3} strokeLinejoin="round" />
@@ -33,7 +29,7 @@ export function EnvSprite({ kind }: Props) {
 
     case 'POND':
       return (
-        <svg className="env-sprite" viewBox="0 0 100 52" role="presentation">
+        <svg className="sprite" viewBox="0 0 100 52" role="presentation">
           <ellipse cx={50} cy={26} rx={48} ry={24} fill="#8fd0ea" />
           <ellipse cx={50} cy={24} rx={43} ry={20} fill="#a9dff2" />
           <ellipse cx={34} cy={18} rx={12} ry={4} fill="#ffffff" opacity={0.5} />
@@ -43,7 +39,7 @@ export function EnvSprite({ kind }: Props) {
 
     case 'BRIDGE':
       return (
-        <svg className="env-sprite" viewBox="0 0 100 56" role="presentation">
+        <svg className="sprite" viewBox="0 0 100 56" role="presentation">
           <path d="M4 50 Q50 6 96 50 L96 56 L4 56 Z" fill={WOOD} />
           <path d="M4 50 Q50 6 96 50" fill="none" stroke={WOOD_DARK} strokeWidth={4} />
           <path d="M8 40 Q50 0 92 40" fill="none" stroke={WOOD_DARK} strokeWidth={3} strokeLinecap="round" />
@@ -53,7 +49,7 @@ export function EnvSprite({ kind }: Props) {
 
     case 'PATH':
       return (
-        <svg className="env-sprite" viewBox="0 0 200 28" preserveAspectRatio="none" role="presentation">
+        <svg className="sprite" viewBox="0 0 200 28" preserveAspectRatio="none" role="presentation">
           <rect x={0} y={2} width={200} height={24} rx={12} fill="#eddfba" />
           <rect x={0} y={5} width={200} height={18} rx={9} fill="#f7ead0" />
         </svg>
@@ -61,7 +57,7 @@ export function EnvSprite({ kind }: Props) {
 
     case 'FENCE':
       return (
-        <svg className="env-sprite" viewBox="0 0 100 44" role="presentation">
+        <svg className="sprite" viewBox="0 0 100 44" role="presentation">
           <rect x={4} y={26} width={92} height={5} rx={2.5} fill={WOOD} />
           <rect x={4} y={14} width={92} height={5} rx={2.5} fill={WOOD} />
           <rect x={10} y={4} width={9} height={38} rx={4.5} fill={WOOD_DARK} />
@@ -72,7 +68,7 @@ export function EnvSprite({ kind }: Props) {
 
     case 'BIG_TREE':
       return (
-        <svg className="env-sprite" viewBox="0 0 100 130" role="presentation">
+        <svg className="sprite" viewBox="0 0 100 130" role="presentation">
           <rect x={42} y={72} width={16} height={54} rx={7} fill={WOOD} />
           <circle cx={30} cy={62} r={24} fill={LEAF_DARK} />
           <circle cx={70} cy={60} r={26} fill={LEAF_DARK} />
@@ -85,7 +81,7 @@ export function EnvSprite({ kind }: Props) {
 
     case 'BUSH':
       return (
-        <svg className="env-sprite" viewBox="0 0 100 60" role="presentation">
+        <svg className="sprite" viewBox="0 0 100 60" role="presentation">
           <circle cx={26} cy={38} r={20} fill={LEAF_DARK} />
           <circle cx={74} cy={38} r={20} fill={LEAF_DARK} />
           <circle cx={50} cy={28} r={26} fill={LEAF} />

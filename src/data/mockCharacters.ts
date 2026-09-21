@@ -1,5 +1,11 @@
+import { getDecorationAsset, getNpcAsset } from '@/data/assets'
 import { analyzeDiary } from '@/systems/emotionAnalyzer'
-import { characterIdForDate, pickSpawnPoint } from '@/systems/characterSystem'
+import {
+  CHARACTER_RADIUS,
+  characterIdForDate,
+  type Occupant,
+  pickSpawnPoint,
+} from '@/systems/characterSystem'
 import type { DiaryCharacterData, WorldDefinition } from '@/types'
 
 /** PHASE 1 확인용 더미 데이터. 일기 시스템이 붙으면 제거한다. */
@@ -48,12 +54,20 @@ const SAMPLE_DIARIES: Array<{
 ]
 
 export function createMockCharacters(world: WorldDefinition): DiaryCharacterData[] {
-  const taken: Array<{ x: number; y: number }> = []
+  // 장식물과 NPC가 이미 차지한 자리는 피한다.
+  const taken: Occupant[] = [
+    ...world.decorations.map(({ type, x, y }) => ({
+      x,
+      y,
+      radius: getDecorationAsset(type).worldWidth / 2,
+    })),
+    ...world.npcs.map(({ type, x, y }) => ({ x, y, radius: getNpcAsset(type).worldWidth / 2 })),
+  ]
 
   return SAMPLE_DIARIES.map((sample) => {
     const { emotion, confidence } = analyzeDiary(sample.text)
     const spawn = pickSpawnPoint(world, sample.date, taken)
-    taken.push(spawn)
+    taken.push({ ...spawn, radius: CHARACTER_RADIUS })
 
     return {
       id: characterIdForDate(sample.date),

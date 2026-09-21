@@ -1,4 +1,5 @@
-import { resolveAsset } from '@/systems/assetSystem'
+import { getBackgroundAsset } from '@/data/assets'
+import { useAssetSrc } from '@/hooks/useAssetReady'
 import type { WorldDefinition } from '@/types'
 
 interface Props {
@@ -7,13 +8,14 @@ interface Props {
 
 /** 하늘 / 원경 / 지면. 배치 가능한 물체는 절대 여기에 포함하지 않는다. */
 export function Background({ world }: Props) {
-  const image = resolveAsset(world.backgroundAsset)
+  const asset = getBackgroundAsset(world.id)
+  const src = useAssetSrc(asset?.src ?? null)
   const { palette, horizonY } = world
 
-  if (image) {
+  if (src) {
     return (
       <div className="layer layer--background">
-        <img className="bg-image" src={image} alt="" />
+        <img className="bg-image" src={src} alt="" draggable={false} />
       </div>
     )
   }

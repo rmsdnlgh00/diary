@@ -1,5 +1,14 @@
+import type { ReactNode } from 'react'
+import { Sprite } from '@/components/game/Sprite'
+import {
+  getCharacterAccessoryAsset,
+  getCharacterBodyAsset,
+  getCharacterEmotionAsset,
+  getCharacterHairAsset,
+  getCharacterOutfitAsset,
+} from '@/data/assets'
 import { ACCESSORIES, BODIES, HAIRS, OUTFITS } from '@/data/characterParts'
-import type { CharacterAppearance, EmotionId } from '@/types'
+import type { AssetMeta, CharacterAppearance, EmotionId } from '@/types'
 import { AccessoryLayer, BodyLayer, HairLayer, OutfitLayer } from './CharacterLayers'
 import { EmotionFace } from './EmotionFace'
 import { RIG } from './rig'
@@ -8,35 +17,62 @@ interface Props extends CharacterAppearance {
   emotion: EmotionId
 }
 
+/** 레이어 하나. 에셋이 있으면 이미지, 없으면 도형. */
+function Layer({
+  name,
+  asset,
+  children,
+}: {
+  name: string
+  asset?: AssetMeta
+  children: ReactNode
+}) {
+  return (
+    <div className={`character-sprite__layer character-sprite__layer--${name}`}>
+      <Sprite
+        asset={asset}
+        placeholder={
+          <svg className="sprite" viewBox={RIG.viewBox} role="presentation">
+            {children}
+          </svg>
+        }
+      />
+    </div>
+  )
+}
+
 /**
- * 레이어 합성 캐릭터.
- * Body / Face / Hair / Outfit / Accessories 를 각각 독립적으로 교체할 수 있다.
+ * Body / Outfit / Face / Hair / Accessories 를 각각 독립된 레이어로 쌓는다.
+ * 감정이 바뀌면 face 레이어만 교체되고 나머지는 그대로다.
  */
 export function CharacterSprite({ emotion, body, hair, outfit, accessories }: Props) {
   const skin = BODIES[body]?.color ?? BODIES.body_default.color
   const hairDef = HAIRS[hair] ?? HAIRS.hair_short
   const outfitDef = OUTFITS[outfit] ?? OUTFITS.outfit_tee_blue
-  const accessoryColors = Object.fromEntries(
-    Object.values(ACCESSORIES).map((item) => [item.id, item.color]),
-  )
 
   return (
-    <svg className="character-sprite" viewBox={RIG.viewBox} role="presentation">
-      <g className="character-layer character-layer--body">
+    <div className="character-sprite">
+      <Layer name="body" asset={getCharacterBodyAsset(body)}>
         <BodyLayer skin={skin} />
-      </g>
-      <g className="character-layer character-layer--outfit">
+      </Layer>
+
+      <Layer name="outfit" asset={getCharacterOutfitAsset(outfit)}>
         <OutfitLayer color={outfitDef.color} accent={outfitDef.accent} />
-      </g>
-      <g className="character-layer character-layer--face">
+      </Layer>
+
+      <Layer name="face" asset={getCharacterEmotionAsset(emotion)}>
         <EmotionFace emotion={emotion} />
-      </g>
-      <g className="character-layer character-layer--hair">
+      </Layer>
+
+      <Layer name="hair" asset={getCharacterHairAsset(hair)}>
         <HairLayer style={hairDef.id} color={hairDef.color} />
-      </g>
-      <g className="character-layer character-layer--accessories">
-        <AccessoryLayer ids={accessories} colors={accessoryColors} />
-      </g>
-    </svg>
+      </Layer>
+
+      {accessories.map((id) => (
+        <Layer key={id} name="accessory" asset={getCharacterAccessoryAsset(id)}>
+          <AccessoryLayer ids={[id]} colors={{ [id]: ACCESSORIES[id]?.color ?? '#b189e8' }} />
+        </Layer>
+      ))}
+    </div>
   )
 }

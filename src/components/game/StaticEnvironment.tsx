@@ -1,7 +1,8 @@
-import { resolveAsset } from '@/systems/assetSystem'
+import { getEnvironmentAsset } from '@/data/assets'
 import type { DepthConfig } from '@/systems/depthSystem'
 import type { WorldDefinition } from '@/types'
-import { EnvSprite } from './EnvSprite'
+import { EnvironmentPlaceholder } from './placeholders/EnvironmentPlaceholder'
+import { Sprite } from './Sprite'
 import { WorldObject } from './WorldObject'
 
 interface Props {
@@ -20,23 +21,22 @@ export function StaticEnvironment({ world, variant, depthConfig }: Props) {
   return (
     <>
       {objects.map((object) => {
-        const image = resolveAsset(object.asset ?? null)
+        const asset = getEnvironmentAsset(world.id, object.kind)
         return (
           <WorldObject
             key={object.id}
             x={object.x}
             y={object.y}
-            width={object.width}
+            width={object.width ?? asset?.worldWidth ?? 0.1}
+            anchorX={asset?.anchorX}
+            anchorY={object.flat ? 0.5 : asset?.anchorY}
+            scale={object.scale ?? asset?.defaultScale}
             flat={object.flat}
             flipX={object.flipX}
             depthConfig={depthConfig}
             shadow={!object.flat}
           >
-            {image ? (
-              <img className="env-sprite" src={image} alt="" />
-            ) : (
-              <EnvSprite kind={object.kind} />
-            )}
+            <Sprite asset={asset} placeholder={<EnvironmentPlaceholder kind={object.kind} />} />
           </WorldObject>
         )
       })}

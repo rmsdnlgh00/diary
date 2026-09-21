@@ -1,10 +1,8 @@
+import { CHARACTER_ANCHOR, CHARACTER_WORLD_WIDTH } from '@/data/assets'
 import type { DepthConfig } from '@/systems/depthSystem'
 import type { DiaryCharacterData } from '@/types'
 import { CharacterSprite } from './character/CharacterSprite'
 import { WorldObject } from './WorldObject'
-
-/** 월드 가로 길이 대비 캐릭터 기본 폭 */
-const CHARACTER_WIDTH = 0.062
 
 interface Props {
   character: DiaryCharacterData
@@ -20,7 +18,9 @@ export function DiaryCharacter({ character, depthConfig, selected, onSelect }: P
     <WorldObject
       x={character.x}
       y={character.y}
-      width={CHARACTER_WIDTH}
+      width={CHARACTER_WORLD_WIDTH}
+      anchorX={CHARACTER_ANCHOR.x}
+      anchorY={CHARACTER_ANCHOR.y}
       scale={character.scale}
       depthConfig={depthConfig}
       shadow

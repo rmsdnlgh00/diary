@@ -22,6 +22,30 @@ export interface EmotionResult {
 
 export type AssetRef = string | null
 
+export type AssetLayer = 'background' | 'environment' | 'decoration' | 'npc' | 'character' | 'ui'
+
+/**
+ * 에셋 한 장의 메타데이터.
+ * src 파일이 아직 없어도 예상 경로를 미리 적어둔다.
+ * 파일을 public/assets 아래에 넣으면 코드 수정 없이 placeholder가 이미지로 바뀐다.
+ */
+export interface AssetMeta {
+  id: string
+  /** placeholder를 고르고 분류하는 데 쓰는 종류 */
+  type: string
+  src: AssetRef
+  /** 원본 픽셀 크기(참고용) */
+  width?: number
+  height?: number
+  /** 이미지 안에서 "바닥에 닿는 지점". 나무 밑동, 캐릭터 발. */
+  anchorX: number
+  anchorY: number
+  defaultScale: number
+  /** 월드 가로 길이 대비 기본 폭 */
+  worldWidth: number
+  layer: AssetLayer
+}
+
 export interface DiaryEntry {
   id: string
   /** YYYY-MM-DD */
@@ -87,18 +111,29 @@ export interface EnvironmentObject {
   kind: EnvironmentKind
   x: number
   y: number
-  /** 월드 가로 길이 대비 비율 */
-  width: number
+  /** 에셋의 worldWidth를 덮어쓰고 싶을 때만 */
+  width?: number
+  scale?: number
   /** 바닥에 붙는 오브젝트는 깊이 정렬에서 제외하고 항상 지면 레이어에 그린다. */
   flat?: boolean
   flipX?: boolean
-  asset?: AssetRef
 }
 
-export interface SpawnZone {
+export type NpcType = 'DOG'
+
+export interface NpcData {
   id: string
-  xRange: [number, number]
-  yRange: [number, number]
+  type: NpcType
+  x: number
+  y: number
+  scale: number
+}
+
+/** normalized 사각 영역 */
+export interface AreaRect {
+  id: string
+  x: [number, number]
+  y: [number, number]
 }
 
 export interface WorldPalette {
@@ -118,10 +153,15 @@ export interface WorldDefinition {
   label: string
   /** 이 y값 위쪽은 원경이라 오브젝트를 배치하지 않는다. */
   horizonY: number
+  /** 배경 이미지가 없을 때 그리는 placeholder 색 */
   palette: WorldPalette
-  backgroundAsset: AssetRef
   environment: EnvironmentObject[]
-  spawnZones: SpawnZone[]
+  decorations: DecorationData[]
+  npcs: NpcData[]
+  /** 캐릭터가 설 수 있는 영역 */
+  walkableAreas: AreaRect[]
+  /** 연못, 건물 안, 큰 장식물처럼 설 수 없는 영역 */
+  blockedAreas: AreaRect[]
 }
 
 export type PanelId = 'DIARY' | 'SHOP' | 'CHARACTER' | 'DECORATE'
