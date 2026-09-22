@@ -25,7 +25,7 @@ export const useDebugStore = create<DebugState>((setState) => ({
   direction: null,
   zoom: 1,
   showAnchors: false,
-  fps: 8,
+  fps: 3,
   speed: 0.032,
   toggleOpen: () => setState((s) => ({ open: !s.open })),
   set: (patch) => setState(patch),

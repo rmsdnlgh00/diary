@@ -199,4 +199,10 @@ export interface DirectionSheet {
   /** 이 방향에서 눈을 어떻게 그릴지 */
   eyes: 'both' | 'single' | 'none'
   frames: FrameMeta[]
+  /**
+   * 실제로 재생할 프레임 번호와 순서.
+   * 들어온 그림이 제대로 된 걷기 사이클이 아니면 전부 돌리는 대신
+   * 자세 차이가 크고 크기 편차가 작은 몇 장만 골라 쓴다.
+   */
+  sequence: number[]
 }

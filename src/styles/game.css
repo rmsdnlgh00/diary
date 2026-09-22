@@ -330,3 +330,10 @@
     transform: translateY(-1.5%) scaleY(1.012);
   }
 }
+
+/* 정면일 때 걷기 그림의 얼굴 위에 그날 감정의 표정을 덮는다. */
+.walker__face {
+  position: absolute;
+  height: auto;
+  pointer-events: none;
+}

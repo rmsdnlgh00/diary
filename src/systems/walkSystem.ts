@@ -4,18 +4,19 @@ export const WALK_CONFIG = {
   /**
    * 초당 이동 거리 (월드 가로 길이 대비).
    *
-   * 속도와 fps 가 따로 놀면 발이 땅에서 미끄러진다.
-   * 8프레임이 한 사이클(두 걸음)이므로 fps 8이면 초당 두 걸음이고,
-   * 화면 높이의 8%인 캐릭터의 한 걸음은 화면 가로로 약 0.016 이다.
-   * 그래서 fps 8 에 맞는 속도는 약 0.032 다.
-   *
-   *   미끄러지지 않는 속도 ≈ fps / 8 * 0.032
-   *
-   * 더 빠르게 걷게 하려면 fps 도 같이 올려야 한다. (예: 속도 0.048 ↔ fps 12)
+   * 원래는 보폭에 맞춰 속도를 정해야 발이 안 미끄러지는데,
+   * 지금 그림에는 걸음 자체가 없어서(프레임 간 다리 벌어짐 차이가 2~10%p뿐,
+   * 정상 걷기는 35%p) 맞출 보폭이 없다. 그래서 보기 좋은 값으로만 잡아 둔다.
+   * 제대로 된 걷기 4프레임이 들어오면 그때 fps 와 함께 다시 맞춘다.
    */
   speed: 0.032,
-  /** 걷기 프레임 재생 속도 */
-  fps: 8,
+  /**
+   * 걷기 프레임 재생 속도.
+   * 받은 그림이 제대로 된 걷기 사이클이 아니라 프레임마다 작화 편차만 있어서,
+   * 8fps 로 전부 돌리면 걷는 게 아니라 떠는 것처럼 보인다.
+   * 그래서 방향별 sequence 로 2장만 고르고 속도도 낮췄다.
+   */
+  fps: 3,
   /** 이 거리 안이면 도착으로 본다 */
   arriveEpsilon: 0.004,
   /**
@@ -61,6 +62,6 @@ export const directionOf = (facing: Facing): WalkDirection => {
   return facing === 'left' ? 'left' : 'right'
 }
 
-/** 걷기 시작 후 흐른 시간으로 프레임 번호를 구한다. */
-export const frameAt = (elapsedSeconds: number, frameCount: number, fps: number): number =>
-  Math.floor(elapsedSeconds * fps) % frameCount
+/** 걷기 시작 후 흐른 시간으로 재생할 프레임 번호를 구한다. */
+export const frameAt = (elapsedSeconds: number, sequence: readonly number[], fps: number): number =>
+  sequence[Math.floor(elapsedSeconds * fps) % sequence.length]

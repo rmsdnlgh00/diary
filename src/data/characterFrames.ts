@@ -26,6 +26,7 @@ export const WALK_SHEETS: Record<WalkDirection, DirectionSheet> = {
     refHeight: 433,
     // 눈·입이 그림에 이미 그려져 있어 따로 얹지 않는다
     eyes: 'none',
+    sequence: [6, 3],
     frames: [
     /* 0 */ { footX: 201, footY: 484, scale: 0.9644, offsetX: 0, offsetY: 0, faceX: 201, faceY: 189, faceW: 153 },
     /* 1 */ { footX: 203, footY: 468, scale: 1.0236, offsetX: 0, offsetY: 0, faceX: 203, faceY: 190, faceW: 148 },
@@ -46,6 +47,7 @@ export const WALK_SHEETS: Record<WalkDirection, DirectionSheet> = {
     refHeight: 411,
     // 눈·입이 그림에 이미 그려져 있어 따로 얹지 않는다
     eyes: 'none',
+    sequence: [2, 3],
     frames: [
     /* 0 */ { footX: 171, footY: 460, scale: 1.0512, offsetX: 0, offsetY: 0, faceX: 171, faceY: 203, faceW: 128 },
     /* 1 */ { footX: 170, footY: 474, scale: 0.9558, offsetX: 0, offsetY: 0, faceX: 170, faceY: 191, faceW: 139 },
@@ -66,6 +68,7 @@ export const WALK_SHEETS: Record<WalkDirection, DirectionSheet> = {
     refHeight: 421,
     // 눈·입이 그림에 이미 그려져 있어 따로 얹지 않는다
     eyes: 'none',
+    sequence: [2, 7],
     frames: [
     /* 0 */ { footX: 183, footY: 447, scale: 1.0631, offsetX: 0, offsetY: 0, faceX: 148, faceY: 195, faceW: 88 },
     /* 1 */ { footX: 174, footY: 474, scale: 0.9814, offsetX: 0, offsetY: 0, faceX: 136, faceY: 200, faceW: 96 },
@@ -86,6 +89,7 @@ export const WALK_SHEETS: Record<WalkDirection, DirectionSheet> = {
     refHeight: 422,
     // 눈·입이 그림에 이미 그려져 있어 따로 얹지 않는다
     eyes: 'none',
+    sequence: [1, 7],
     frames: [
     /* 0 */ { footX: 208, footY: 464, scale: 0.9883, offsetX: 0, offsetY: 0, faceX: 248, faceY: 192, faceW: 101 },
     /* 1 */ { footX: 207, footY: 461, scale: 1.0000, offsetX: 0, offsetY: 0, faceX: 247, faceY: 192, faceW: 101 },
@@ -113,4 +117,4 @@ export const EMOTION_EYE_ORDER: EmotionId[] = ['NORMAL','HAPPY','JOYFUL','SAD','
 export const SIDE_EYES_SHEET: typeof EYES_SHEET | null = null
 
 /** 멈춰 있을 때 보여줄 프레임. idle 그림을 시트에 넣으면 그쪽으로 바꾼다. */
-export const IDLE_FRAME: Record<WalkDirection, number> = { front: 0, back: 0, left: 0, right: 0 }
+export const IDLE_FRAME: Record<WalkDirection, number> = { front: 6, back: 2, left: 2, right: 1 }

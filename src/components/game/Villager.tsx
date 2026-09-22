@@ -38,7 +38,7 @@ export function Villager({
     frameOverride !== null
       ? Math.min(frameOverride, sheet.frames.length - 1)
       : agent.phase === 'WALK'
-        ? frameAt(agent.walkTime, sheet.frames.length, fps)
+        ? frameAt(agent.walkTime, sheet.sequence, fps)
         : IDLE_FRAME[direction]
 
   const day = Number(character.diaryDate.slice(8, 10))

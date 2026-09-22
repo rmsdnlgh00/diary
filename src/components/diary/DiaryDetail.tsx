@@ -1,4 +1,4 @@
-import { WALK_SHEETS } from '@/data/characterFrames'
+import { expressionFor } from '@/data/expressions'
 import { EMOTIONS } from '@/data/emotions'
 import { useGameStore } from '@/store/gameStore'
 import { formatKoreanDate } from '@/utils/date'
@@ -12,23 +12,13 @@ export function DiaryDetail() {
   if (!character) return null
 
   const emotion = EMOTIONS[character.emotion]
-  const sheet = WALK_SHEETS.front
 
   return (
     <div className="modal-backdrop" onClick={() => selectCharacter(null)}>
       <div className="modal" onClick={(event) => event.stopPropagation()}>
         <h2 className="modal__date">{formatKoreanDate(character.diaryDate)}</h2>
 
-        <div className="modal__portrait" style={{ aspectRatio: `${sheet.cellW} / ${sheet.cellH}` }}>
-          <div
-            className="modal__portrait-body"
-            style={{
-              backgroundImage: `url(${sheet.src})`,
-              backgroundSize: `${sheet.cols * 100}% ${sheet.rows * 100}%`,
-              backgroundPosition: '0% 0%',
-            }}
-          />
-        </div>
+        <img className="modal__portrait" src={expressionFor(character.emotion)} alt="" />
 
         <p className="modal__text">{character.diaryText}</p>
 

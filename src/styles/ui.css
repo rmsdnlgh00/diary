@@ -231,21 +231,10 @@
 }
 
 .modal__portrait {
-  position: relative;
-  width: 8cqw;
-  margin: 0.6cqw auto 0.4cqw;
-}
-
-.modal__portrait-body {
-  position: absolute;
-  inset: 0;
-  background-repeat: no-repeat;
-}
-
-.modal__portrait-eyes {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  background-repeat: no-repeat;
+  display: block;
+  width: 9cqw;
+  height: auto;
+  margin: 0.4cqw auto 0.2cqw;
 }
 
 /* ---------- 일기 작성 ---------- */
