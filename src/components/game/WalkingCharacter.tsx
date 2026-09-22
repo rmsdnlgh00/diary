@@ -6,6 +6,8 @@ import {
   WALK_SHEETS,
 } from '@/data/characterFrames'
 import { EXPRESSION_HEAD_BOX, expressionFor } from '@/data/expressions'
+import { SIDE_NECK_ANCHORS, sideExpressionFor } from '@/data/sideExpressions'
+import { useAssetSrc } from '@/hooks/useAssetReady'
 import type { DepthConfig } from '@/systems/depthSystem'
 import type { EmotionId, EquippedItems, WalkDirection } from '@/types'
 import { CharacterEquipment } from './CharacterEquipment'
@@ -67,6 +69,22 @@ export function WalkingCharacter({
 }: Props) {
   const sheet = WALK_SHEETS[direction]
   const frame = sheet.frames[frameIndex] ?? sheet.frames[0]
+  const sideExpression = sideExpressionFor(emotion, direction)
+  const sideSrc = useAssetSrc(sideExpression?.src ?? null)
+  const neck = direction === 'left' || direction === 'right'
+    ? SIDE_NECK_ANCHORS[direction][frameIndex] : undefined
+  // 이미지가 준비되기 전에는 기존 캐릭터 전체를 보여주어 빈 머리가 나타나지 않는다.
+  const sideHead = sideExpression && sideSrc && neck ? (() => {
+    const neckRatio = (sideExpression.neckX - sideExpression.head.x) / sideExpression.head.w
+    const anchorRatio = direction === 'left' ? 1 - neckRatio : neckRatio
+    return {
+      left: `${((neck.x - anchorRatio * frame.headW) / sheet.cellW) * 100}%`,
+      top: `${(frame.headY / sheet.cellH) * 100}%`,
+      width: `${(frame.headW / sheet.cellW) * 100}%`,
+      height: `${((neck.y - frame.headY + 1) / sheet.cellH) * 100}%`,
+      transform: direction === 'left' ? 'scaleX(-1)' : undefined,
+    }
+  })() : null
 
   // 셀 픽셀 -> 월드 좌표 환산. 기준 높이가 화면 높이의 8%가 되도록 맞춘다.
   const pxToWorld = (CHARACTER_HEIGHT_FRACTION * HEIGHT_TO_WIDTH_UNITS) / sheet.refHeight
@@ -76,7 +94,7 @@ export function WalkingCharacter({
   const anchorX = (frame.footX - frame.offsetX) / sheet.cellW
   const anchorY = (frame.footY - frame.offsetY) / sheet.cellH
 
-  // 표정은 정면 그림뿐이라 정면을 볼 때만 얼굴을 덮어쓴다.
+  // 정면 표정은 기존 머리 박스에 맞추고, 측면 표정은 아래에서 목 기준으로 맞춘다.
   // 머리 박스끼리 맞추므로 프레임마다 머리 크기가 달라도 표정은 흔들리지 않는다.
   const expression =
     direction === 'front'
@@ -103,7 +121,7 @@ export function WalkingCharacter({
   }
   const eyeWidthPercent = (frame.faceW / sheet.cellW) * 100
 
-  // 방향별 그림을 그대로 쓰므로 좌우 반전이 없고, 글자를 되돌릴 일도 없다
+  // 몸은 방향별 그림을 그대로 쓴다. 측면 표정만 반전하므로 말풍선·날짜는 영향받지 않는다.
   const unflip: CSSProperties = {}
 
   return (
@@ -125,8 +143,18 @@ export function WalkingCharacter({
         style={{
           aspectRatio: `${sheet.cellW} / ${sheet.cellH}`,
           ...cellStyle(sheet.src, sheet.cols, sheet.rows, frameIndex),
+          clipPath: sideHead && neck ? `inset(${((neck.y - 1) / sheet.cellH) * 100}% 0 0 0)` : undefined,
         }}
       />
+
+      {sideHead && sideExpression && sideSrc && (
+        <svg className="walker__side-face" aria-hidden="true" focusable="false"
+          data-side-expression={emotion} data-direction={direction}
+          viewBox={`${sideExpression.head.x} ${sideExpression.head.y} ${sideExpression.head.w} ${sideExpression.head.h + 2}`}
+          preserveAspectRatio="none" style={sideHead}>
+          <image href={sideSrc} width={sideExpression.width} height={sideExpression.height} />
+        </svg>
+      )}
 
       {expression && (
         <img

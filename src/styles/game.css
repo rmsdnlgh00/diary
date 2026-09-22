@@ -338,6 +338,13 @@
   pointer-events: none;
 }
 
+/* 측면은 원본 머리를 가린 뒤 새 표정을 목에 맞춘다. 몸·다리 프레임은 계속 재생한다. */
+.walker__side-face {
+  position: absolute;
+  overflow: hidden;
+  pointer-events: none;
+}
+
 .game-world--editing .ground-click { cursor: crosshair; }
 /* 편집 중에도 캐릭터는 계속 걷되, 잔디 배치 클릭을 가로채지 않는다. */
 .game-world--editing .layer--objects .walker { pointer-events: none; }
