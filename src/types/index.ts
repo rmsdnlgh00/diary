@@ -165,3 +165,37 @@ export interface WorldDefinition {
 }
 
 export type PanelId = 'DIARY' | 'SHOP' | 'CHARACTER' | 'DECORATE'
+
+export type WalkDirection = 'front' | 'side' | 'back'
+
+/** 화면상 이동 방향. side 시트는 오른쪽을 보고 있어서 왼쪽일 때 좌우 반전한다. */
+export type Facing = 'down' | 'up' | 'right' | 'left'
+
+export interface FrameMeta {
+  /** 셀 안에서 캐릭터가 땅을 딛는 지점 (px) */
+  footX: number
+  footY: number
+  /** 프레임 간 크기 편차 보정 */
+  scale: number
+  /** 눈으로 보고 미세 조정하는 값 */
+  offsetX: number
+  offsetY: number
+  /** 눈 에셋을 붙일 얼굴 기준점 (px) */
+  faceX: number
+  faceY: number
+  /** 얼굴(눈) 폭 (px) */
+  faceW: number
+}
+
+export interface DirectionSheet {
+  src: string
+  cols: number
+  rows: number
+  cellW: number
+  cellH: number
+  /** 프레임별 scale 보정의 기준이 된 콘텐츠 높이 */
+  refHeight: number
+  /** 이 방향에서 눈을 어떻게 그릴지 */
+  eyes: 'both' | 'single' | 'none'
+  frames: FrameMeta[]
+}

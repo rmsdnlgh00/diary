@@ -15,13 +15,74 @@
 .layer--ground {
   z-index: 1;
 }
+/*
+ * 이 레이어는 화면 전체를 덮으므로 그대로 두면 잔디 클릭을 가로챈다.
+ * 레이어 자체는 클릭을 통과시키고, 클릭이 필요한 오브젝트만 되살린다.
+ */
 .layer--objects {
   z-index: 2;
   isolation: isolate;
+  pointer-events: none;
+}
+
+.layer--objects .world-object--interactive {
+  pointer-events: auto;
 }
 .layer--effects {
   z-index: 3;
   pointer-events: none;
+}
+
+/* 잔디 클릭 판정. 캐릭터·장식물 레이어보다 아래라 그쪽 클릭을 가로채지 않는다. */
+.ground-click {
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+}
+
+/* ---------- 걷는 캐릭터 ---------- */
+
+.walker__body {
+  width: 100%;
+  image-rendering: auto;
+}
+
+.walker__eyes {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.walker__eyes-inner {
+  position: absolute;
+  top: 0;
+}
+
+.walker__mark {
+  position: absolute;
+  width: 6%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 2;
+}
+.walker__mark--foot {
+  background: #ff3b6b;
+  box-shadow: 0 0 0 1px #fff;
+}
+.walker__mark--face {
+  background: #2f8cff;
+  box-shadow: 0 0 0 1px #fff;
+}
+
+.walker__facebox {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  border: 1px dashed #2f8cff;
+  pointer-events: none;
+  z-index: 2;
 }
 
 /* ---------- background ---------- */
