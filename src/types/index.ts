@@ -166,9 +166,10 @@ export interface WorldDefinition {
 
 export type PanelId = 'DIARY' | 'SHOP' | 'CHARACTER' | 'DECORATE'
 
-export type WalkDirection = 'front' | 'side' | 'back'
+/** 방향마다 별도의 그림이 있다. 좌우 반전으로 만들어 쓰지 않는다. */
+export type WalkDirection = 'front' | 'back' | 'left' | 'right'
 
-/** 화면상 이동 방향. side 시트는 오른쪽을 보고 있어서 왼쪽일 때 좌우 반전한다. */
+/** 화면상 이동 방향. */
 export type Facing = 'down' | 'up' | 'right' | 'left'
 
 export interface FrameMeta {

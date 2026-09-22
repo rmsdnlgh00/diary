@@ -6,7 +6,7 @@ import {
   WALK_SHEETS,
 } from '@/data/characterFrames'
 import type { DepthConfig } from '@/systems/depthSystem'
-import type { EmotionId, Facing, WalkDirection } from '@/types'
+import type { EmotionId, WalkDirection } from '@/types'
 import { WorldObject } from './WorldObject'
 
 /** 캐릭터 키를 마을 전체 높이의 몇 %로 보여줄지 */
@@ -19,7 +19,6 @@ interface Props {
   y: number
   emotion: EmotionId
   direction: WalkDirection
-  facing: Facing
   frameIndex: number
   depthConfig: DepthConfig
   zoom?: number
@@ -52,7 +51,6 @@ export function WalkingCharacter({
   y,
   emotion,
   direction,
-  facing,
   frameIndex,
   depthConfig,
   zoom = 1,
@@ -65,7 +63,6 @@ export function WalkingCharacter({
 }: Props) {
   const sheet = WALK_SHEETS[direction]
   const frame = sheet.frames[frameIndex] ?? sheet.frames[0]
-  const flipped = facing === 'left'
 
   // 셀 픽셀 -> 월드 좌표 환산. 기준 높이가 화면 높이의 8%가 되도록 맞춘다.
   const pxToWorld = (CHARACTER_HEIGHT_FRACTION * HEIGHT_TO_WIDTH_UNITS) / sheet.refHeight
@@ -75,10 +72,11 @@ export function WalkingCharacter({
   const anchorX = (frame.footX - frame.offsetX) / sheet.cellW
   const anchorY = (frame.footY - frame.offsetY) / sheet.cellH
 
-  const eyesSheet = direction === 'side' ? (SIDE_EYES_SHEET ?? EYES_SHEET) : EYES_SHEET
+  const isSide = direction === 'left' || direction === 'right'
+  const eyesSheet = isSide ? (SIDE_EYES_SHEET ?? EYES_SHEET) : EYES_SHEET
   const eyeIndex = Math.max(0, EMOTION_EYE_ORDER.indexOf(emotion))
   // 측면용 눈이 아직 없으면 정면 눈의 한쪽만 잘라 쓴다
-  const halfEye = direction === 'side' && SIDE_EYES_SHEET === null
+  const halfEye = isSide && SIDE_EYES_SHEET === null
 
   const facePercent = {
     left: `${(frame.faceX / sheet.cellW) * 100}%`,
@@ -86,8 +84,8 @@ export function WalkingCharacter({
   }
   const eyeWidthPercent = (frame.faceW / sheet.cellW) * 100
 
-  // 몸이 좌우 반전되면 글자도 뒤집히므로 제자리에서 한 번 더 뒤집어 되돌린다
-  const unflip: CSSProperties = flipped ? { transform: 'translateX(-50%) scaleX(-1)' } : {}
+  // 방향별 그림을 그대로 쓰므로 좌우 반전이 없고, 글자를 되돌릴 일도 없다
+  const unflip: CSSProperties = {}
 
   return (
     <WorldObject
@@ -97,7 +95,6 @@ export function WalkingCharacter({
       anchorX={anchorX}
       anchorY={anchorY}
       scale={frame.scale * zoom}
-      flipX={flipped}
       depthConfig={depthConfig}
       shadow
       label={label}

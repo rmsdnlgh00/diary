@@ -58,11 +58,8 @@ export function pickFacing(dx: number, dy: number, current: Facing): Facing {
 export const directionOf = (facing: Facing): WalkDirection => {
   if (facing === 'down') return 'front'
   if (facing === 'up') return 'back'
-  return 'side'
+  return facing === 'left' ? 'left' : 'right'
 }
-
-/** side 시트는 오른쪽을 보고 그려져 있다. */
-export const isFlipped = (facing: Facing): boolean => facing === 'left'
 
 /** 걷기 시작 후 흐른 시간으로 프레임 번호를 구한다. */
 export const frameAt = (elapsedSeconds: number, frameCount: number, fps: number): number =>

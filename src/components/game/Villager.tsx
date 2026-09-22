@@ -50,7 +50,6 @@ export function Villager({
       y={agent.y}
       emotion={agent.emotion}
       direction={direction}
-      facing={agent.facing}
       frameIndex={frameIndex}
       depthConfig={depthConfig}
       zoom={zoom}

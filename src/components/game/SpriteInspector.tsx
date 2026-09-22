@@ -2,7 +2,7 @@ import { WALK_SHEETS } from '@/data/characterFrames'
 import { useDebugStore } from '@/store/debugStore'
 import type { WalkDirection } from '@/types'
 
-const DIRECTIONS: WalkDirection[] = ['front', 'side', 'back']
+const DIRECTIONS: WalkDirection[] = ['front', 'back', 'left', 'right']
 
 /** 개발 중에만 쓰는 스프라이트 확인 패널. 프로덕션 빌드에서는 렌더되지 않는다. */
 export function SpriteInspector({ liveDirection }: { liveDirection: WalkDirection }) {
