@@ -186,6 +186,10 @@ export interface FrameMeta {
   faceY: number
   /** 얼굴(눈) 폭 (px) */
   faceW: number
+  /** 머리(모자 포함) 박스. 표정 그림을 이 자리에 겹쳐 원래 얼굴을 덮는다. (px) */
+  headX: number
+  headY: number
+  headW: number
 }
 
 export interface DirectionSheet {

@@ -5,11 +5,7 @@ import {
   SIDE_EYES_SHEET,
   WALK_SHEETS,
 } from '@/data/characterFrames'
-import {
-  EXPRESSION_HEAD_BOX,
-  FRONT_HEAD_BOX,
-  expressionFor,
-} from '@/data/expressions'
+import { EXPRESSION_HEAD_BOX, expressionFor } from '@/data/expressions'
 import type { DepthConfig } from '@/systems/depthSystem'
 import type { EmotionId, WalkDirection } from '@/types'
 import { WorldObject } from './WorldObject'
@@ -79,18 +75,18 @@ export function WalkingCharacter({
 
   // 표정은 정면 그림뿐이라 정면을 볼 때만 얼굴을 덮어쓴다.
   // 머리 박스끼리 맞추므로 프레임마다 머리 크기가 달라도 표정은 흔들리지 않는다.
-  const headBox = direction === 'front' ? FRONT_HEAD_BOX[frameIndex] : undefined
-  const expression = headBox
-    ? (() => {
-        const size = headBox.w / EXPRESSION_HEAD_BOX.w
-        return {
-          src: expressionFor(emotion),
-          left: `${((headBox.x - EXPRESSION_HEAD_BOX.x * size) / sheet.cellW) * 100}%`,
-          top: `${((headBox.y - EXPRESSION_HEAD_BOX.y * size) / sheet.cellH) * 100}%`,
-          width: `${(size / sheet.cellW) * 100}%`,
-        }
-      })()
-    : null
+  const expression =
+    direction === 'front'
+      ? (() => {
+          const size = frame.headW / EXPRESSION_HEAD_BOX.w
+          return {
+            src: expressionFor(emotion),
+            left: `${((frame.headX - EXPRESSION_HEAD_BOX.x * size) / sheet.cellW) * 100}%`,
+            top: `${((frame.headY - EXPRESSION_HEAD_BOX.y * size) / sheet.cellH) * 100}%`,
+            width: `${(size / sheet.cellW) * 100}%`,
+          }
+        })()
+      : null
 
   const isSide = direction === 'left' || direction === 'right'
   const eyesSheet = isSide ? (SIDE_EYES_SHEET ?? EYES_SHEET) : EYES_SHEET
