@@ -231,14 +231,110 @@
 }
 
 .modal__portrait {
-  width: 9cqw;
-  margin: 1cqw auto;
+  position: relative;
+  width: 8cqw;
+  margin: 0.6cqw auto 0.4cqw;
 }
 
-.modal__portrait svg {
-  display: block;
+.modal__portrait-body {
+  position: absolute;
+  inset: 0;
+  background-repeat: no-repeat;
+}
+
+.modal__portrait-eyes {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  background-repeat: no-repeat;
+}
+
+/* ---------- 일기 작성 ---------- */
+
+.editor {
+  position: absolute;
+  z-index: 11;
+  left: 50%;
+  bottom: 8.5cqw;
+  transform: translateX(-50%);
+  width: 46cqw;
+  padding: 1.6cqw 1.8cqw 1.4cqw;
+  border-radius: var(--radius-card);
+  background: var(--paper);
+  box-shadow: var(--shadow-soft);
+  display: grid;
+  gap: 1cqw;
+}
+
+.editor__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.editor__header h2 {
+  margin: 0;
+  font-size: 1.8cqw;
+  font-weight: 400;
+}
+
+.editor__text {
   width: 100%;
-  height: auto;
+  padding: 1cqw 1.2cqw;
+  border: 1px solid #e8ddcd;
+  border-radius: 1cqw;
+  background: #fffdf8;
+  font-family: 'Gowun Dodum', sans-serif;
+  font-size: 1.3cqw;
+  line-height: 1.7;
+  color: var(--ink);
+  resize: none;
+}
+
+.editor__text:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+.editor__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1cqw;
+}
+
+.editor__emotion {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5cqw;
+  font-size: 1.2cqw;
+  white-space: nowrap;
+  flex: none;
+}
+
+.editor__hint {
+  font-family: 'Gowun Dodum', sans-serif;
+  font-size: 1.1cqw;
+  color: var(--ink-soft);
+}
+
+.editor__save {
+  width: auto;
+  margin: 0;
+  padding: 0.7cqw 1.4cqw;
+  font-size: 1.3cqw;
+  white-space: nowrap;
+}
+
+.editor__save:disabled {
+  background: #e4d9c9;
+  cursor: default;
+}
+
+.editor__saved {
+  margin: 0;
+  font-family: 'Gowun Dodum', sans-serif;
+  font-size: 1.1cqw;
+  color: var(--accent-deep);
 }
 
 .modal__text {

@@ -1,3 +1,9 @@
+/**
+ * 게임 속 오늘. 9월 월드만 만들어 둔 상태라 실제 날짜 대신 고정값을 쓴다.
+ * 월드가 여러 개가 되면 toDateKey(new Date()) 로 바꾼다.
+ */
+export const TODAY = '2026-09-21'
+
 /** YYYY-MM-DD → "9월 21일" */
 export function formatKoreanDate(date: string): string {
   const [, month, day] = date.split('-')

@@ -1,11 +1,15 @@
+import { DiaryEditor } from '@/components/diary/DiaryEditor'
 import { useGameStore } from '@/store/gameStore'
+import { TODAY } from '@/utils/date'
 import type { PanelId } from '@/types'
 
-const PANEL_TEXT: Record<PanelId, { title: string; body: string }> = {
-  DIARY: { title: '오늘 기록', body: '일기 작성과 감정 분석은 PHASE 2에서 연결됩니다.' },
-  SHOP: { title: '상점', body: '아이템 구매와 재화 사용은 PHASE 3에서 연결됩니다.' },
-  CHARACTER: { title: '캐릭터 꾸미기', body: '보유한 의상과 액세서리 착용은 PHASE 3에서 연결됩니다.' },
-  DECORATE: { title: '공간 꾸미기', body: '장식물 배치와 이동은 PHASE 4에서 연결됩니다.' },
+const PLACEHOLDER: Record<Exclude<PanelId, 'DIARY'>, { title: string; body: string }> = {
+  SHOP: { title: '상점', body: '아이템 구매와 재화 사용은 다음 단계에서 연결됩니다.' },
+  CHARACTER: {
+    title: '캐릭터 꾸미기',
+    body: '보유한 의상과 액세서리 착용은 다음 단계에서 연결됩니다.',
+  },
+  DECORATE: { title: '공간 꾸미기', body: '장식물 배치와 이동은 다음 단계에서 연결됩니다.' },
 }
 
 export function PanelSheet() {
@@ -13,7 +17,9 @@ export function PanelSheet() {
   const closePanel = useGameStore((state) => state.closePanel)
 
   if (!activePanel) return null
-  const panel = PANEL_TEXT[activePanel]
+  if (activePanel === 'DIARY') return <DiaryEditor date={TODAY} />
+
+  const panel = PLACEHOLDER[activePanel]
 
   return (
     <div className="sheet">

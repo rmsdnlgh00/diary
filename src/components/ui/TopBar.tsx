@@ -1,8 +1,7 @@
-import { getWorld } from '@/data/worlds'
 import { EMOTIONS } from '@/data/emotions'
+import { getWorld } from '@/data/worlds'
 import { useGameStore } from '@/store/gameStore'
-
-const TODAY = '2026-09-21'
+import { TODAY } from '@/utils/date'
 
 export function TopBar() {
   const worldId = useGameStore((state) => state.worldId)
@@ -15,7 +14,14 @@ export function TopBar() {
 
   return (
     <div className="topbar">
-      <div className="pill pill--month">{world.label}</div>
+      <div className="pill pill--month">
+        {world.label}
+        <span className="pill__sub">
+          {characters.length === 0
+            ? '아직 아무도 없어요'
+            : `${characters.length}명이 마을에 있어요`}
+        </span>
+      </div>
 
       <div className="pill pill--status">
         {todayEmotion ? (

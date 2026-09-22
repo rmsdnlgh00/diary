@@ -59,6 +59,65 @@
   top: 0;
 }
 
+.walker--selected {
+  filter: drop-shadow(0 0 0.5cqw var(--accent));
+}
+
+/* 머리 위 날짜 · 말풍선. 몸이 반전돼도 글자는 바로 서야 한다. */
+.walker__tag,
+.walker__bubble {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.12cqw 0.6cqw;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 250, 242, 0.95);
+  color: var(--ink-soft);
+  font-size: 0.85cqw;
+  line-height: 1.5;
+  white-space: nowrap;
+  box-shadow: 0 0.15cqw 0.4cqw rgba(88, 62, 45, 0.22);
+  pointer-events: none;
+}
+
+.walker__tag {
+  top: -1.1cqw;
+  opacity: 0;
+  transition: opacity 130ms ease;
+}
+
+.world-object--interactive:hover .walker__tag,
+.walker--selected .walker__tag {
+  opacity: 1;
+}
+
+.walker__bubble {
+  top: -3cqw;
+  padding: 0.35cqw 0.9cqw;
+  font-size: 1cqw;
+  color: var(--ink);
+  animation: bubble-in 180ms ease-out;
+}
+
+/* 좌우 반전된 몸 안에서도 쓸 수 있도록 transform 은 건드리지 않는다 */
+@keyframes bubble-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.walker__bubble::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -0.45cqw;
+  width: 0.9cqw;
+  height: 0.5cqw;
+  transform: translateX(-50%);
+  background: inherit;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+
 .walker__mark {
   position: absolute;
   width: 6%;

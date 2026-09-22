@@ -24,15 +24,17 @@ interface Props {
   depthConfig: DepthConfig
   zoom?: number
   showAnchors?: boolean
+  selected?: boolean
+  label?: string
+  onClick?: () => void
+  /** 말풍선에 띄울 짧은 대사 */
+  bubble?: string | null
+  /** 머리 위 날짜 표시 */
+  tag?: string
 }
 
 /** 스프라이트 시트에서 한 칸만 보여주는 배경 스타일 */
-function cellStyle(
-  src: string,
-  cols: number,
-  rows: number,
-  index: number,
-): CSSProperties {
+function cellStyle(src: string, cols: number, rows: number, index: number): CSSProperties {
   const col = index % cols
   const row = Math.floor(index / cols)
   return {
@@ -55,13 +57,18 @@ export function WalkingCharacter({
   depthConfig,
   zoom = 1,
   showAnchors = false,
+  selected = false,
+  label,
+  onClick,
+  bubble = null,
+  tag,
 }: Props) {
   const sheet = WALK_SHEETS[direction]
   const frame = sheet.frames[frameIndex] ?? sheet.frames[0]
+  const flipped = facing === 'left'
 
   // 셀 픽셀 -> 월드 좌표 환산. 기준 높이가 화면 높이의 8%가 되도록 맞춘다.
-  const pxToWorld =
-    (CHARACTER_HEIGHT_FRACTION * HEIGHT_TO_WIDTH_UNITS) / sheet.refHeight
+  const pxToWorld = (CHARACTER_HEIGHT_FRACTION * HEIGHT_TO_WIDTH_UNITS) / sheet.refHeight
   const widthWorld = sheet.cellW * pxToWorld
 
   // offsetX 가 양수면 캐릭터가 오른쪽으로 밀린다 (기준점을 왼쪽으로 옮기는 것과 같다)
@@ -79,6 +86,9 @@ export function WalkingCharacter({
   }
   const eyeWidthPercent = (frame.faceW / sheet.cellW) * 100
 
+  // 몸이 좌우 반전되면 글자도 뒤집히므로 제자리에서 한 번 더 뒤집어 되돌린다
+  const unflip: CSSProperties = flipped ? { transform: 'translateX(-50%) scaleX(-1)' } : {}
+
   return (
     <WorldObject
       x={x}
@@ -87,12 +97,13 @@ export function WalkingCharacter({
       anchorX={anchorX}
       anchorY={anchorY}
       scale={frame.scale * zoom}
-      flipX={facing === 'left'}
+      flipX={flipped}
       depthConfig={depthConfig}
       shadow
-      className="walker"
+      label={label}
+      onClick={onClick}
+      className={selected ? 'walker walker--selected' : 'walker'}
     >
-      {/* 몸 */}
       <div
         className="walker__body"
         style={{
@@ -125,13 +136,32 @@ export function WalkingCharacter({
         </div>
       )}
 
+      {bubble && (
+        <span className="walker__bubble" style={unflip}>
+          {bubble}
+        </span>
+      )}
+
+      {tag && (
+        <span className="walker__tag" style={unflip}>
+          {tag}
+        </span>
+      )}
+
       {showAnchors && (
         <>
-          <span className="walker__mark walker__mark--foot" style={{ left: `${anchorX * 100}%`, top: `${anchorY * 100}%` }} />
+          <span
+            className="walker__mark walker__mark--foot"
+            style={{ left: `${anchorX * 100}%`, top: `${anchorY * 100}%` }}
+          />
           <span className="walker__mark walker__mark--face" style={facePercent} />
           <span
             className="walker__facebox"
-            style={{ ...facePercent, width: `${eyeWidthPercent}%`, aspectRatio: `${eyesSheet.cellW} / ${eyesSheet.cellH}` }}
+            style={{
+              ...facePercent,
+              width: `${eyeWidthPercent}%`,
+              aspectRatio: `${eyesSheet.cellW} / ${eyesSheet.cellH}`,
+            }}
           />
         </>
       )}
