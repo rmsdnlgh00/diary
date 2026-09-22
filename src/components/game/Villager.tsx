@@ -49,6 +49,7 @@ export function Villager({
       x={agent.x}
       y={agent.y}
       emotion={agent.emotion}
+      equippedItems={character.equippedItems}
       direction={direction}
       frameIndex={frameIndex}
       depthConfig={depthConfig}

@@ -7,7 +7,8 @@ import {
 } from '@/data/characterFrames'
 import { EXPRESSION_HEAD_BOX, expressionFor } from '@/data/expressions'
 import type { DepthConfig } from '@/systems/depthSystem'
-import type { EmotionId, WalkDirection } from '@/types'
+import type { EmotionId, EquippedItems, WalkDirection } from '@/types'
+import { CharacterEquipment } from './CharacterEquipment'
 import { WorldObject } from './WorldObject'
 
 /** 캐릭터 키를 마을 전체 높이의 몇 %로 보여줄지 */
@@ -31,6 +32,7 @@ interface Props {
   bubble?: string | null
   /** 머리 위 날짜 표시 */
   tag?: string
+  equippedItems?: EquippedItems
 }
 
 /** 스프라이트 시트에서 한 칸만 보여주는 배경 스타일 */
@@ -61,6 +63,7 @@ export function WalkingCharacter({
   onClick,
   bubble = null,
   tag,
+  equippedItems,
 }: Props) {
   const sheet = WALK_SHEETS[direction]
   const frame = sheet.frames[frameIndex] ?? sheet.frames[0]
@@ -170,6 +173,8 @@ export function WalkingCharacter({
           {tag}
         </span>
       )}
+
+      {equippedItems && <CharacterEquipment equippedItems={equippedItems} compact />}
 
       {showAnchors && (
         <>

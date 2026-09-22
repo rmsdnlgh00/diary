@@ -337,3 +337,22 @@
   height: auto;
   pointer-events: none;
 }
+
+.game-world--editing .ground-click { cursor: crosshair; }
+/* 편집 중에도 캐릭터는 계속 걷되, 잔디 배치 클릭을 가로채지 않는다. */
+.game-world--editing .layer--objects .walker { pointer-events: none; }
+.placement-guide { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.placed-item .item-artwork { width: 100%; height: auto; aspect-ratio: 1; font-size: inherit; }
+.placed-item .item-artwork > span { font-size: 3.2cqw; line-height: 1; }
+.placed-item--selected { filter: drop-shadow(0 0 0.4cqw var(--accent-deep)); }
+.placed-item--selected::after {
+  content: ''; position: absolute; inset: -10%; border: 0.15cqw dashed var(--accent-deep);
+  border-radius: 0.5cqw; pointer-events: none;
+}
+.equipment-badge {
+  position: absolute; left: 82%; top: 35%; display: flex; gap: 0.15cqw;
+  padding: 0.12cqw 0.25cqw; border-radius: 0.5cqw; background: rgba(255, 250, 242, 0.94);
+  box-shadow: 0 0.1cqw 0.25cqw #785b3826; pointer-events: none;
+}
+.equipment-badge .item-artwork { width: 0.9cqw; height: 0.9cqw; font-size: 0.75cqw; }
+.equipment-badge small { font-size: 0.6cqw; line-height: 0.9cqw; }

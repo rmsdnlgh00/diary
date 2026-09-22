@@ -77,7 +77,39 @@ export interface DiaryCharacterData extends CharacterAppearance {
   /** 깊이 스케일과 별개로 적용되는 개별 보정값 */
   scale: number
   createdAt: number
+  equippedItems: EquippedItems
 }
+
+export type ClothingCategory = 'hat' | 'top' | 'bottom' | 'shoes' | 'bag' | 'accessory'
+export type ItemCategory = ClothingCategory | 'decoration'
+export type EquippedItems = Record<ClothingCategory, string | null>
+
+export interface GameItem {
+  id: string
+  name: string
+  category: ItemCategory
+  price: number
+  /** /src/assets/... 또는 /assets/... (public). 비어 있거나 누락되면 placeholder. */
+  assetPath: string
+  placeholder: string
+  description?: string
+  worldWidth?: number
+}
+
+export interface Inventory {
+  clothes: string[]
+  decorations: string[]
+}
+
+/** 기존 월드와 동일한 0~1 비율 좌표. 픽셀 값을 저장하지 않는다. */
+export interface PlacedDecoration {
+  id: string
+  itemId: string
+  x: number
+  y: number
+}
+
+export type WorldDecorations = Record<string, PlacedDecoration[]>
 
 export type DecorationType =
   | 'BENCH'

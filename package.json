@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "check:game": "node scripts/check-game.mjs",
     "pack-sprites": "node scripts/pack-sprites.mjs",
     "preview": "vite preview"
   },

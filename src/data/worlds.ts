@@ -1,4 +1,5 @@
 import type { WorldDefinition } from '@/types'
+import { TODAY, toMonthKey } from '@/utils/date'
 
 /**
  * 월드 하나 = 한 달.
@@ -43,6 +44,14 @@ export const WORLDS: Record<string, WorldDefinition> = {
   [WORLD_2026_09.id]: WORLD_2026_09,
 }
 
-export const DEFAULT_WORLD_ID = WORLD_2026_09.id
+export const DEFAULT_WORLD_ID = toMonthKey(TODAY)
 
-export const getWorld = (id: string): WorldDefinition => WORLDS[id] ?? WORLD_2026_09
+/** 월별 데이터는 분리하되, 새 배경이 없으면 기존 마을 레이아웃을 그대로 사용한다. */
+export function getWorld(id: string): WorldDefinition {
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(id)) return WORLD_2026_09
+  if (!WORLDS[id]) {
+    const [year, month] = id.split('-').map(Number)
+    WORLDS[id] = { ...WORLD_2026_09, id, year, month, label: year + '년 ' + month + '월' }
+  }
+  return WORLDS[id]
+}

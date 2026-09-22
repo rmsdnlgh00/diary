@@ -1,4 +1,5 @@
 import { DEFAULT_APPEARANCE } from '@/data/characterParts'
+import { emptyEquipment } from '@/data/items'
 import type { DiaryCharacterData, DiaryEntry, WorldDefinition } from '@/types'
 import { CHARACTER_RADIUS, characterIdForDate, pickSpawnPoint } from './characterSystem'
 import { analyzeDiary, type DiaryAnalyzer } from './emotionAnalyzer'
@@ -50,7 +51,8 @@ export function writeDiary(
   if (existingCharacter) {
     character = { ...existingCharacter, diaryText: text, emotion, emotionConfidence: confidence }
   } else {
-    const taken = characters.map(({ x, y }) => ({ x, y, radius: CHARACTER_RADIUS }))
+    const taken = characters.filter((c) => c.diaryDate.startsWith(world.id))
+      .map(({ x, y }) => ({ x, y, radius: CHARACTER_RADIUS }))
     const spawn = pickSpawnPoint(world, date, taken)
     character = {
       id: characterId,
@@ -62,6 +64,7 @@ export function writeDiary(
       y: spawn.y,
       scale: 1,
       ...DEFAULT_APPEARANCE,
+      equippedItems: emptyEquipment(),
       createdAt: now,
     }
   }

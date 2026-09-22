@@ -14,7 +14,7 @@ export { decorationAssets, npcAssets, worldAssets }
  */
 
 export const getBackgroundAsset = (worldId: string): AssetMeta | undefined =>
-  worldAssets[worldId]?.background
+  (worldAssets[worldId] ?? worldAssets['2026-09']).background
 
 export const getEnvironmentAsset = (
   worldId: string,
