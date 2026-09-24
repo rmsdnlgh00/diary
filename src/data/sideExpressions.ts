@@ -1,11 +1,12 @@
-import happySide from '@/assets/character/expressions/happy_side.png'
-import sadSide from '@/assets/character/expressions/sad_side.png'
-import angrySide from '@/assets/character/expressions/angry_side.png'
 import { EMOTION_EXPRESSION } from './expressions'
 import type { EmotionId, WalkDirection } from '@/types'
 
 interface SideExpression {
   src: string
+  /**
+   * 아래 좌표들이 기준으로 삼는 좌표계 크기. 실제 파일 픽셀 수와 달라도 된다.
+   * SVG 가 파일을 이 좌표계에 맞춰 늘리므로, 파일을 줄여도 정렬은 그대로다.
+   */
   width: number
   height: number
   /** 원본의 머리~목 영역 (px). 원본 파일을 자르지 않고 렌더링할 때만 사용한다. */
@@ -14,11 +15,11 @@ interface SideExpression {
 }
 
 const SIDE_EXPRESSIONS: Record<'happy' | 'sad' | 'angry', SideExpression> = {
-  happy: { src: happySide, width: 1024, height: 1536,
+  happy: { src: '/assets/character/expressions/happy_side.webp', width: 1024, height: 1536,
     head: { x: 126, y: 92, w: 776, h: 646 }, neckX: 534.5 },
-  sad: { src: sadSide, width: 1024, height: 1536,
+  sad: { src: '/assets/character/expressions/sad_side.webp', width: 1024, height: 1536,
     head: { x: 106, y: 138, w: 818, h: 658 }, neckX: 519 },
-  angry: { src: angrySide, width: 1024, height: 1536,
+  angry: { src: '/assets/character/expressions/angry_side.webp', width: 1024, height: 1536,
     head: { x: 83, y: 54, w: 865, h: 718 }, neckX: 534.5 },
 }
 

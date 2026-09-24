@@ -9,6 +9,7 @@
     "check:game": "node scripts/check-game.mjs",
     "check:side": "node scripts/check-side-expressions.mjs",
     "pack-sprites": "node scripts/pack-sprites.mjs",
+    "pack-side": "node scripts/pack-side-expressions.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

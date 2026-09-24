@@ -68,7 +68,7 @@ try {
       assert.equal(entry.normalFace, direction === 'front')
       if (expected) {
         const expression = ['HAPPY', 'JOYFUL'].includes(emotion) ? 'happy' : emotion === 'SAD' ? 'sad' : 'angry'
-        assert.ok(entry.src.includes(`${expression}_side.png`))
+        assert.ok(entry.src.includes(`${expression}_side.webp`))
         assert.equal(entry.flip, direction === 'left' ? 'scaleX(-1)' : '')
       }
     }
@@ -76,7 +76,7 @@ try {
   }
   // 로드 실패 시 원래 몸을 자르지 않고 기본 걷기 이미지로 폴백한다.
   await page.setRequestInterception(true)
-  page.on('request', (request) => request.resourceType() === 'image' && request.url().includes('_side.png')
+  page.on('request', (request) => request.resourceType() === 'image' && request.url().includes('_side.webp')
     ? request.abort() : request.continue())
   await page.setCacheEnabled(false)
   await page.reload({ waitUntil: 'networkidle0' })
