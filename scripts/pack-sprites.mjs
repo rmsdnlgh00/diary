@@ -184,12 +184,23 @@ for (const dir of DIRECTIONS) {
   const { frames, cellW } = result
   const refHeight = Math.round(frames.reduce((a, f) => a + f.h, 0) / frames.length)
 
-  // 위상이 실제로 교대하면 전부 재생하고, 아니면 자세 차이가 크고
-  // 크기 편차가 작은 두 장만 골라 쓴다. (사이클이 아닌 그림에서 떨림을 줄인다)
+  /*
+   * 재생할 프레임 고르기.
+   *
+   * lead 는 좌우 발의 높이 차다. 양수면 오른발이, 음수면 왼발이 아래에 있다.
+   * 진짜 걷기 사이클이면 두 발이 번갈아 딛으므로 이 값이 양쪽을 오간다.
+   * 한쪽에만 머물면 같은 자세를 여러 장 그린 것이지 사이클이 아니다.
+   *
+   * 사이클이면 장수에 관계없이 전부 재생한다. 아니면 자세 차이가 크고
+   * 크기 편차가 작은 두 장만 골라 떨림을 줄인다.
+   */
   const leads = frames.map((f) => f.lead)
   const swing = Math.max(...leads) - Math.min(...leads)
+  /** 양쪽으로 이만큼씩 벌어져야 두 발이 실제로 교대하는 것으로 본다 */
+  const CYCLE_LEAD = 0.05
+  const isCycle = Math.max(...leads) > CYCLE_LEAD && Math.min(...leads) < -CYCLE_LEAD
   let sequence
-  if (swing >= 0.04 && frames.length <= 4) {
+  if (isCycle || (swing >= 0.04 && frames.length <= 4)) {
     sequence = frames.map((_, i) => i)
   } else {
     let best = null
@@ -209,6 +220,14 @@ for (const dir of DIRECTIONS) {
   console.log(
     `walk-${dir}.webp  ${cellW * COLS}x${CELL_H * rows}  셀 ${cellW}x${CELL_H}  ${size}KB  ` +
       `${frames.length}장  위상폭 ${(swing * 100).toFixed(1)}%  재생 [${sequence.join(', ')}]`,
+  )
+  console.log(
+    `   발 위상 ${leads.map((l) => (l * 100).toFixed(1).padStart(5)).join(' ')}  ` +
+      (isCycle
+        ? '→ 걷기 사이클. 전부 재생'
+        : sequence.length === frames.length
+          ? '→ 사이클 아님(한쪽 발만 계속 아래). 장수가 적어 전부 재생'
+          : '→ 사이클 아님(한쪽 발만 계속 아래). 차이 큰 두 장만 재생'),
   )
 }
 
