@@ -138,57 +138,60 @@ export function WalkingCharacter({
       onClick={onClick}
       className={selected ? 'walker walker--selected' : 'walker'}
     >
-      <div
-        className="walker__body"
-        style={{
-          aspectRatio: `${sheet.cellW} / ${sheet.cellH}`,
-          ...cellStyle(sheet.src, sheet.cols, sheet.rows, frameIndex),
-          clipPath: sideHead && neck ? `inset(${((neck.y - 1) / sheet.cellH) * 100}% 0 0 0)` : undefined,
-        }}
-      />
-
-      {sideHead && sideExpression && sideSrc && (
-        <svg className="walker__side-face" aria-hidden="true" focusable="false"
-          data-side-expression={emotion} data-direction={direction}
-          viewBox={`${sideExpression.head.x} ${sideExpression.head.y} ${sideExpression.head.w} ${sideExpression.head.h + 2}`}
-          preserveAspectRatio="none" style={sideHead}>
-          <image href={sideSrc} width={sideExpression.width} height={sideExpression.height} />
-        </svg>
-      )}
-
-      {expression && (
-        <img
-          className="walker__face"
-          src={expression.src}
-          alt=""
-          draggable={false}
-          style={{ left: expression.left, top: expression.top, width: expression.width }}
-        />
-      )}
-
-      {/* 눈 — 몸과 같은 박스 안에 있으므로 위치·크기·반전을 그대로 공유한다 */}
-      {sheet.eyes !== 'none' && (
+      {/* 몸·표정·눈만 한 겹으로 묶는다. 배경과 선명도를 맞추는 필터를 여기에만 건다. */}
+      <div className="walker__art">
         <div
-          className="walker__eyes"
+          className="walker__body"
           style={{
-            ...facePercent,
-            width: `${halfEye ? eyeWidthPercent / 2 : eyeWidthPercent}%`,
-            aspectRatio: halfEye
-              ? `${eyesSheet.cellW / 2} / ${eyesSheet.cellH}`
-              : `${eyesSheet.cellW} / ${eyesSheet.cellH}`,
+            aspectRatio: `${sheet.cellW} / ${sheet.cellH}`,
+            ...cellStyle(sheet.src, sheet.cols, sheet.rows, frameIndex),
+            clipPath: sideHead && neck ? `inset(${((neck.y - 1) / sheet.cellH) * 100}% 0 0 0)` : undefined,
           }}
-        >
-          <div
-            className="walker__eyes-inner"
-            style={{
-              width: halfEye ? '200%' : '100%',
-              left: halfEye ? '-100%' : '0',
-              aspectRatio: `${eyesSheet.cellW} / ${eyesSheet.cellH}`,
-              ...cellStyle(eyesSheet.src, eyesSheet.cols, eyesSheet.rows, eyeIndex),
-            }}
+        />
+
+        {sideHead && sideExpression && sideSrc && (
+          <svg className="walker__side-face" aria-hidden="true" focusable="false"
+            data-side-expression={emotion} data-direction={direction}
+            viewBox={`${sideExpression.head.x} ${sideExpression.head.y} ${sideExpression.head.w} ${sideExpression.head.h + 2}`}
+            preserveAspectRatio="none" style={sideHead}>
+            <image href={sideSrc} width={sideExpression.width} height={sideExpression.height} />
+          </svg>
+        )}
+
+        {expression && (
+          <img
+            className="walker__face"
+            src={expression.src}
+            alt=""
+            draggable={false}
+            style={{ left: expression.left, top: expression.top, width: expression.width }}
           />
-        </div>
-      )}
+        )}
+
+        {/* 눈 — 몸과 같은 박스 안에 있으므로 위치·크기·반전을 그대로 공유한다 */}
+        {sheet.eyes !== 'none' && (
+          <div
+            className="walker__eyes"
+            style={{
+              ...facePercent,
+              width: `${halfEye ? eyeWidthPercent / 2 : eyeWidthPercent}%`,
+              aspectRatio: halfEye
+                ? `${eyesSheet.cellW / 2} / ${eyesSheet.cellH}`
+                : `${eyesSheet.cellW} / ${eyesSheet.cellH}`,
+            }}
+          >
+            <div
+              className="walker__eyes-inner"
+              style={{
+                width: halfEye ? '200%' : '100%',
+                left: halfEye ? '-100%' : '0',
+                aspectRatio: `${eyesSheet.cellW} / ${eyesSheet.cellH}`,
+                ...cellStyle(eyesSheet.src, eyesSheet.cols, eyesSheet.rows, eyeIndex),
+              }}
+            />
+          </div>
+        )}
+      </div>
 
       {bubble && (
         <span className="walker__bubble" style={unflip}>
