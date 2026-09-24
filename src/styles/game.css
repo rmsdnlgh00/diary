@@ -240,15 +240,40 @@
   height: auto;
 }
 
-/* anchor 지점(바닥에 닿는 곳)에 그림자를 놓는다. */
+/* anchor 지점(바닥에 닿는 곳)에 그림자를 놓는다.
+ * 배경 그림의 빛은 오른쪽 위에서 온다. 그림자는 왼쪽 아래로 눕고,
+ * 발이 땅에 닿는 지점에는 ::after 로 더 짙은 접지 그림자를 겹친다. */
 .world-object__shadow {
   position: absolute;
   z-index: -1;
-  width: 66%;
-  aspect-ratio: 3.4 / 1;
-  transform: translate(-50%, -30%);
-  background: radial-gradient(ellipse at center, rgba(72, 56, 40, 0.3) 0%, rgba(72, 56, 40, 0) 70%);
+  width: 86%;
+  aspect-ratio: 2.4 / 1;
+  transform: translate(calc(-50% - 9%), -30%) skewX(-24deg);
+  background: radial-gradient(
+    ellipse at center,
+    rgba(70, 88, 42, 0.42) 0%,
+    rgba(70, 88, 42, 0.42) 30%,
+    rgba(70, 88, 42, 0.24) 58%,
+    rgba(70, 88, 42, 0) 100%
+  );
+  filter: blur(0.12cqw);
   pointer-events: none;
+}
+
+.world-object__shadow::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 50%;
+  height: 66%;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(
+    ellipse at center,
+    rgba(58, 74, 34, 0.56) 0%,
+    rgba(58, 74, 34, 0.31) 45%,
+    rgba(58, 74, 34, 0) 82%
+  );
 }
 
 .world-object--interactive {
