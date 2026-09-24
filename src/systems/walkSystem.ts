@@ -17,6 +17,12 @@ export const WALK_CONFIG = {
    * 그래서 방향별 sequence 로 2장만 고르고 속도도 낮췄다.
    */
   fps: 3,
+  /** 출발할 때 이 시간에 걸쳐 제 속도까지 올린다(초) */
+  accelSeconds: 0.4,
+  /** 목적지가 이 거리 안에 들어오면 속도를 줄이기 시작한다 */
+  decelDistance: 0.035,
+  /** 아무리 줄여도 이 비율 아래로는 안 내려간다. 0 이 되면 영영 도착하지 못한다. */
+  minSpeedRatio: 0.22,
   /** 이 거리 안이면 도착으로 본다 */
   arriveEpsilon: 0.004,
   /**
@@ -65,3 +71,19 @@ export const directionOf = (facing: Facing): WalkDirection => {
 /** 걷기 시작 후 흐른 시간으로 재생할 프레임 번호를 구한다. */
 export const frameAt = (elapsedSeconds: number, sequence: readonly number[], fps: number): number =>
   sequence[Math.floor(elapsedSeconds * fps) % sequence.length]
+
+/** 0~1 을 양 끝이 완만한 곡선으로 바꾼다 */
+const smoothstep = (t: number): number => {
+  const clamped = Math.min(1, Math.max(0, t))
+  return clamped * clamped * (3 - 2 * clamped)
+}
+
+/**
+ * 출발·도착에서의 속도 배율.
+ * 등속으로 움직이면 툭 튀어나가고 툭 멈춰서 기계처럼 보인다.
+ */
+export function speedRatio(elapsedSeconds: number, remainingDistance: number): number {
+  const accelerating = smoothstep(elapsedSeconds / WALK_CONFIG.accelSeconds)
+  const decelerating = smoothstep(remainingDistance / WALK_CONFIG.decelDistance)
+  return Math.max(WALK_CONFIG.minSpeedRatio, accelerating * decelerating)
+}

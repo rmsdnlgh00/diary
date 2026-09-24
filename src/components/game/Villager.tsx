@@ -52,6 +52,8 @@ export function Villager({
       equippedItems={character.equippedItems}
       direction={direction}
       frameIndex={frameIndex}
+      walkTime={agent.walkTime}
+      moving={agent.phase === 'WALK'}
       depthConfig={depthConfig}
       zoom={zoom}
       showAnchors={showAnchors}

@@ -42,6 +42,11 @@
 
 /* ---------- 걷는 캐릭터 ---------- */
 
+/* 몸을 흔들 때 발이 땅에서 떨어지지 않도록 바닥을 축으로 돈다. */
+.walker__art {
+  transform-origin: 50% 100%;
+}
+
 .walker__body {
   width: 100%;
   image-rendering: auto;

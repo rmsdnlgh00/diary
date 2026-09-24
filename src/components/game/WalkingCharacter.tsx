@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react'
+import { type CSSProperties, useRef } from 'react'
 import {
   EMOTION_EYE_ORDER,
   EYES_SHEET,
@@ -9,6 +9,7 @@ import { EXPRESSION_HEAD_BOX, expressionFor } from '@/data/expressions'
 import { SIDE_NECK_ANCHORS, sideExpressionFor } from '@/data/sideExpressions'
 import { useAssetSrc } from '@/hooks/useAssetReady'
 import type { DepthConfig } from '@/systems/depthSystem'
+import { WALK_CONFIG } from '@/systems/walkSystem'
 import type { EmotionId, EquippedItems, WalkDirection } from '@/types'
 import { CharacterEquipment } from './CharacterEquipment'
 import { WorldObject } from './WorldObject'
@@ -17,6 +18,14 @@ import { WorldObject } from './WorldObject'
 export const CHARACTER_HEIGHT_FRACTION = 0.08
 /** 16:9 이므로 세로 비율을 가로 단위로 환산한다 */
 const HEIGHT_TO_WIDTH_UNITS = 9 / 16
+/** 걸을 때 몸이 떠오르는 높이. 스프라이트 셀 높이 대비 %. */
+const BOB_PERCENT = 2.2
+/** 걸을 때 몸이 좌우로 기우는 각도 */
+const SWAY_DEGREES = 1.1
+/** 방향이 바뀐 뒤 출렁임이 잦아들 때까지의 시간(초) */
+const TURN_SECONDS = 0.22
+/** 방향이 바뀔 때 몸이 눌리는 정도 */
+const TURN_SQUASH = 0.07
 
 interface Props {
   x: number
@@ -24,6 +33,10 @@ interface Props {
   emotion: EmotionId
   direction: WalkDirection
   frameIndex: number
+  /** 걷기 시작 후 흐른 시간(초). 몸을 위아래로 흔드는 데 쓴다. */
+  walkTime?: number
+  /** 걷는 중일 때만 흔든다. 서 있으면 가만히 둔다. */
+  moving?: boolean
   depthConfig: DepthConfig
   zoom?: number
   showAnchors?: boolean
@@ -57,6 +70,8 @@ export function WalkingCharacter({
   emotion,
   direction,
   frameIndex,
+  walkTime = 0,
+  moving = false,
   depthConfig,
   zoom = 1,
   showAnchors = false,
@@ -121,6 +136,33 @@ export function WalkingCharacter({
   }
   const eyeWidthPercent = (frame.faceW / sheet.cellW) * 100
 
+  /*
+   * 걸을 때 몸을 위아래로 흔든다.
+   *
+   * 프레임이 바뀌는 순간(t = k/fps)에 phase 가 정확히 0 이 되도록 맞췄다.
+   * 그래서 그림이 갈아끼워질 때 몸이 가장 낮고, 프레임 중간에 가장 높다.
+   * 지금 걷기 그림이 방향당 2장뿐이라 그것만으로는 토글처럼 보이는데,
+   * 이 오르내림이 그 사이를 메워 걷는 것처럼 읽히게 한다.
+   */
+  const stridePhase = Math.PI * WALK_CONFIG.fps * walkTime
+  // 한 걸음에 한 번 오르내린다.
+  const bobPercent = moving ? -Math.abs(Math.sin(stridePhase)) * BOB_PERCENT : 0
+  // 좌우 기울기는 두 걸음에 한 번 왕복한다.
+  const swayDegrees = moving ? Math.sin(stridePhase) * SWAY_DEGREES : 0
+
+  /*
+   * 방향이 바뀌면 그림이 한 프레임 만에 갈아끼워져 툭 튀어 보인다.
+   * 바뀐 직후 몸을 한 번 눌렀다 펴서(스쿼시) 그 순간을 덮는다.
+   * 이 컴포넌트는 매 프레임 다시 그려지므로 시각을 직접 읽어 진행도를 구한다.
+   */
+  const turn = useRef({ direction, at: 0 })
+  if (turn.current.direction !== direction) {
+    turn.current = { direction, at: performance.now() }
+  }
+  const turnProgress = Math.min(1, (performance.now() - turn.current.at) / (TURN_SECONDS * 1000))
+  // 눌렸다(양수) 펴지는(음수) 한 번의 출렁임. 끝에서는 0 으로 잦아든다.
+  const squash = (1 - turnProgress) * Math.cos(turnProgress * Math.PI * 1.5) * TURN_SQUASH
+
   // 몸은 방향별 그림을 그대로 쓴다. 측면 표정만 반전하므로 말풍선·날짜는 영향받지 않는다.
   const unflip: CSSProperties = {}
 
@@ -138,57 +180,66 @@ export function WalkingCharacter({
       onClick={onClick}
       className={selected ? 'walker walker--selected' : 'walker'}
     >
+      {/* 몸·표정·눈을 한 겹으로 묶어 함께 흔든다. 말풍선·날짜·그림자는 밖에 남는다. */}
       <div
-        className="walker__body"
+        className="walker__art"
         style={{
-          aspectRatio: `${sheet.cellW} / ${sheet.cellH}`,
-          ...cellStyle(sheet.src, sheet.cols, sheet.rows, frameIndex),
-          clipPath: sideHead && neck ? `inset(${((neck.y - 1) / sheet.cellH) * 100}% 0 0 0)` : undefined,
+          transform:
+            `translateY(${bobPercent}%) rotate(${swayDegrees}deg) scale(${1 + squash}, ${1 - squash})`,
         }}
-      />
-
-      {sideHead && sideExpression && sideSrc && (
-        <svg className="walker__side-face" aria-hidden="true" focusable="false"
-          data-side-expression={emotion} data-direction={direction}
-          viewBox={`${sideExpression.head.x} ${sideExpression.head.y} ${sideExpression.head.w} ${sideExpression.head.h + 2}`}
-          preserveAspectRatio="none" style={sideHead}>
-          <image href={sideSrc} width={sideExpression.width} height={sideExpression.height} />
-        </svg>
-      )}
-
-      {expression && (
-        <img
-          className="walker__face"
-          src={expression.src}
-          alt=""
-          draggable={false}
-          style={{ left: expression.left, top: expression.top, width: expression.width }}
-        />
-      )}
-
-      {/* 눈 — 몸과 같은 박스 안에 있으므로 위치·크기·반전을 그대로 공유한다 */}
-      {sheet.eyes !== 'none' && (
+      >
         <div
-          className="walker__eyes"
+          className="walker__body"
           style={{
-            ...facePercent,
-            width: `${halfEye ? eyeWidthPercent / 2 : eyeWidthPercent}%`,
-            aspectRatio: halfEye
-              ? `${eyesSheet.cellW / 2} / ${eyesSheet.cellH}`
-              : `${eyesSheet.cellW} / ${eyesSheet.cellH}`,
+            aspectRatio: `${sheet.cellW} / ${sheet.cellH}`,
+            ...cellStyle(sheet.src, sheet.cols, sheet.rows, frameIndex),
+            clipPath: sideHead && neck ? `inset(${((neck.y - 1) / sheet.cellH) * 100}% 0 0 0)` : undefined,
           }}
-        >
-          <div
-            className="walker__eyes-inner"
-            style={{
-              width: halfEye ? '200%' : '100%',
-              left: halfEye ? '-100%' : '0',
-              aspectRatio: `${eyesSheet.cellW} / ${eyesSheet.cellH}`,
-              ...cellStyle(eyesSheet.src, eyesSheet.cols, eyesSheet.rows, eyeIndex),
-            }}
+        />
+
+        {sideHead && sideExpression && sideSrc && (
+          <svg className="walker__side-face" aria-hidden="true" focusable="false"
+            data-side-expression={emotion} data-direction={direction}
+            viewBox={`${sideExpression.head.x} ${sideExpression.head.y} ${sideExpression.head.w} ${sideExpression.head.h + 2}`}
+            preserveAspectRatio="none" style={sideHead}>
+            <image href={sideSrc} width={sideExpression.width} height={sideExpression.height} />
+          </svg>
+        )}
+
+        {expression && (
+          <img
+            className="walker__face"
+            src={expression.src}
+            alt=""
+            draggable={false}
+            style={{ left: expression.left, top: expression.top, width: expression.width }}
           />
-        </div>
-      )}
+        )}
+
+        {/* 눈 — 몸과 같은 박스 안에 있으므로 위치·크기·반전을 그대로 공유한다 */}
+        {sheet.eyes !== 'none' && (
+          <div
+            className="walker__eyes"
+            style={{
+              ...facePercent,
+              width: `${halfEye ? eyeWidthPercent / 2 : eyeWidthPercent}%`,
+              aspectRatio: halfEye
+                ? `${eyesSheet.cellW / 2} / ${eyesSheet.cellH}`
+                : `${eyesSheet.cellW} / ${eyesSheet.cellH}`,
+            }}
+          >
+            <div
+              className="walker__eyes-inner"
+              style={{
+                width: halfEye ? '200%' : '100%',
+                left: halfEye ? '-100%' : '0',
+                aspectRatio: `${eyesSheet.cellW} / ${eyesSheet.cellH}`,
+                ...cellStyle(eyesSheet.src, eyesSheet.cols, eyesSheet.rows, eyeIndex),
+              }}
+            />
+          </div>
+        )}
+      </div>
 
       {bubble && (
         <span className="walker__bubble" style={unflip}>

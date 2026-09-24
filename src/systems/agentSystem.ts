@@ -1,5 +1,5 @@
 import type { EmotionId, Facing, WorldDefinition } from '@/types'
-import { pickFacing, worldDistance } from './walkSystem'
+import { pickFacing, speedRatio, worldDistance } from './walkSystem'
 import { furthestWalkablePoint, isWalkable } from './worldSystem'
 
 export type AgentPhase = 'IDLE' | 'WALK' | 'TALK'
@@ -134,7 +134,8 @@ export function stepAgents(
         agent.walkTime = 0
         agent.timer = randomBetween(AGENT_CONFIG.idleMin, AGENT_CONFIG.idleMax, random)
       } else {
-        const step = Math.min(distance, speed * delta)
+        // 출발·도착을 부드럽게 한다. walkTime 은 아래에서 더하므로 아직 이번 걸음 이전 값이다.
+        const step = Math.min(distance, speed * speedRatio(agent.walkTime, distance) * delta)
         const ratio = step / distance
         agent.x += dx * ratio
         agent.y += dy * ratio
