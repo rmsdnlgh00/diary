@@ -50,18 +50,29 @@ interface Props {
   equippedItems?: EquippedItems
 }
 
-/** 스프라이트 시트에서 한 칸만 보여주는 배경 스타일 */
+/**
+ * 스프라이트 시트에서 한 칸만 보여주는 배경 스타일.
+ *
+ * 같은 값을 CSS 변수로도 내보낸다. 실루엣 위에 빛을 얹을 때
+ * 이 칸을 그대로 mask 로 다시 써야 하기 때문이다.
+ */
 function cellStyle(src: string, cols: number, rows: number, index: number): CSSProperties {
   const col = index % cols
   const row = Math.floor(index / cols)
+  const image = `url(${src})`
+  const size = `${cols * 100}% ${rows * 100}%`
+  const position = `${cols > 1 ? (col / (cols - 1)) * 100 : 0}% ${
+    rows > 1 ? (row / (rows - 1)) * 100 : 0
+  }%`
   return {
-    backgroundImage: `url(${src})`,
-    backgroundSize: `${cols * 100}% ${rows * 100}%`,
-    backgroundPosition: `${cols > 1 ? (col / (cols - 1)) * 100 : 0}% ${
-      rows > 1 ? (row / (rows - 1)) * 100 : 0
-    }%`,
+    backgroundImage: image,
+    backgroundSize: size,
+    backgroundPosition: position,
     backgroundRepeat: 'no-repeat',
-  }
+    '--cell-image': image,
+    '--cell-size': size,
+    '--cell-position': position,
+  } as CSSProperties
 }
 
 export function WalkingCharacter({

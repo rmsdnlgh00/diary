@@ -42,14 +42,60 @@
 
 /* ---------- 걷는 캐릭터 ---------- */
 
-/* 몸을 흔들 때 발이 땅에서 떨어지지 않도록 바닥을 축으로 돈다. */
+/*
+ * 캐릭터 색을 배경 쪽으로 당긴다.
+ *
+ * 배경 잔디는 명도가 0.55~0.69 의 좁은 띠 안에 있는데 캐릭터는 0.27 까지
+ * 내려간다. 배경에 없는 어두운 명도대를 캐릭터만 갖고 있는 것이 색으로
+ * 튀어 보이는 주된 이유다. contrast 를 낮춰 어두운 쪽을 올리면 밝은 쪽까지
+ * 같이 눌려 형태가 죽으므로, 전체 보정은 약하게만 하고 어두운 영역은
+ * 아래 ::after 의 screen 합성으로 따로 올린다.
+ */
 .walker__art {
   transform-origin: 50% 100%;
+  filter: saturate(0.9) contrast(0.94) brightness(1.02);
 }
 
 .walker__body {
+  position: relative;
   width: 100%;
   image-rendering: auto;
+}
+
+/*
+ * 실루엣 안쪽에만 빛을 얹는다.
+ *
+ * 같은 스프라이트 칸을 mask 로 다시 써서 몸 밖으로 새지 않게 한다.
+ * screen 은 어두운 값을 크게 올리고 밝은 값은 거의 건드리지 않아서,
+ * 머리·신발 같은 어두운 덩어리만 배경 명도대 쪽으로 끌어올린다.
+ * 아래쪽을 더 진하게 둔 것은 잔디에 반사된 빛을 흉내 낸 것이다.
+ */
+.walker__body::before,
+.walker__body::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  mask-image: var(--cell-image);
+  mask-size: var(--cell-size);
+  mask-position: var(--cell-position);
+  mask-repeat: no-repeat;
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+/* 잔디에 반사돼 아래에서 올라오는 초록빛. 전체에 옅게 깔아 어두운 덩어리를 들어올린다. */
+.walker__body::after {
+  background: linear-gradient(
+    to top,
+    rgba(126, 156, 74, 0.46) 0%,
+    rgba(126, 156, 74, 0.3) 38%,
+    rgba(126, 156, 74, 0.24) 100%
+  );
+}
+
+/* 배경 그림의 햇빛은 오른쪽 위에서 온다. 같은 방향에서 따뜻한 빛을 얹는다. */
+.walker__body::before {
+  background: linear-gradient(200deg, rgba(255, 236, 178, 0.34) 0%, rgba(255, 236, 178, 0) 52%);
 }
 
 .walker__eyes {
