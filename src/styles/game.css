@@ -52,7 +52,7 @@
  * 아래 ::after 의 screen 합성으로 따로 올린다.
  */
 .walker__art {
-  transform-origin: 50% 100%;
+  /* transform-origin 은 프레임마다 발 위치가 달라 컴포넌트에서 인라인으로 준다. */
   filter: saturate(0.9) contrast(0.94) brightness(1.02);
 }
 
@@ -299,7 +299,16 @@
   z-index: -1;
   width: 86%;
   aspect-ratio: 2.4 / 1;
-  transform: translate(calc(-50% - 9%), -30%) skewX(-24deg);
+  /*
+   * 세로 -50% 라야 타원의 중심이 발 기준점에 정확히 온다.
+   * 이보다 작으면 그림자가 발보다 아래에 그려져 캐릭터가 떠 보인다.
+   *
+   * --shadow-lift 는 걸을 때 몸이 떠오른 정도(0~1)다.
+   * 몸이 뜨면 그림자를 줄이고 옅게 해야 땅에 붙어 있는 것으로 읽힌다.
+   */
+  transform: translate(calc(-50% - 9%), -50%) skewX(-24deg)
+    scale(calc(1 - var(--shadow-lift, 0) * 0.14));
+  opacity: calc(1 - var(--shadow-lift, 0) * 0.28);
   background: radial-gradient(
     ellipse at center,
     rgba(70, 88, 42, 0.42) 0%,

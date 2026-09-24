@@ -18,6 +18,8 @@ interface Props {
   /** y 기반 자동 계산 대신 직접 지정 */
   zIndex?: number
   shadow?: boolean
+  /** 몸이 떠오른 정도(0~1). 그림자를 그만큼 줄이고 옅게 한다. */
+  shadowLift?: number
   onClick?: () => void
   label?: string
   className?: string
@@ -41,6 +43,7 @@ export function WorldObject({
   flat = false,
   zIndex,
   shadow = false,
+  shadowLift = 0,
   onClick,
   label,
   className = '',
@@ -72,7 +75,13 @@ export function WorldObject({
       {shadow && (
         <span
           className="world-object__shadow"
-          style={{ left: `${anchorX * 100}%`, top: `${anchorY * 100}%` }}
+          style={
+            {
+              left: `${anchorX * 100}%`,
+              top: `${anchorY * 100}%`,
+              '--shadow-lift': shadowLift,
+            } as CSSProperties
+          }
         />
       )}
       {children}

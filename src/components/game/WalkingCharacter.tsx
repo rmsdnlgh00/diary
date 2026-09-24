@@ -19,7 +19,7 @@ export const CHARACTER_HEIGHT_FRACTION = 0.08
 /** 16:9 이므로 세로 비율을 가로 단위로 환산한다 */
 const HEIGHT_TO_WIDTH_UNITS = 9 / 16
 /** 걸을 때 몸이 떠오르는 높이. 스프라이트 셀 높이 대비 %. */
-const BOB_PERCENT = 2.2
+const BOB_PERCENT = 1.4
 /** 걸을 때 몸이 좌우로 기우는 각도 */
 const SWAY_DEGREES = 1.1
 /** 방향이 바뀐 뒤 출렁임이 잦아들 때까지의 시간(초) */
@@ -157,7 +157,8 @@ export function WalkingCharacter({
    */
   const stridePhase = Math.PI * WALK_CONFIG.fps * walkTime
   // 한 걸음에 한 번 오르내린다.
-  const bobPercent = moving ? -Math.abs(Math.sin(stridePhase)) * BOB_PERCENT : 0
+  const lift = moving ? Math.abs(Math.sin(stridePhase)) : 0
+  const bobPercent = -lift * BOB_PERCENT
   // 좌우 기울기는 두 걸음에 한 번 왕복한다.
   const swayDegrees = moving ? Math.sin(stridePhase) * SWAY_DEGREES : 0
 
@@ -187,6 +188,7 @@ export function WalkingCharacter({
       scale={frame.scale * zoom}
       depthConfig={depthConfig}
       shadow
+      shadowLift={lift}
       label={label}
       onClick={onClick}
       className={selected ? 'walker walker--selected' : 'walker'}
@@ -195,6 +197,8 @@ export function WalkingCharacter({
       <div
         className="walker__art"
         style={{
+          // 발 기준점을 축으로 돌고 눌려야 발이 땅에서 떨어지지 않는다.
+          transformOrigin: `${anchorX * 100}% ${anchorY * 100}%`,
           transform:
             `translateY(${bobPercent}%) rotate(${swayDegrees}deg) scale(${1 + squash}, ${1 - squash})`,
         }}
