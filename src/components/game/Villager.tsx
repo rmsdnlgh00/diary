@@ -5,6 +5,7 @@ import type { DepthConfig } from '@/systems/depthSystem'
 import { directionOf, frameAt } from '@/systems/walkSystem'
 import type { DiaryCharacterData } from '@/types'
 import { WalkingCharacter } from './WalkingCharacter'
+import { WALK_TEST, WalkTestCharacter } from './WalkTestCharacter'
 
 interface Props {
   agent: Agent
@@ -43,6 +44,19 @@ export function Villager({
 
   const day = Number(character.diaryDate.slice(8, 10))
   const speaking = isSpeaking(agent)
+
+  // 새로 렌더한 걷기 프레임을 확인하는 동안만 켜 둔다. WalkTestCharacter 참고.
+  if (WALK_TEST) {
+    return (
+      <WalkTestCharacter
+        x={agent.x}
+        y={agent.y}
+        depthConfig={depthConfig}
+        label={`${day}일의 캐릭터`}
+        onClick={() => onSelect(character.id)}
+      />
+    )
+  }
 
   return (
     <WalkingCharacter
