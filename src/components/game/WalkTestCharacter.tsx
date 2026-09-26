@@ -42,15 +42,46 @@ const HEIGHT_TO_WIDTH_UNITS = 9 / 16
 const framePath = (index: number): string =>
   `/assets/characters/male/walk/front/${String(index + 1).padStart(4, '0')}.png`
 
-/** 첫 바퀴에서 깜빡이지 않도록 한 번만 미리 받아 둔다. */
-let preloaded = false
-function preload() {
-  if (preloaded || typeof window === 'undefined') return
-  preloaded = true
-  for (let i = 0; i < FRAME_COUNT; i += 1) {
-    const image = new Image()
-    image.src = framePath(i)
+/*
+ * 32 장을 미리 받아 두고, 다 받기 전에는 재생을 시작하지 않는다.
+ *
+ * 받아 온 Image 를 배열에 붙들고 있는 것이 중요하다. 참조를 버리면
+ * 디코드된 비트맵이 회수될 수 있고, 그러면 src 를 바꾸는 순간 그 프레임이
+ * 아직 준비되지 않아 화면이 한 칸 비면서 깜빡인다.
+ */
+const preloadedImages: HTMLImageElement[] = []
+let preloadStarted = false
+const readyWaiters = new Set<() => void>()
+let readyCount = 0
+
+function preload(onReady: () => void): () => void {
+  if (typeof window === 'undefined') return () => {}
+  if (readyCount >= FRAME_COUNT) {
+    onReady()
+    return () => {}
   }
+  readyWaiters.add(onReady)
+
+  if (!preloadStarted) {
+    preloadStarted = true
+    for (let i = 0; i < FRAME_COUNT; i += 1) {
+      const image = new Image()
+      const done = () => {
+        readyCount += 1
+        if (readyCount >= FRAME_COUNT) {
+          for (const waiter of readyWaiters) waiter()
+          readyWaiters.clear()
+        }
+      }
+      // 한 장이 실패해도 나머지는 계속 돈다.
+      image.onload = done
+      image.onerror = done
+      image.src = framePath(i)
+      preloadedImages.push(image)
+    }
+  }
+
+  return () => readyWaiters.delete(onReady)
 }
 
 interface Props {
@@ -63,15 +94,19 @@ interface Props {
 
 export function WalkTestCharacter({ x, y, depthConfig, label, onClick }: Props) {
   const [frame, setFrame] = useState(0)
+  const [ready, setReady] = useState(false)
+
+  // 32 장이 다 준비된 뒤에 돌리기 시작한다. 그 전에는 첫 장으로 서 있는다.
+  useEffect(() => preload(() => setReady(true)), [])
 
   useEffect(() => {
-    preload()
+    if (!ready) return
     const timer = window.setInterval(
       () => setFrame((f) => (f + 1) % FRAME_COUNT),
       1000 / FPS,
     )
     return () => window.clearInterval(timer)
-  }, [])
+  }, [ready])
 
   // 캔버스가 아니라 캐릭터 키가 화면에서 8% 가 되도록 환산한다.
   const canvasHeight = CHARACTER_HEIGHT_FRACTION / BODY_HEIGHT_RATIO
