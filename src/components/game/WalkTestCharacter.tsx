@@ -28,7 +28,7 @@ const FRAME_COUNT = 32
  * 기존 캐릭터와 같은 크기로 보이게 하려면 이 비율만큼 키워야 한다.
  */
 /** 캐릭터 키가 캔버스 높이에서 차지하는 비율 */
-const BODY_HEIGHT_RATIO = 0.52
+const BODY_HEIGHT_RATIO = 0.5013
 /** 캔버스 위에서 발이 닿는 지점 */
 const FOOT_Y_RATIO = 0.7744
 /** 캔버스 안에서 캐릭터의 가로 중심 */
