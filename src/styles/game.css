@@ -195,19 +195,10 @@
   z-index: 2;
 }
 
-/* 걷기 프레임 확인용 임시 스타일. WalkTestCharacter 와 함께 지운다. */
+/* 걷기 시트 확인용 임시 스타일. WalkTestCharacter 와 함께 지운다. */
 .walk-test__frame {
   display: block;
   width: 100%;
-  height: auto;
-}
-
-/*
- * 그림자 폭은 월드 오브젝트(=캔버스) 기준인데, 이 프레임은 1024px 캔버스에서
- * 캐릭터가 가로로 21% 밖에 안 차지해 그림자가 4 배로 커진다. 캐릭터 폭에 맞춘다.
- */
-.walk-test .world-object__shadow {
-  width: 18%;
 }
 
 /* ---------- background ---------- */

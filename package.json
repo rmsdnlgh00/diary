@@ -10,6 +10,7 @@
     "check:side": "node scripts/check-side-expressions.mjs",
     "pack-sprites": "node scripts/pack-sprites.mjs",
     "pack-side": "node scripts/pack-side-expressions.mjs",
+    "pack-male": "node scripts/pack-male-walk.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
