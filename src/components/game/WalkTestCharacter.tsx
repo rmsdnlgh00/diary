@@ -232,7 +232,7 @@ export function WalkTestCharacter({
         data-moving={moving ? '1' : '0'}
         data-frame={frame}
         style={{
-          aspectRatio: ` / `,
+          aspectRatio: `${active.cellW} / ${active.cellH}`,
           ...cellStyle(active, frame),
         }}
       />
