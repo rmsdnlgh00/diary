@@ -1,5 +1,5 @@
 import type { EmotionId, Facing, WorldDefinition } from '@/types'
-import { pickFacing, speedRatio, worldDistance } from './walkSystem'
+import { WALK_CONFIG, pickFacing, speedRatio, worldDistance } from './walkSystem'
 import { furthestWalkablePoint, isWalkable } from './worldSystem'
 
 export type AgentPhase = 'IDLE' | 'WALK' | 'TALK'
@@ -135,7 +135,7 @@ export function stepAgents(
       const dy = agent.targetY - agent.y
       const distance = worldDistance(agent.x, agent.y, agent.targetX, agent.targetY)
 
-      if (distance <= 0.004) {
+      if (distance <= WALK_CONFIG.arriveEpsilon) {
         agent.x = agent.targetX
         agent.y = agent.targetY
         agent.phase = 'IDLE'

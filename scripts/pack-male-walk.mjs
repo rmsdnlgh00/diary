@@ -125,12 +125,31 @@ const measure = async (urls) =>
             if (x < spanL) spanL = x
             if (x > spanR) spanR = x
           }
+      /*
+       * 두 발이 같은 높이에 있는지. 좌우 반쪽에서 각각 가장 낮은 지점을 재어
+       * 비교한다. 차이가 크면 한 발이 떠 있는 것(스쳐 지나가는 자세)이다.
+       *
+       * 걷기 사이클에서 두 발이 가장 모이는 순간은 한 발로 서 있는 때라
+       * 멈춤 자세로 쓰면 어정쩡해 보인다. 두 발이 다 닿은 프레임 중에서
+       * 골라야 서 있는 것으로 읽힌다.
+       */
+      const mid = (minX + maxX) / 2
+      let lowLeft = -1,
+        lowRight = -1
+      for (let y = maxY; y > maxY - Math.round(height * 0.25); y -= 1)
+        for (let x = 0; x < img.width; x += 1) {
+          if (d[(y * img.width + x) * 4 + 3] <= 40) continue
+          if (x < mid && lowLeft < 0) lowLeft = y
+          if (x >= mid && lowRight < 0) lowRight = y
+        }
       feet.push({
         x: (footL + footR) / 2,
         y: maxY,
         top: minY,
         span: spanR - spanL,
         height,
+        // 0 에 가까울수록 두 발이 같은 높이에 있다.
+        lift: Math.abs(lowLeft - lowRight) / height,
       })
     }
     return { box, feet, size }
@@ -222,8 +241,22 @@ for (const [dir, info] of Object.entries(perDirection)) {
     bodyH: +(((footY - top) * scale)).toFixed(1),
     // 보폭을 키로 나눈 값. 화면 크기와 무관해서 그대로 속도 계산에 쓸 수 있다.
     strideRatio: +(Math.max(...spans) / bodyPx).toFixed(4),
-    // 두 발이 가장 모인 프레임. 서 있을 때 이 자세로 멈춘다.
-    idleFrame: spans.indexOf(Math.min(...spans)),
+    /*
+     * 서 있을 때 쓸 프레임.
+     *
+     * 두 발이 다 땅에 닿은 프레임(lift 가 작은 쪽) 중에서 보폭이 가장 좁은
+     * 것을 고른다. 단순히 보폭만 보면 한 발로 서 있는 자세가 뽑혀서
+     * 멈췄을 때 어정쩡해 보인다.
+     */
+    idleFrame: (() => {
+      const lifts = info.feet.map((f) => f.lift)
+      const planted = [...lifts].sort((a, b) => a - b)[Math.floor(lifts.length * 0.3)]
+      const candidates = info.feet
+        .map((f, i) => ({ i, span: f.span, lift: f.lift }))
+        .filter((c) => c.lift <= planted)
+      const best = candidates.reduce((a, b) => (b.span < a.span ? b : a))
+      return best.i
+    })(),
     /*
      * 두 발이 모이는 지점은 한 사이클에 두 번 있다(걸음마다 한 번).
      * 멈출 때 둘 중 가까운 쪽까지만 걸어가면 되므로 최대 반 사이클이면 끝난다.

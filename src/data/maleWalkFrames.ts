@@ -56,7 +56,7 @@ export const MALE_WALK_SHEETS: Record<WalkDirection, MaleWalkSheet> = {
     footX: 61.5,
     footY: 250.5,
     bodyH: 246.4,
-    idleFrame: 23,
+    idleFrame: 25,
     settleFrames: [0, 23] as const,
   },
   left: {
@@ -80,7 +80,7 @@ export const MALE_WALK_SHEETS: Record<WalkDirection, MaleWalkSheet> = {
     footX: 65.5,
     footY: 247.8,
     bodyH: 244.1,
-    idleFrame: 16,
+    idleFrame: 1,
     settleFrames: [1, 16] as const,
   },
 }
