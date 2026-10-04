@@ -1,15 +1,35 @@
+import { MALE_WALK_FRAMES_PER_STEP, MALE_WALK_STRIDE_RATIO } from '@/data/maleWalkFrames'
 import type { Facing, WalkDirection } from '@/types'
+
+/**
+ * 3D 렌더 걷기의 재생 속도.
+ *
+ * 32 프레임이 두 걸음이므로 한 걸음은 16 프레임이다. 24fps 면 한 걸음이
+ * 0.67 초로 사람이 걷는 속도에 가깝다. 아래 speed 가 이 값에서 계산되므로
+ * 여기만 바꾸면 걸음과 이동이 함께 맞춰진다.
+ */
+export const MALE_WALK_FPS = 24
+
+/** 화면에서 캐릭터 키가 마을 전체 높이의 몇 %인지. WalkingCharacter 와 같은 값. */
+const CHARACTER_HEIGHT_FRACTION = 0.08
+/** 16:9 이므로 세로 비율을 가로 단위로 환산한다. 월드 좌표는 가로 기준이다. */
+const HEIGHT_TO_WIDTH_UNITS = 9 / 16
+
+/**
+ * 한 걸음에 나아가는 거리 (월드 가로 길이 대비).
+ * 보폭은 렌더 원본에서 실측한 값이라 pack-male 을 다시 돌리면 같이 갱신된다.
+ */
+const STRIDE =
+  CHARACTER_HEIGHT_FRACTION * HEIGHT_TO_WIDTH_UNITS * MALE_WALK_STRIDE_RATIO
 
 export const WALK_CONFIG = {
   /**
    * 초당 이동 거리 (월드 가로 길이 대비).
    *
-   * 원래는 보폭에 맞춰 속도를 정해야 발이 안 미끄러지는데,
-   * 지금 그림에는 걸음 자체가 없어서(프레임 간 다리 벌어짐 차이가 2~10%p뿐,
-   * 정상 걷기는 35%p) 맞출 보폭이 없다. 그래서 보기 좋은 값으로만 잡아 둔다.
-   * 제대로 된 걷기 4프레임이 들어오면 그때 fps 와 함께 다시 맞춘다.
+   * 보폭 × 초당 걸음 수. 이렇게 맞춰야 발이 땅을 잡고 걷는 것으로 보인다.
+   * 둘이 어긋나면 걸음보다 몸이 빨라져 발이 미끄러진다.
    */
-  speed: 0.032,
+  speed: STRIDE * (MALE_WALK_FPS / MALE_WALK_FRAMES_PER_STEP),
   /**
    * 걷기 프레임 재생 속도.
    * 받은 그림이 제대로 된 걷기 사이클이 아니라 프레임마다 작화 편차만 있어서,

@@ -111,7 +111,27 @@ const measure = async (urls) =>
           if (x < footL) footL = x
           if (x > footR) footR = x
         }
-      feet.push({ x: (footL + footR) / 2, y: maxY, top: minY })
+      /*
+       * 두 발이 벌어진 폭. 발 영역(아래 8%)에서 잰다.
+       * 가장 벌어진 프레임의 폭이 한 걸음에 나아가는 거리(보폭)고,
+       * 가장 좁은 프레임이 두 발이 모인 자세라 서 있을 때 쓰기 좋다.
+       */
+      const height = maxY - minY
+      let spanL = img.width,
+        spanR = -1
+      for (let y = maxY - Math.round(height * 0.08); y <= maxY; y += 1)
+        for (let x = 0; x < img.width; x += 1)
+          if (d[(y * img.width + x) * 4 + 3] > 40) {
+            if (x < spanL) spanL = x
+            if (x > spanR) spanR = x
+          }
+      feet.push({
+        x: (footL + footR) / 2,
+        y: maxY,
+        top: minY,
+        span: spanR - spanL,
+        height,
+      })
     }
     return { box, feet, size }
   }, urls)
@@ -192,12 +212,18 @@ for (const [dir, info] of Object.entries(perDirection)) {
   const footX = info.feet.reduce((a, f) => a + f.x, 0) / info.feet.length
   const footY = Math.max(...info.feet.map((f) => f.y))
   const top = Math.min(...info.feet.map((f) => f.top))
+  const spans = info.feet.map((f) => f.span)
+  const bodyPx = info.feet.reduce((a, f) => a + f.height, 0) / info.feet.length
   packed[dir] = {
     rows,
     cellW,
     footX: +(((footX - crop.x) * scale)).toFixed(1),
     footY: +(((footY - crop.y) * scale)).toFixed(1),
     bodyH: +(((footY - top) * scale)).toFixed(1),
+    // 보폭을 키로 나눈 값. 화면 크기와 무관해서 그대로 속도 계산에 쓸 수 있다.
+    strideRatio: +(Math.max(...spans) / bodyPx).toFixed(4),
+    // 두 발이 가장 모인 프레임. 서 있을 때 이 자세로 멈춘다.
+    idleFrame: spans.indexOf(Math.min(...spans)),
   }
 
   const before = info.urls.reduce((a, _, i) => a + fs.statSync(readFrames(dir)[i]).size, 0)
@@ -226,9 +252,27 @@ const lines = [
   '  footY: number',
   '  /** 셀 안에서 캐릭터 키 (px). 화면 표시 크기 환산에 쓴다. */',
   '  bodyH: number',
+  '  /** 두 발이 가장 모인 프레임. 서 있을 때 이 자세로 멈춘다. */',
+  '  idleFrame: number',
   '}',
   '',
   `export const MALE_WALK_FRAME_COUNT = ${Object.values(perDirection)[0].count}`,
+  '',
+  '/**',
+  ' * 보폭을 키로 나눈 값. 측면에서 잰 것이 실제 보폭이다.',
+  ' * 정면·후면은 발이 화면 안쪽으로 움직여 보폭이 작게 측정된다.',
+  ' *',
+  ' * 이동 속도를 이 값에 맞춰야 발이 미끄러지지 않는다.',
+  ' * walkSystem 의 WALK_CONFIG.speed 가 이 값에서 계산된다.',
+  ' */',
+  `export const MALE_WALK_STRIDE_RATIO = ${(
+    (packed.left?.strideRatio ?? 0) && (packed.right?.strideRatio ?? 0)
+      ? (packed.left.strideRatio + packed.right.strideRatio) / 2
+      : Math.max(...Object.values(packed).map((p) => p.strideRatio))
+  ).toFixed(4)}`,
+  '',
+  '/** 한 걸음에 쓰이는 프레임 수. 한 사이클은 두 걸음이다. */',
+  `export const MALE_WALK_FRAMES_PER_STEP = ${Object.values(perDirection)[0].count / 2}`,
   '',
   'export const MALE_WALK_SHEETS: Record<WalkDirection, MaleWalkSheet> = {',
 ]
@@ -243,11 +287,14 @@ for (const [dir, p] of Object.entries(packed)) {
     `    footX: ${p.footX},`,
     `    footY: ${p.footY},`,
     `    bodyH: ${p.bodyH},`,
+    `    idleFrame: ${p.idleFrame},`,
     '  },',
   )
 }
 lines.push('}', '')
 fs.writeFileSync(TARGET, lines.join('\n'))
 console.log(`\n${path.relative(ROOT, TARGET)} 갱신 완료  (셀 ${first.cellW}x${CELL_H})`)
+for (const [dir, p] of Object.entries(packed))
+  console.log(`  ${dir.padEnd(6)} 보폭/키 ${p.strideRatio}  서 있는 프레임 ${p.idleFrame}`)
 
 await browser.close()

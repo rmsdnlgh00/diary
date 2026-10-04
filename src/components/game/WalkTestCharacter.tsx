@@ -1,5 +1,6 @@
 import { type CSSProperties, useEffect, useState } from 'react'
 import { MALE_WALK_FRAME_COUNT, MALE_WALK_SHEETS } from '@/data/maleWalkFrames'
+import { MALE_WALK_FPS } from '@/systems/walkSystem'
 import type { DepthConfig } from '@/systems/depthSystem'
 import type { WalkDirection } from '@/types'
 import { WorldObject } from './WorldObject'
@@ -19,8 +20,6 @@ import { WorldObject } from './WorldObject'
  */
 export const WALK_TEST = true
 
-/** 재생 속도 */
-const FPS = 12
 
 /** 기존 캐릭터와 맞춘 화면상 키 (마을 전체 높이 대비) */
 const CHARACTER_HEIGHT_FRACTION = 0.08
@@ -88,28 +87,43 @@ interface Props {
   x: number
   y: number
   direction: WalkDirection
+  /** 걷기 시작 후 흐른 시간(초). 멈춰 있으면 0 이다. */
+  walkTime: number
+  /** 걷는 중일 때만 프레임을 돌린다. */
+  moving: boolean
   depthConfig: DepthConfig
   label?: string
   onClick?: () => void
 }
 
-export function WalkTestCharacter({ x, y, direction, depthConfig, label, onClick }: Props) {
-  const [frame, setFrame] = useState(0)
+export function WalkTestCharacter({
+  x,
+  y,
+  direction,
+  walkTime,
+  moving,
+  depthConfig,
+  label,
+  onClick,
+}: Props) {
   const [ready, setReady] = useState(false)
 
-  // 시트 네 장이 다 준비된 뒤에 돌리기 시작한다. 그 전에는 첫 장으로 서 있는다.
+  // 시트 네 장이 다 준비된 뒤에 보여준다.
   useEffect(() => preload(() => setReady(true)), [])
 
-  useEffect(() => {
-    if (!ready) return
-    const timer = window.setInterval(
-      () => setFrame((f) => (f + 1) % MALE_WALK_FRAME_COUNT),
-      1000 / FPS,
-    )
-    return () => window.clearInterval(timer)
-  }, [ready])
-
   const sheet = MALE_WALK_SHEETS[direction]
+
+  /*
+   * 프레임을 타이머가 아니라 walkTime 에서 뽑는다.
+   *
+   * 타이머로 돌리면 서 있는 캐릭터도 계속 걷는 모양이 된다. walkTime 은
+   * 걷는 동안에만 쌓이고 멈추면 0 으로 돌아가므로, 이렇게 하면 멈춤과
+   * 걸음이 저절로 맞는다. 이동과 같은 시계를 쓰니 발도 어긋나지 않는다.
+   */
+  const frame =
+    moving && ready
+      ? Math.floor(walkTime * MALE_WALK_FPS) % MALE_WALK_FRAME_COUNT
+      : sheet.idleFrame
   // 셀 픽셀 -> 월드 좌표 환산. 캐릭터 키가 화면 높이의 8% 가 되도록 맞춘다.
   const pxToWorld = (CHARACTER_HEIGHT_FRACTION * HEIGHT_TO_WIDTH_UNITS) / sheet.bodyH
   const widthWorld = sheet.cellW * pxToWorld
@@ -129,6 +143,9 @@ export function WalkTestCharacter({ x, y, direction, depthConfig, label, onClick
     >
       <div
         className="walk-test__frame"
+        // 걷는 중인지 밖에서 확인할 수 있게 남겨 둔다. 검증용이다.
+        data-moving={moving ? '1' : '0'}
+        data-frame={frame}
         style={{
           aspectRatio: `${sheet.cellW} / ${sheet.cellH}`,
           ...cellStyle(direction, frame),

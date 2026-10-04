@@ -52,6 +52,8 @@ export function Villager({
         x={agent.x}
         y={agent.y}
         direction={direction}
+        walkTime={agent.walkTime}
+        moving={agent.phase === 'WALK'}
         depthConfig={depthConfig}
         label={`${day}일의 캐릭터`}
         onClick={() => onSelect(character.id)}
