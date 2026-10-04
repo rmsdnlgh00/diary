@@ -1,6 +1,10 @@
-import { type CSSProperties, useEffect, useState } from 'react'
-import { MALE_WALK_FRAME_COUNT, MALE_WALK_SHEETS } from '@/data/maleWalkFrames'
-import { MALE_WALK_FPS } from '@/systems/walkSystem'
+import { type CSSProperties, useEffect, useRef, useState } from 'react'
+import {
+  MALE_WALK_FRAME_COUNT,
+  MALE_WALK_FRAMES_PER_STEP,
+  MALE_WALK_SHEETS,
+} from '@/data/maleWalkFrames'
+import { MALE_WALK_FPS, MALE_WALK_STRIDE } from '@/systems/walkSystem'
 import type { DepthConfig } from '@/systems/depthSystem'
 import type { WalkDirection } from '@/types'
 import { WorldObject } from './WorldObject'
@@ -19,7 +23,6 @@ import { WorldObject } from './WorldObject'
  * 확인이 끝나면 false 로 되돌리거나 이 파일과 함께 지운다.
  */
 export const WALK_TEST = true
-
 
 /** 기존 캐릭터와 맞춘 화면상 키 (마을 전체 높이 대비) */
 const CHARACTER_HEIGHT_FRACTION = 0.08
@@ -83,12 +86,22 @@ function preload(onReady: () => void): () => void {
   return () => readyWaiters.delete(onReady)
 }
 
+/** 멈춘 뒤 두 발을 모으는 데 쓰는 시간. 프레임 수에 비례해서 정한다. */
+const settleSeconds = (frames: number) => frames / MALE_WALK_FPS
+
+/** 두 프레임 사이의 최단 거리와 방향. 뒤로 가는 쪽이 가까우면 뒤로 간다. */
+function shortestStep(from: number, to: number): { steps: number; sign: number } {
+  const forward = (to - from + MALE_WALK_FRAME_COUNT) % MALE_WALK_FRAME_COUNT
+  const backward = MALE_WALK_FRAME_COUNT - forward
+  return forward <= backward ? { steps: forward, sign: 1 } : { steps: backward, sign: -1 }
+}
+
 interface Props {
   x: number
   y: number
   direction: WalkDirection
-  /** 걷기 시작 후 흐른 시간(초). 멈춰 있으면 0 이다. */
-  walkTime: number
+  /** 걷기 시작 후 실제로 나아간 거리. 멈춰 있으면 0 이다. */
+  walkDistance: number
   /** 걷는 중일 때만 프레임을 돌린다. */
   moving: boolean
   depthConfig: DepthConfig
@@ -100,7 +113,7 @@ export function WalkTestCharacter({
   x,
   y,
   direction,
-  walkTime,
+  walkDistance,
   moving,
   depthConfig,
   label,
@@ -112,18 +125,55 @@ export function WalkTestCharacter({
   useEffect(() => preload(() => setReady(true)), [])
 
   const sheet = MALE_WALK_SHEETS[direction]
+  const lastWalkFrame = useRef(sheet.idleFrame)
+  const settle = useRef<{ at: number; from: number; steps: number; sign: number } | null>(null)
 
   /*
-   * 프레임을 타이머가 아니라 walkTime 에서 뽑는다.
+   * 프레임을 시간이 아니라 '걸은 거리'로 고른다.
    *
-   * 타이머로 돌리면 서 있는 캐릭터도 계속 걷는 모양이 된다. walkTime 은
-   * 걷는 동안에만 쌓이고 멈추면 0 으로 돌아가므로, 이렇게 하면 멈춤과
-   * 걸음이 저절로 맞는다. 이동과 같은 시계를 쓰니 발도 어긋나지 않는다.
+   * 시간으로 고르면 가속·감속 중에 다리는 제 속도로 움직이는데 몸은
+   * 느려서 발이 미끄러진다. 거리로 고르면 몸이 느려질 때 다리도 같이
+   * 느려지므로 어떤 속도에서도 발이 땅을 잡는다.
    */
-  const frame =
-    moving && ready
-      ? Math.floor(walkTime * MALE_WALK_FPS) % MALE_WALK_FRAME_COUNT
-      : sheet.idleFrame
+  const walkFrame =
+    Math.floor((walkDistance / MALE_WALK_STRIDE) * MALE_WALK_FRAMES_PER_STEP) %
+    MALE_WALK_FRAME_COUNT
+
+  /*
+   * 멈출 때 바로 서 있는 자세로 갈아끼우면 그림이 툭 튄다.
+   * 멈춘 자리에서 두 발이 모이는 지점까지 마저 걸어가 자세를 정리한다.
+   * 앞뒤 중 가까운 쪽으로 가므로 최대 반 걸음이면 끝난다.
+   */
+  if (moving) {
+    lastWalkFrame.current = walkFrame
+    settle.current = null
+  } else if (!settle.current) {
+    const from = lastWalkFrame.current
+    const [a, b] = sheet.settleFrames
+    const toA = shortestStep(from, a)
+    const toB = shortestStep(from, b)
+    const pick = toA.steps <= toB.steps ? toA : toB
+    settle.current = { at: performance.now(), from, ...pick }
+  }
+
+  const settling = settle.current
+  let frame: number
+  if (!ready) {
+    frame = sheet.idleFrame
+  } else if (moving) {
+    frame = walkFrame
+  } else if (settling) {
+    const duration = settleSeconds(settling.steps)
+    const progress =
+      duration > 0 ? Math.min(1, (performance.now() - settling.at) / (duration * 1000)) : 1
+    // 끝으로 갈수록 느려진다. 발을 내려놓고 멈추는 느낌을 준다.
+    const eased = 1 - (1 - progress) ** 2
+    frame =
+      (settling.from + settling.sign * Math.round(eased * settling.steps) + MALE_WALK_FRAME_COUNT) %
+      MALE_WALK_FRAME_COUNT
+  } else {
+    frame = sheet.idleFrame
+  }
   // 셀 픽셀 -> 월드 좌표 환산. 캐릭터 키가 화면 높이의 8% 가 되도록 맞춘다.
   const pxToWorld = (CHARACTER_HEIGHT_FRACTION * HEIGHT_TO_WIDTH_UNITS) / sheet.bodyH
   const widthWorld = sheet.cellW * pxToWorld

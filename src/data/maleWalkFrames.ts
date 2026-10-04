@@ -16,6 +16,8 @@ export interface MaleWalkSheet {
   bodyH: number
   /** 두 발이 가장 모인 프레임. 서 있을 때 이 자세로 멈춘다. */
   idleFrame: number
+  /** 두 발이 모이는 두 지점. 멈출 때 가까운 쪽까지 걸어가 자세를 정리한다. */
+  settleFrames: readonly [number, number]
 }
 
 export const MALE_WALK_FRAME_COUNT = 32
@@ -43,6 +45,7 @@ export const MALE_WALK_SHEETS: Record<WalkDirection, MaleWalkSheet> = {
     footY: 251.9,
     bodyH: 243.2,
     idleFrame: 26,
+    settleFrames: [11, 26] as const,
   },
   back: {
     src: '/assets/characters/male/walk-back.webp',
@@ -54,6 +57,7 @@ export const MALE_WALK_SHEETS: Record<WalkDirection, MaleWalkSheet> = {
     footY: 250.5,
     bodyH: 246.4,
     idleFrame: 23,
+    settleFrames: [0, 23] as const,
   },
   left: {
     src: '/assets/characters/male/walk-left.webp',
@@ -65,6 +69,7 @@ export const MALE_WALK_SHEETS: Record<WalkDirection, MaleWalkSheet> = {
     footY: 248.2,
     bodyH: 240.5,
     idleFrame: 16,
+    settleFrames: [1, 16] as const,
   },
   right: {
     src: '/assets/characters/male/walk-right.webp',
@@ -76,5 +81,6 @@ export const MALE_WALK_SHEETS: Record<WalkDirection, MaleWalkSheet> = {
     footY: 247.8,
     bodyH: 244.1,
     idleFrame: 16,
+    settleFrames: [1, 16] as const,
   },
 }

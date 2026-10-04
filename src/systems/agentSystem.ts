@@ -20,6 +20,13 @@ export interface Agent {
   targetY: number
   /** 걷기 프레임 계산용 누적 시간 */
   walkTime: number
+  /**
+   * 걷기 시작 후 실제로 나아간 거리. 프레임은 이 값으로 고른다.
+   *
+   * 시간으로 고르면 가속·감속 중에 다리 속도와 몸 속도가 어긋나 발이
+   * 미끄러진다. 거리로 고르면 느리게 움직일 때 다리도 느려져 항상 맞는다.
+   */
+  walkDistance: number
   /** 사용자가 직접 보낸 목적지면 배회보다 우선한다 */
   commanded: boolean
   partnerId: string | null
@@ -62,6 +69,7 @@ export function createAgent(
     targetX: x,
     targetY: y,
     walkTime: 0,
+    walkDistance: 0,
     commanded: false,
     partnerId: null,
     talkCooldown: 0,
@@ -112,6 +120,7 @@ export function stepAgents(
     if (agent.phase === 'TALK') {
       agent.timer -= delta
       agent.walkTime = 0
+      agent.walkDistance = 0
       if (agent.timer <= 0) {
         agent.phase = 'IDLE'
         agent.partnerId = null
@@ -132,6 +141,7 @@ export function stepAgents(
         agent.phase = 'IDLE'
         agent.commanded = false
         agent.walkTime = 0
+        agent.walkDistance = 0
         agent.timer = randomBetween(AGENT_CONFIG.idleMin, AGENT_CONFIG.idleMax, random)
       } else {
         // 출발·도착을 부드럽게 한다. walkTime 은 아래에서 더하므로 아직 이번 걸음 이전 값이다.
@@ -141,6 +151,7 @@ export function stepAgents(
         agent.y += dy * ratio
         agent.facing = pickFacing(dx, dy, agent.facing)
         agent.walkTime += delta
+        agent.walkDistance += step
       }
       continue
     }

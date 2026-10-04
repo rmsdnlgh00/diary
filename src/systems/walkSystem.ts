@@ -19,7 +19,7 @@ const HEIGHT_TO_WIDTH_UNITS = 9 / 16
  * 한 걸음에 나아가는 거리 (월드 가로 길이 대비).
  * 보폭은 렌더 원본에서 실측한 값이라 pack-male 을 다시 돌리면 같이 갱신된다.
  */
-const STRIDE =
+export const MALE_WALK_STRIDE =
   CHARACTER_HEIGHT_FRACTION * HEIGHT_TO_WIDTH_UNITS * MALE_WALK_STRIDE_RATIO
 
 export const WALK_CONFIG = {
@@ -29,7 +29,7 @@ export const WALK_CONFIG = {
    * 보폭 × 초당 걸음 수. 이렇게 맞춰야 발이 땅을 잡고 걷는 것으로 보인다.
    * 둘이 어긋나면 걸음보다 몸이 빨라져 발이 미끄러진다.
    */
-  speed: STRIDE * (MALE_WALK_FPS / MALE_WALK_FRAMES_PER_STEP),
+  speed: MALE_WALK_STRIDE * (MALE_WALK_FPS / MALE_WALK_FRAMES_PER_STEP),
   /**
    * 걷기 프레임 재생 속도.
    * 받은 그림이 제대로 된 걷기 사이클이 아니라 프레임마다 작화 편차만 있어서,

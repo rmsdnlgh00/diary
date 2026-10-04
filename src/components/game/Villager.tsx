@@ -52,7 +52,7 @@ export function Villager({
         x={agent.x}
         y={agent.y}
         direction={direction}
-        walkTime={agent.walkTime}
+        walkDistance={agent.walkDistance}
         moving={agent.phase === 'WALK'}
         depthConfig={depthConfig}
         label={`${day}일의 캐릭터`}

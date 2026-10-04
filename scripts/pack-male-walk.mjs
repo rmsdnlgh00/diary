@@ -224,6 +224,20 @@ for (const [dir, info] of Object.entries(perDirection)) {
     strideRatio: +(Math.max(...spans) / bodyPx).toFixed(4),
     // 두 발이 가장 모인 프레임. 서 있을 때 이 자세로 멈춘다.
     idleFrame: spans.indexOf(Math.min(...spans)),
+    /*
+     * 두 발이 모이는 지점은 한 사이클에 두 번 있다(걸음마다 한 번).
+     * 멈출 때 둘 중 가까운 쪽까지만 걸어가면 되므로 최대 반 사이클이면 끝난다.
+     * 하나만 쓰면 최악의 경우 한 사이클을 다 돌아야 해서 어색하게 길어진다.
+     */
+    settleFrames: (() => {
+      const half = Math.floor(spans.length / 2)
+      const firstHalf = spans.slice(0, half)
+      const secondHalf = spans.slice(half)
+      return [
+        firstHalf.indexOf(Math.min(...firstHalf)),
+        half + secondHalf.indexOf(Math.min(...secondHalf)),
+      ]
+    })(),
   }
 
   const before = info.urls.reduce((a, _, i) => a + fs.statSync(readFrames(dir)[i]).size, 0)
@@ -254,6 +268,8 @@ const lines = [
   '  bodyH: number',
   '  /** 두 발이 가장 모인 프레임. 서 있을 때 이 자세로 멈춘다. */',
   '  idleFrame: number',
+  '  /** 두 발이 모이는 두 지점. 멈출 때 가까운 쪽까지 걸어가 자세를 정리한다. */',
+  '  settleFrames: readonly [number, number]',
   '}',
   '',
   `export const MALE_WALK_FRAME_COUNT = ${Object.values(perDirection)[0].count}`,
@@ -288,6 +304,7 @@ for (const [dir, p] of Object.entries(packed)) {
     `    footY: ${p.footY},`,
     `    bodyH: ${p.bodyH},`,
     `    idleFrame: ${p.idleFrame},`,
+    `    settleFrames: [${p.settleFrames.join(', ')}] as const,`,
     '  },',
   )
 }
@@ -295,6 +312,6 @@ lines.push('}', '')
 fs.writeFileSync(TARGET, lines.join('\n'))
 console.log(`\n${path.relative(ROOT, TARGET)} 갱신 완료  (셀 ${first.cellW}x${CELL_H})`)
 for (const [dir, p] of Object.entries(packed))
-  console.log(`  ${dir.padEnd(6)} 보폭/키 ${p.strideRatio}  서 있는 프레임 ${p.idleFrame}`)
+  console.log(`  ${dir.padEnd(6)} 보폭/키 ${p.strideRatio}  서 있는 프레임 ${p.idleFrame}  발 모이는 지점 ${p.settleFrames.join(", ")}`)
 
 await browser.close()
