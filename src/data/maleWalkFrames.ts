@@ -20,6 +20,19 @@ export interface MaleWalkSheet {
   settleFrames: readonly [number, number]
 }
 
+/** 가만히 서서 숨 쉬는 동작. 걷기와 같은 영역에서 잘라 발 위치가 어긋나지 않는다. */
+export interface MaleIdleSheet {
+  src: string
+  cols: number
+  rows: number
+  cellW: number
+  cellH: number
+  frames: number
+  footX: number
+  footY: number
+  bodyH: number
+}
+
 export const MALE_WALK_FRAME_COUNT = 32
 
 /**
@@ -41,7 +54,7 @@ export const MALE_WALK_SHEETS: Record<WalkDirection, MaleWalkSheet> = {
     rows: 4,
     cellW: 123,
     cellH: 256,
-    footX: 65.1,
+    footX: 61.2,
     footY: 251.9,
     bodyH: 243.2,
     idleFrame: 26,
@@ -53,7 +66,7 @@ export const MALE_WALK_SHEETS: Record<WalkDirection, MaleWalkSheet> = {
     rows: 4,
     cellW: 123,
     cellH: 256,
-    footX: 61.5,
+    footX: 61.2,
     footY: 250.5,
     bodyH: 246.4,
     idleFrame: 25,
@@ -65,7 +78,7 @@ export const MALE_WALK_SHEETS: Record<WalkDirection, MaleWalkSheet> = {
     rows: 4,
     cellW: 123,
     cellH: 256,
-    footX: 62.3,
+    footX: 61.2,
     footY: 248.2,
     bodyH: 240.5,
     idleFrame: 16,
@@ -77,10 +90,58 @@ export const MALE_WALK_SHEETS: Record<WalkDirection, MaleWalkSheet> = {
     rows: 4,
     cellW: 123,
     cellH: 256,
-    footX: 65.5,
+    footX: 61.2,
     footY: 247.8,
     bodyH: 244.1,
     idleFrame: 1,
     settleFrames: [1, 16] as const,
+  },
+}
+
+
+export const MALE_IDLE_SHEETS: Record<WalkDirection, MaleIdleSheet> = {
+  front: {
+    src: '/assets/characters/male/idle-front.webp',
+    cols: 8,
+    rows: 2,
+    cellW: 123,
+    cellH: 256,
+    frames: 16,
+    footX: 61.2,
+    footY: 245.5,
+    bodyH: 237.3,
+  },
+  back: {
+    src: '/assets/characters/male/idle-back.webp',
+    cols: 8,
+    rows: 2,
+    cellW: 123,
+    cellH: 256,
+    frames: 16,
+    footX: 61.2,
+    footY: 243.2,
+    bodyH: 236.8,
+  },
+  left: {
+    src: '/assets/characters/male/idle-left.webp',
+    cols: 8,
+    rows: 2,
+    cellW: 123,
+    cellH: 256,
+    frames: 16,
+    footX: 61.2,
+    footY: 247.3,
+    bodyH: 240,
+  },
+  right: {
+    src: '/assets/characters/male/idle-right.webp',
+    cols: 8,
+    rows: 2,
+    cellW: 123,
+    cellH: 256,
+    frames: 16,
+    footX: 61.2,
+    footY: 248.2,
+    bodyH: 242.3,
   },
 }

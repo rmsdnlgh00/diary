@@ -30,9 +30,19 @@ import { fileURLToPath } from 'node:url'
 import puppeteer from 'puppeteer-core'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
-const SRC = `${ROOT}/src/assets/character/male/walk`
 const OUT = `${ROOT}/public/assets/characters/male`
 const TARGET = `${ROOT}/src/data/maleWalkFrames.ts`
+
+/*
+ * 동작별 낱장 폴더.
+ *
+ * 걷기와 서 있기를 같은 잘라내기 영역으로 묶는 것이 중요하다. 영역이 다르면
+ * 셀 안에서 발 위치가 달라져 멈추는 순간 캐릭터가 위아래로 튄다.
+ */
+const CLIPS = [
+  { name: 'walk', src: `${ROOT}/src/assets/character/male/walk` },
+  { name: 'idle', src: `${ROOT}/src/assets/character/idle` },
+]
 
 const DIRECTIONS = ['front', 'back', 'left', 'right']
 const COLS = 8
@@ -52,8 +62,8 @@ const CHROME =
 
 if (!CHROME) throw new Error('Chrome 이 필요합니다. CHROME_PATH 로 경로를 지정해 주세요.')
 
-const readFrames = (dir) => {
-  const folder = `${SRC}/${dir}`
+const readFrames = (src, dir) => {
+  const folder = `${src}/${dir}`
   if (!fs.existsSync(folder)) return []
   return fs
     .readdirSync(folder)
@@ -144,6 +154,14 @@ const measure = async (urls) =>
         }
       feet.push({
         x: (footL + footR) / 2,
+        /*
+         * 몸 전체의 가로 중심.
+         *
+         * 가로 기준점은 이 값을 쓴다. '가장 낮은 줄의 중앙'(x)으로 잡으면
+         * 걸을 때는 디딘 한 발, 서 있을 때는 두 발이 기준이 되어 동작을
+         * 바꾸는 순간 캐릭터가 옆으로 튄다. 몸 중심은 둘 다 같은 곳이다.
+         */
+        cx: (minX + maxX) / 2,
         y: maxY,
         top: minY,
         span: spanR - spanL,
@@ -155,31 +173,37 @@ const measure = async (urls) =>
     return { box, feet, size }
   }, urls)
 
-const perDirection = {}
+/** clips[동작][방향] = { urls, feet, count } */
+const clips = {}
 let union = { minX: Infinity, minY: Infinity, maxX: -1, maxY: -1 }
 let canvasSize = 0
 
-for (const dir of DIRECTIONS) {
-  const files = readFrames(dir)
-  if (files.length === 0) {
-    console.log(`walk/${dir}  낱장이 없어 건너뜀`)
-    continue
-  }
-  const urls = files.map(toUrl)
-  const { box, feet, size } = await measure(urls)
-  perDirection[dir] = { urls, feet, count: files.length }
-  canvasSize = size
-  union = {
-    minX: Math.min(union.minX, box.minX),
-    minY: Math.min(union.minY, box.minY),
-    maxX: Math.max(union.maxX, box.maxX),
-    maxY: Math.max(union.maxY, box.maxY),
+for (const clip of CLIPS) {
+  clips[clip.name] = {}
+  for (const dir of DIRECTIONS) {
+    const files = readFrames(clip.src, dir)
+    if (files.length === 0) {
+      console.log(`${clip.name}/${dir}  낱장이 없어 건너뜀`)
+      continue
+    }
+    const urls = files.map(toUrl)
+    const { box, feet, size } = await measure(urls)
+    clips[clip.name][dir] = { urls, feet, count: files.length }
+    canvasSize = size
+    // 동작·방향을 통틀어 하나의 영역으로 자른다.
+    union = {
+      minX: Math.min(union.minX, box.minX),
+      minY: Math.min(union.minY, box.minY),
+      maxX: Math.max(union.maxX, box.maxX),
+      maxY: Math.max(union.maxY, box.maxY),
+    }
   }
 }
 
+const perDirection = clips.walk
 if (Object.keys(perDirection).length === 0) {
   await browser.close()
-  throw new Error(`${SRC} 아래에 낱장 PNG 가 없습니다.`)
+  throw new Error('걷기 낱장 PNG 가 없습니다.')
 }
 
 // 네 방향 공통 잘라내기 영역. 여백을 조금 남겨 가장자리가 잘리지 않게 한다.
@@ -199,9 +223,9 @@ console.log(
 )
 
 fs.mkdirSync(OUT, { recursive: true })
-const packed = {}
 
-for (const [dir, info] of Object.entries(perDirection)) {
+/** 한 동작·한 방향을 시트로 묶어 저장하고 크기를 돌려준다. */
+async function writeSheet(clipName, dir, info) {
   const rows = Math.ceil(info.count / COLS)
   const webp = await page.evaluate(
     async (urls, crop, cellW, CELL_H, COLS, rows, quality) => {
@@ -224,21 +248,58 @@ for (const [dir, info] of Object.entries(perDirection)) {
     },
     info.urls, crop, cellW, CELL_H, COLS, rows, WEBP_QUALITY,
   )
+  const file = `${OUT}/${clipName}-${dir}.webp`
+  fs.writeFileSync(file, Buffer.from(webp, 'base64'))
+  console.log(
+    `${clipName}-${dir}.webp  ${cellW * COLS}x${CELL_H * rows}  셀 ${cellW}x${CELL_H}  ` +
+      `${info.count}장  ${(fs.statSync(file).size / 1024).toFixed(0)}KB`,
+  )
+  return rows
+}
 
-  fs.writeFileSync(`${OUT}/walk-${dir}.webp`, Buffer.from(webp, 'base64'))
+/*
+ * 잘라낸 좌표계 기준의 기준점.
+ *
+ * 가로는 동작·방향을 통틀어 하나의 값을 쓴다. 조금씩 다른 값을 쓰면 방향이
+ * 바뀌거나 걷다 멈출 때마다 캐릭터가 옆으로 흔들린다. 실측 편차가 몸 폭의
+ * 1.6% 뿐이라 하나로 묶어도 화면에서 1px 이 안 된다.
+ *
+ * 세로는 동작·방향마다 제 발바닥을 쓴다. 각자 자기 발이 기준선에 놓이므로
+ * 어느 동작이든 발이 땅에 붙는다.
+ */
+const allFeet = Object.values(clips).flatMap((byDir) =>
+  Object.values(byDir).flatMap((info) => info.feet),
+)
+const globalCx = allFeet.reduce((a, f) => a + f.cx, 0) / allFeet.length
 
-  // 잘라낸 좌표계 기준으로 환산한다.
-  const footX = info.feet.reduce((a, f) => a + f.x, 0) / info.feet.length
+const anchors = (info) => {
   const footY = Math.max(...info.feet.map((f) => f.y))
   const top = Math.min(...info.feet.map((f) => f.top))
+  return {
+    footX: +((globalCx - crop.x) * scale).toFixed(1),
+    footY: +((footY - crop.y) * scale).toFixed(1),
+    bodyH: +((footY - top) * scale).toFixed(1),
+  }
+}
+
+const idlePacked = {}
+for (const [dir, info] of Object.entries(clips.idle ?? {})) {
+  const rows = await writeSheet('idle', dir, info)
+  idlePacked[dir] = { rows, count: info.count, ...anchors(info) }
+}
+
+const packed = {}
+
+for (const [dir, info] of Object.entries(perDirection)) {
+  const rows = await writeSheet('walk', dir, info)
+
+  // 잘라낸 좌표계 기준으로 환산한다.
   const spans = info.feet.map((f) => f.span)
   const bodyPx = info.feet.reduce((a, f) => a + f.height, 0) / info.feet.length
   packed[dir] = {
     rows,
     cellW,
-    footX: +(((footX - crop.x) * scale)).toFixed(1),
-    footY: +(((footY - crop.y) * scale)).toFixed(1),
-    bodyH: +(((footY - top) * scale)).toFixed(1),
+    ...anchors(info),
     // 보폭을 키로 나눈 값. 화면 크기와 무관해서 그대로 속도 계산에 쓸 수 있다.
     strideRatio: +(Math.max(...spans) / bodyPx).toFixed(4),
     /*
@@ -272,13 +333,6 @@ for (const [dir, info] of Object.entries(perDirection)) {
       ]
     })(),
   }
-
-  const before = info.urls.reduce((a, _, i) => a + fs.statSync(readFrames(dir)[i]).size, 0)
-  const after = fs.statSync(`${OUT}/walk-${dir}.webp`).size
-  console.log(
-    `walk-${dir}.webp  ${cellW * COLS}x${CELL_H * rows}  셀 ${cellW}x${CELL_H}  ` +
-      `${info.count}장  ${(before / 1048576).toFixed(1)}MB → ${(after / 1024).toFixed(0)}KB`,
-  )
 }
 
 const first = Object.values(packed)[0]
@@ -303,6 +357,19 @@ const lines = [
   '  idleFrame: number',
   '  /** 두 발이 모이는 두 지점. 멈출 때 가까운 쪽까지 걸어가 자세를 정리한다. */',
   '  settleFrames: readonly [number, number]',
+  '}',
+  '',
+  '/** 가만히 서서 숨 쉬는 동작. 걷기와 같은 영역에서 잘라 발 위치가 어긋나지 않는다. */',
+  'export interface MaleIdleSheet {',
+  '  src: string',
+  '  cols: number',
+  '  rows: number',
+  '  cellW: number',
+  '  cellH: number',
+  '  frames: number',
+  '  footX: number',
+  '  footY: number',
+  '  bodyH: number',
   '}',
   '',
   `export const MALE_WALK_FRAME_COUNT = ${Object.values(perDirection)[0].count}`,
@@ -342,6 +409,30 @@ for (const [dir, p] of Object.entries(packed)) {
   )
 }
 lines.push('}', '')
+
+if (Object.keys(idlePacked).length > 0) {
+  lines.push(
+    '',
+    'export const MALE_IDLE_SHEETS: Record<WalkDirection, MaleIdleSheet> = {',
+  )
+  for (const [dir, p] of Object.entries(idlePacked)) {
+    lines.push(
+      `  ${dir}: {`,
+      `    src: '/assets/characters/male/idle-${dir}.webp',`,
+      `    cols: ${COLS},`,
+      `    rows: ${p.rows},`,
+      `    cellW: ${cellW},`,
+      `    cellH: ${CELL_H},`,
+      `    frames: ${p.count},`,
+      `    footX: ${p.footX},`,
+      `    footY: ${p.footY},`,
+      `    bodyH: ${p.bodyH},`,
+      '  },',
+    )
+  }
+  lines.push('}', '')
+}
+
 fs.writeFileSync(TARGET, lines.join('\n'))
 console.log(`\n${path.relative(ROOT, TARGET)} 갱신 완료  (셀 ${first.cellW}x${CELL_H})`)
 for (const [dir, p] of Object.entries(packed))

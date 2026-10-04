@@ -1,5 +1,6 @@
 import { type CSSProperties, useEffect, useRef, useState } from 'react'
 import {
+  MALE_IDLE_SHEETS,
   MALE_WALK_FRAME_COUNT,
   MALE_WALK_FRAMES_PER_STEP,
   MALE_WALK_SHEETS,
@@ -31,15 +32,25 @@ const HEIGHT_TO_WIDTH_UNITS = 9 / 16
 
 const DIRECTIONS = Object.keys(MALE_WALK_SHEETS) as WalkDirection[]
 
+/** 서서 숨 쉬는 동작의 재생 속도. 느린 동작이라 낮게 둔다. */
+const IDLE_FPS = 8
+
+interface Sheet {
+  src: string
+  cols: number
+  rows: number
+}
+
 /** 시트에서 한 칸만 보여주는 배경 스타일 */
-function cellStyle(direction: WalkDirection, index: number): CSSProperties {
-  const sheet = MALE_WALK_SHEETS[direction]
+function cellStyle(sheet: Sheet, index: number): CSSProperties {
   const col = index % sheet.cols
   const row = Math.floor(index / sheet.cols)
   return {
     backgroundImage: `url(${sheet.src})`,
     backgroundSize: `${sheet.cols * 100}% ${sheet.rows * 100}%`,
-    backgroundPosition: `${(col / (sheet.cols - 1)) * 100}% ${(row / (sheet.rows - 1)) * 100}%`,
+    backgroundPosition: `${
+      sheet.cols > 1 ? (col / (sheet.cols - 1)) * 100 : 0
+    }% ${sheet.rows > 1 ? (row / (sheet.rows - 1)) * 100 : 0}%`,
     backgroundRepeat: 'no-repeat',
   }
 }
@@ -51,6 +62,11 @@ function cellStyle(direction: WalkDirection, index: number): CSSProperties {
  * 비트맵이 회수될 수 있고, 그러면 방향이 바뀌는 순간 그 시트가 아직
  * 준비되지 않아 화면이 한 칸 비면서 깜빡인다.
  */
+const SHEET_SOURCES = [
+  ...DIRECTIONS.map((d) => MALE_WALK_SHEETS[d].src),
+  ...DIRECTIONS.map((d) => MALE_IDLE_SHEETS[d].src),
+]
+
 const preloadedImages: HTMLImageElement[] = []
 let preloadStarted = false
 const readyWaiters = new Set<() => void>()
@@ -58,7 +74,7 @@ let readyCount = 0
 
 function preload(onReady: () => void): () => void {
   if (typeof window === 'undefined') return () => {}
-  if (readyCount >= DIRECTIONS.length) {
+  if (readyCount >= SHEET_SOURCES.length) {
     onReady()
     return () => {}
   }
@@ -66,11 +82,11 @@ function preload(onReady: () => void): () => void {
 
   if (!preloadStarted) {
     preloadStarted = true
-    for (const direction of DIRECTIONS) {
+    for (const src of SHEET_SOURCES) {
       const image = new Image()
       const done = () => {
         readyCount += 1
-        if (readyCount >= DIRECTIONS.length) {
+        if (readyCount >= SHEET_SOURCES.length) {
           for (const waiter of readyWaiters) waiter()
           readyWaiters.clear()
         }
@@ -78,7 +94,7 @@ function preload(onReady: () => void): () => void {
       // 한 장이 실패해도 나머지는 계속 돈다.
       image.onload = done
       image.onerror = done
-      image.src = MALE_WALK_SHEETS[direction].src
+      image.src = src
       preloadedImages.push(image)
     }
   }
@@ -156,35 +172,54 @@ export function WalkTestCharacter({
     settle.current = { at: performance.now(), from, ...pick }
   }
 
+  /*
+   * 걷기 → 자세 정리 → 서 있기 순으로 넘어간다.
+   *
+   * 자세를 다 정리하기 전에 서 있기로 넘기면 발이 튄다. 정리가 끝난 뒤에만
+   * 서 있기 시트로 갈아타고, 그때부터 숨 쉬는 동작을 돈다.
+   */
   const settling = settle.current
+  const idle = MALE_IDLE_SHEETS[direction]
+  let active: Sheet & { footX: number; footY: number; cellW: number; cellH: number; bodyH: number }
   let frame: number
-  if (!ready) {
-    frame = sheet.idleFrame
-  } else if (moving) {
+
+  if (ready && moving) {
+    active = sheet
     frame = walkFrame
-  } else if (settling) {
+  } else if (ready && settling) {
     const duration = settleSeconds(settling.steps)
-    const progress =
-      duration > 0 ? Math.min(1, (performance.now() - settling.at) / (duration * 1000)) : 1
-    // 끝으로 갈수록 느려진다. 발을 내려놓고 멈추는 느낌을 준다.
-    const eased = 1 - (1 - progress) ** 2
-    frame =
-      (settling.from + settling.sign * Math.round(eased * settling.steps) + MALE_WALK_FRAME_COUNT) %
-      MALE_WALK_FRAME_COUNT
+    const elapsed = (performance.now() - settling.at) / 1000
+    const progress = duration > 0 ? Math.min(1, elapsed / duration) : 1
+    if (progress < 1) {
+      // 끝으로 갈수록 느려진다. 발을 내려놓고 멈추는 느낌을 준다.
+      const eased = 1 - (1 - progress) ** 2
+      active = sheet
+      frame =
+        (settling.from +
+          settling.sign * Math.round(eased * settling.steps) +
+          MALE_WALK_FRAME_COUNT) %
+        MALE_WALK_FRAME_COUNT
+    } else {
+      // 자세 정리가 끝난 시점부터 숨 쉬는 동작을 센다.
+      active = idle
+      frame = Math.floor((elapsed - duration) * IDLE_FPS) % idle.frames
+    }
   } else {
-    frame = sheet.idleFrame
+    active = idle
+    frame = 0
   }
+
   // 셀 픽셀 -> 월드 좌표 환산. 캐릭터 키가 화면 높이의 8% 가 되도록 맞춘다.
-  const pxToWorld = (CHARACTER_HEIGHT_FRACTION * HEIGHT_TO_WIDTH_UNITS) / sheet.bodyH
-  const widthWorld = sheet.cellW * pxToWorld
+  const pxToWorld = (CHARACTER_HEIGHT_FRACTION * HEIGHT_TO_WIDTH_UNITS) / active.bodyH
+  const widthWorld = active.cellW * pxToWorld
 
   return (
     <WorldObject
       x={x}
       y={y}
       width={widthWorld}
-      anchorX={sheet.footX / sheet.cellW}
-      anchorY={sheet.footY / sheet.cellH}
+      anchorX={active.footX / active.cellW}
+      anchorY={active.footY / active.cellH}
       depthConfig={depthConfig}
       shadow
       label={label}
@@ -197,8 +232,8 @@ export function WalkTestCharacter({
         data-moving={moving ? '1' : '0'}
         data-frame={frame}
         style={{
-          aspectRatio: `${sheet.cellW} / ${sheet.cellH}`,
-          ...cellStyle(direction, frame),
+          aspectRatio: ` / `,
+          ...cellStyle(active, frame),
         }}
       />
     </WorldObject>
