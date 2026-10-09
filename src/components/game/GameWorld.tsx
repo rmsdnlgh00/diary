@@ -12,6 +12,7 @@ import { NPC } from './NPC'
 import { PlaceableObject } from './PlaceableObject'
 import { SpriteInspector } from './SpriteInspector'
 import { StaticEnvironment } from './StaticEnvironment'
+import { RENDER_3D, ThreeStage } from './ThreeStage'
 import { Villager } from './Villager'
 
 /**
@@ -92,26 +93,35 @@ export function GameWorld() {
         ))}
 
         {/* 캐릭터는 매 프레임 움직이므로 z-index 로만 앞뒤를 정한다 (WorldObject 가 처리) */}
-        {agents.map((agent) => {
-          const character = charactersById.get(agent.id)
-          if (!character) return null
-          return (
-            <Villager
-              key={agent.id}
-              agent={agent}
-              character={character}
-              depthConfig={depthConfig}
-              fps={debug.fps}
-              selected={agent.id === selectedCharacterId}
-              onSelect={selectCharacter}
-              zoom={debug.zoom}
-              showAnchors={debug.showAnchors}
-              directionOverride={debug.direction}
-              frameOverride={debug.paused ? debug.frame : null}
-            />
-          )
-        })}
+        {!RENDER_3D &&
+          agents.map((agent) => {
+            const character = charactersById.get(agent.id)
+            if (!character) return null
+            return (
+              <Villager
+                key={agent.id}
+                agent={agent}
+                character={character}
+                depthConfig={depthConfig}
+                fps={debug.fps}
+                selected={agent.id === selectedCharacterId}
+                onSelect={selectCharacter}
+                zoom={debug.zoom}
+                showAnchors={debug.showAnchors}
+                directionOverride={debug.direction}
+                frameOverride={debug.paused ? debug.frame : null}
+              />
+            )
+          })}
       </div>
+
+      {/* 3D 캐릭터를 확인하는 동안만 켜 둔다. ThreeStage 참고. */}
+      {RENDER_3D && (
+        <ThreeStage
+          characters={agents.filter((a) => charactersById.has(a.id))}
+          depthConfig={depthConfig}
+        />
+      )}
 
       <div className="layer layer--effects" />
 

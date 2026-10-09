@@ -454,3 +454,11 @@
 }
 .equipment-badge .item-artwork { width: 0.9cqw; height: 0.9cqw; font-size: 0.75cqw; }
 .equipment-badge small { font-size: 0.6cqw; line-height: 0.9cqw; }
+
+/* 3D 캐릭터 레이어. 배경 위에 투명 캔버스로 얹는다. 확인이 끝나면 정리한다. */
+.three-stage {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
