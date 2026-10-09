@@ -3,24 +3,31 @@ import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { DEFAULT_DEPTH_CONFIG, type DepthConfig } from '@/systems/depthSystem'
+import { MALE_WALK_STRIDE } from '@/systems/walkSystem'
 
 /**
  * 3D 캐릭터를 2D 배경 위에 올리는 레이어.
  *
- * 1 단계에서는 자세를 고정한 채 세워만 둔다. 여기서 확인할 것은 셋뿐이다.
- *   - 카메라 각도가 배경 그림과 맞는가
- *   - 크기가 배경과 맞는가
- *   - 조명·색감이 배경에 녹아드는가
+ * 스프라이트와 달리 방향이 끊기지 않는다. 모델을 진행 방향으로 돌리기만
+ * 하면 되므로 360° 어디로든 향할 수 있고, 걷기와 서 있기는 섞어서(크로스페이드)
+ * 넘어가므로 프레임을 맞춰 이어붙일 필요도 없다.
  *
- * 이게 맞아야 이동·회전·애니메이션을 붙일 가치가 있다. 안 맞으면 조명을
- * 다시 잡거나 8 방향 스프라이트로 돌아간다. 그래서 스프라이트 경로를
- * 지우지 않고 RENDER_3D 플래그로 갈아탈 수 있게 두었다.
+ * 스프라이트 경로는 지우지 않고 RENDER_3D 플래그로 갈아탈 수 있게 두었다.
  */
 
 /** true 면 스프라이트 대신 3D 캐릭터를 그린다. */
 export const RENDER_3D = true
 
-const MODEL_URL = '/assets/characters/male/character.glb'
+const WALK_URL = '/assets/characters/male/character-walk.glb'
+/** 서 있기는 애니메이션만 꺼내 쓴다. 뼈대가 같아 걷기 모델에 그대로 붙는다. */
+const IDLE_URL = '/assets/characters/male/character-idle.glb'
+
+/** 걷기 클립 한 바퀴가 나아가는 거리. 한 바퀴는 두 걸음이다. */
+const CYCLE_DISTANCE = MALE_WALK_STRIDE * 2
+/** 걷기 ↔ 서 있기 전환 시간(초) */
+const FADE_SECONDS = 0.25
+/** 회전이 따라붙는 속도. 클수록 빨리 돈다. */
+const TURN_RESPONSE = 9
 
 /*
  * 카메라.
@@ -100,6 +107,30 @@ export interface StageCharacter {
   /** 월드 좌표 0~1 */
   x: number
   y: number
+  /** 지금 향해 가는 목적지. 여기서 바라볼 각도를 구한다. */
+  targetX: number
+  targetY: number
+  phase: 'IDLE' | 'WALK' | 'TALK'
+  /** 걷기 시작 후 실제로 나아간 거리. 걸음 속도를 여기에 맞춘다. */
+  walkDistance: number
+}
+
+/** 캐릭터 하나에 딸린 3D 상태 */
+interface Instance {
+  object: THREE.Object3D
+  mixer: THREE.AnimationMixer
+  walk: THREE.AnimationAction
+  idle: THREE.AnimationAction
+  /** 0 이면 서 있기, 1 이면 걷기. 그 사이를 오가며 섞는다. */
+  blend: number
+  /** 바라보는 각도(rad). 목표 각도로 부드럽게 따라간다. */
+  angle: number
+  lastDistance: number
+}
+
+/** 두 각도 사이의 최단 차이 (-π ~ π) */
+function angleDelta(from: number, to: number): number {
+  return Math.atan2(Math.sin(to - from), Math.cos(to - from))
 }
 
 interface Props {
@@ -148,13 +179,47 @@ export function ThreeStage({ characters, depthConfig = DEFAULT_DEPTH_CONFIG }: P
     scene.add(new THREE.AmbientLight(0xffffff, 0.5))
 
     let disposed = false
-    const instances = new Map<string, THREE.Object3D>()
+    const instances = new Map<string, Instance>()
     let template: THREE.Object3D | null = null
+    let walkClip: THREE.AnimationClip | null = null
+    let idleClip: THREE.AnimationClip | null = null
 
-    new GLTFLoader().load(
-      MODEL_URL,
+    const loader = new GLTFLoader()
+
+    /*
+     * 서 있기 파일에서는 애니메이션만 꺼낸다.
+     *
+     * 뼈 이름이 걷기 파일과 완전히 같아서(mixamorig:* 41 개) 클립을 그대로
+     * 걷기 모델에 붙일 수 있다. 그 파일에 들어 있는 메시는 쓰지 않는다.
+     */
+    loader.load(
+      IDLE_URL,
       (gltf) => {
         if (disposed) return
+        const clip = gltf.animations[0]
+        if (!clip) return
+        /*
+         * 트랙이 가리키는 뼈 이름을 걷기 모델에 맞춘다.
+         *
+         * 이 파일에는 캐릭터가 중복으로 들어 있어서 두 번째 뼈대에 _1 이
+         * 붙고 애니메이션이 그쪽을 가리킨다. 그대로 쓰면 걷기 모델에 없는
+         * 이름이라 아무것도 움직이지 않는다. 뼈 구성은 같으므로 접미사만
+         * 떼면 그대로 맞는다.
+         */
+        idleClip = clip.clone()
+        for (const track of idleClip.tracks) {
+          track.name = track.name.replace(/_\d+(?=\.)/, '')
+        }
+      },
+      undefined,
+      (error) => console.error('[ThreeStage] 서 있기 로드 실패', error),
+    )
+
+    loader.load(
+      WALK_URL,
+      (gltf) => {
+        if (disposed) return
+        walkClip = gltf.animations[0] ?? null
         /*
          * 모델 크기를 정규화한다.
          *
@@ -176,7 +241,7 @@ export function ThreeStage({ characters, depthConfig = DEFAULT_DEPTH_CONFIG }: P
         const height = 1
         if (import.meta.env.DEV) {
           Object.assign(window, {
-            __three: { modelHeight: height, rawHeight, camera, scene, renderer },
+            __three: { modelHeight: height, rawHeight, camera, scene, renderer, instances, getClips: () => ({ walk: walkClip, idle: idleClip }) },
           })
         }
       },
@@ -225,29 +290,105 @@ export function ThreeStage({ characters, depthConfig = DEFAULT_DEPTH_CONFIG }: P
     resize()
 
     let raf = 0
+    let previous = performance.now()
     const tick = () => {
       raf = requestAnimationFrame(tick)
-      if (!template) return
+      const now = performance.now()
+      // 탭이 백그라운드에 있다 돌아왔을 때 한 번에 튀지 않도록 상한을 둔다.
+      const delta = Math.min(0.05, (now - previous) / 1000)
+      previous = now
+      if (!template || !walkClip || !idleClip) return
       const { characters: list, depthConfig: depth } = dataRef.current
 
       // 사라진 캐릭터를 치운다.
-      for (const [id, obj] of instances) {
+      for (const [id, inst] of instances) {
         if (!list.some((c) => c.id === id)) {
-          scene.remove(obj)
+          scene.remove(inst.object)
           instances.delete(id)
         }
       }
+
       for (const c of list) {
-        let obj = instances.get(c.id)
-        if (!obj) {
-          obj = cloneSkinned(template)
-          scene.add(obj)
-          instances.set(c.id, obj)
+        let inst = instances.get(c.id)
+        if (!inst) {
+          const object = cloneSkinned(template)
+          scene.add(object)
+          const mixer = new THREE.AnimationMixer(object)
+          const walk = mixer.clipAction(walkClip)
+          const idle = mixer.clipAction(idleClip)
+          /*
+           * 둘 다 돌려 두고 가중치로만 섞는다. crossFadeTo 는 가중치를
+           * 옮길 뿐이라, 미리 play() 하고 시작 가중치를 정해 두지 않으면
+           * 양쪽 다 꺼진 채로 남는다.
+           */
+          idle.reset().setEffectiveWeight(1).play()
+          walk.reset().setEffectiveWeight(0).play()
+          inst = {
+            object,
+            mixer,
+            walk,
+            idle,
+            blend: 0,
+            angle: 0,
+            lastDistance: c.walkDistance,
+          }
+          instances.set(c.id, inst)
         }
+
         const p = toGround(c.x, c.y, depth)
-        obj.position.x = p.x
-        obj.position.z = p.z
+        inst.object.position.x = p.x
+        inst.object.position.z = p.z
+
+        const moving = c.phase === 'WALK'
+
+        /*
+         * 걸음 속도를 실제 이동 속도에 맞춘다.
+         *
+         * 클립을 그냥 1 배속으로 돌리면 몸이 느려질 때도 다리는 제 속도로
+         * 움직여 발이 미끄러진다. 한 바퀴가 CYCLE_DISTANCE 를 걷는 것에
+         * 해당하도록 재생 속도를 매 프레임 맞춘다.
+         */
+        const moved = Math.max(0, c.walkDistance - inst.lastDistance)
+        inst.lastDistance = c.walkDistance
+        const speed = delta > 0 ? moved / delta : 0
+        // 멈춰 있어도 0 으로 두지 않는다. timeScale 0 이면 액션이 멈춘 것으로
+        // 취급돼 가중치를 섞어도 반영되지 않는다.
+        inst.walk.timeScale = Math.max(0.001, (speed / CYCLE_DISTANCE) * walkClip.duration)
+
+        /*
+         * 걷기 ↔ 서 있기를 섞는다.
+         *
+         * crossFadeTo 를 쓰지 않고 가중치를 직접 옮긴다. 크로스페이드는
+         * 내부 상태를 들고 있어서 timeScale 이 0 에 가까워지는 순간과
+         * 얽히면 양쪽 다 꺼진 채로 남는 일이 생긴다.
+         */
+        const targetBlend = moving ? 1 : 0
+        inst.blend += (targetBlend - inst.blend) * Math.min(1, delta / FADE_SECONDS)
+        inst.walk.setEffectiveWeight(inst.blend)
+        inst.idle.setEffectiveWeight(1 - inst.blend)
+
+        /*
+         * 진행 방향으로 돌린다.
+         *
+         * 스프라이트는 네 장 중 한 장을 고르는 방식이라 방향이 90° 씩
+         * 끊겼다. 여기서는 각도를 그대로 쓰고 목표 각도로 천천히 따라가므로
+         * 어느 쪽으로든 부드럽게 돈다.
+         */
+        if (moving) {
+          const to = toGround(c.targetX, c.targetY, depth)
+          const dx = to.x - p.x
+          const dz = to.z - p.z
+          if (dx * dx + dz * dz > 1e-8) {
+            const target = Math.atan2(dx, dz)
+            const step = angleDelta(inst.angle, target)
+            inst.angle += step * Math.min(1, TURN_RESPONSE * delta)
+          }
+        }
+        inst.object.rotation.y = inst.angle
+
+        inst.mixer.update(delta)
       }
+
       placeCamera()
       renderer.render(scene, camera)
     }
