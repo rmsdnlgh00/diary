@@ -159,6 +159,9 @@ export function ThreeStage({ characters, depthConfig = DEFAULT_DEPTH_CONFIG }: P
     const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true })
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
     renderer.outputColorSpace = THREE.SRGBColorSpace
+    renderer.shadowMap.enabled = true
+    // 가장자리가 부드러운 그림자. 배경 그림이 부드러워서 날카로우면 튄다.
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap
     host.appendChild(renderer.domElement)
     renderer.domElement.style.width = '100%'
     renderer.domElement.style.height = '100%'
@@ -173,10 +176,45 @@ export function ThreeStage({ characters, depthConfig = DEFAULT_DEPTH_CONFIG }: P
      * 벗어나지 않게 한다.
      */
     const key = new THREE.DirectionalLight(0xfff1d0, 2.1)
-    key.position.set(6, 8, 4)
+    // 바닥 한가운데를 비춘다. 여기가 그림자 카메라의 중심이 된다.
+    key.target.position.set(0, 0, GROUND_DEPTH / 2)
+    key.position.set(6, 8, GROUND_DEPTH / 2 + 4)
+    key.castShadow = true
+    /*
+     * 그림자 카메라를 걸어 다니는 범위에 딱 맞춘다.
+     * 범위가 넓으면 같은 해상도를 넓게 나눠 쓰게 돼 그림자가 뭉개진다.
+     */
+    const shadowSpan = WORLD_WIDTH * 0.7
+    key.shadow.camera.left = -shadowSpan
+    key.shadow.camera.right = shadowSpan
+    key.shadow.camera.top = shadowSpan
+    key.shadow.camera.bottom = -shadowSpan
+    key.shadow.camera.near = 0.5
+    key.shadow.camera.far = 40
+    key.shadow.mapSize.set(1024, 1024)
+    // 자기 몸에 생기는 얼룩을 없앤다.
+    key.shadow.bias = -0.002
+    key.shadow.normalBias = 0.02
     scene.add(key)
+    scene.add(key.target)
     scene.add(new THREE.HemisphereLight(0xffffff, 0x9fb86a, 1.5))
     scene.add(new THREE.AmbientLight(0xffffff, 0.5))
+
+    /*
+     * 그림자만 받는 바닥.
+     *
+     * 배경이 2D 그림이라 바닥을 그리면 안 된다. ShadowMaterial 은 그림자가
+     * 진 곳만 어둡게 칠하고 나머지는 투명해서, 배경 위에 그림자만 얹힌다.
+     * 색을 잿빛이 아니라 잔디 그늘색으로 둬야 배경에 녹아든다.
+     */
+    const ground = new THREE.Mesh(
+      new THREE.PlaneGeometry(WORLD_WIDTH * 2, WORLD_WIDTH * 2),
+      new THREE.ShadowMaterial({ color: 0x46582a, opacity: 0.38 }),
+    )
+    ground.rotation.x = -Math.PI / 2
+    ground.position.z = GROUND_DEPTH / 2
+    ground.receiveShadow = true
+    scene.add(ground)
 
     let disposed = false
     const instances = new Map<string, Instance>()
@@ -234,6 +272,10 @@ export function ThreeStage({ characters, depthConfig = DEFAULT_DEPTH_CONFIG }: P
         raw.position.y = -rawBox.min.y / rawHeight
 
         // 정규화한 모델을 한 번 감싸, 인스턴스마다 위치만 옮기면 되게 한다.
+        raw.traverse((o) => {
+          if ((o as THREE.Mesh).isMesh) o.castShadow = true
+        })
+
         template = new THREE.Group()
         template.add(raw)
         template.userData.modelHeight = 1

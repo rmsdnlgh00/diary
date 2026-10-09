@@ -44,6 +44,15 @@ export const AGENT_CONFIG = {
   talkRadius: 0.075,
   talkDuration: 5,
   talkCooldown: 9,
+  /**
+   * 서로 이만큼은 떨어져 있게 한다.
+   *
+   * 목적지를 고를 때 다른 캐릭터를 보지 않아서, 그냥 두면 같은 자리에
+   * 겹쳐 선다. talkRadius 보다 작게 둬야 대화하러 다가가는 것은 막지 않는다.
+   */
+  separation: 0.042,
+  /** 겹쳤을 때 밀어내는 속도 (초당 거리) */
+  separationPush: 0.05,
 }
 
 const randomBetween = (min: number, max: number, random: () => number) =>
@@ -171,7 +180,51 @@ export function stepAgents(
     }
   }
 
+  separate(agents, world, delta)
   pairForConversation(agents)
+}
+
+/*
+ * 너무 가까이 선 캐릭터를 서로 밀어낸다.
+ *
+ * 목적지는 다른 캐릭터를 보지 않고 고르기 때문에, 그냥 두면 같은 자리에
+ * 겹쳐 선다. 목적지 선택 단계에서 막으려면 "비어 있는 자리"를 찾아야 해서
+ * 복잡하고, 걷는 도중에 겹치는 것은 막지 못한다. 매 프레임 조금씩 밀어내면
+ * 두 경우가 한 번에 해결되고 움직임도 자연스럽다.
+ *
+ * 밀어낸 자리가 걸을 수 없는 곳이면(연못·울타리) 되돌린다.
+ */
+function separate(agents: Agent[], world: WorldDefinition, delta: number): void {
+  const { separation, separationPush } = AGENT_CONFIG
+  const push = separationPush * delta
+
+  for (let i = 0; i < agents.length; i += 1) {
+    for (let j = i + 1; j < agents.length; j += 1) {
+      const a = agents[i]
+      const b = agents[j]
+      // 대화 중인 짝은 마주 보고 서 있어야 하므로 밀지 않는다.
+      if (a.partnerId === b.id || b.partnerId === a.id) continue
+
+      const distance = worldDistance(a.x, a.y, b.x, b.y)
+      if (distance >= separation || distance === 0) continue
+
+      // 가까울수록 세게 민다.
+      const strength = (1 - distance / separation) * push
+      const dx = ((b.x - a.x) / distance) * strength
+      const dy = ((b.y - a.y) / distance) * strength
+
+      nudge(a, -dx, -dy, world)
+      nudge(b, dx, dy, world)
+    }
+  }
+}
+
+/** 걸을 수 있는 자리일 때만 옮긴다. */
+function nudge(agent: Agent, dx: number, dy: number, world: WorldDefinition): void {
+  const next = { x: agent.x + dx, y: agent.y + dy }
+  if (!isWalkable(world, next)) return
+  agent.x = next.x
+  agent.y = next.y
 }
 
 /** 가까이 있고 둘 다 한가하면 서로 말을 걸게 한다. */
