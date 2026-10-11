@@ -46,6 +46,15 @@ Run `scripts/export-village.py` inside Blender to update the public GLB. Point
   occlusion, with a 4096 shadow map. Touch devices and screens under 600 px use the
   low-power path: direct rendering and a 2048 shadow map. Both use a light distance haze
   (`HAZE`) so only the far trees and sea fade a little.
+- Water: the pond (rebuilt as rings) and the river carry a "Water Depth" colour attribute
+  (0 at the shore → 1 in the middle), exported with `export_vertex_color="ACTIVE"`. In the
+  game `makeWater` replaces the `V4 water`/`V4 sea` materials: shallow aqua to base blue,
+  a foam line, drifting ripples and sun glints. Other parts ignore those vertex colours.
+- Characters in the 3D village use light copies made in Blender:
+  `character-walk-light.glb` (9.4k instead of 31k triangles, JPEG texture, Draco, 0.8 MB
+  instead of 7.8 MB) and `character-idle-anim.glb` (only the idle animation is used,
+  1.1 MB instead of 9.5 MB). Bone names, animation tracks and durations match the
+  originals, which the legacy village still uses.
 - V4 uses flat base colours only, so glTF matches Blender's material colours.
   The web lighting is recreated in Three.js. Flat parts (ground, sea, river, paths,
   pond, stepping stones, lawn flowers) receive shadows but do not cast them.

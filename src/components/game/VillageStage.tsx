@@ -39,6 +39,46 @@ const CAMERA_OFFSET = VILLAGE_CAMERA.position.clone().sub(VILLAGE_CAMERA.target)
 /** Light aerial haze: only the far trees and sea fade a little, like the painting. */
 const HAZE = { color: '#dcebf2', near: 70, far: 260 }
 
+const WATER_MATERIALS = new Set(['V4 water', 'V4 sea'])
+
+/**
+ * Clear, painted-looking water. Blender stores a "Water Depth" colour on the pond and
+ * river (0 at the shore → 1 in the middle): shallow aqua fades into the base blue, with
+ * a soft foam line at the shore, slowly drifting light ripples and small sun glints.
+ * The sea has no depth data, so it stays deep and only gets ripples and glints.
+ */
+function makeWater(base: THREE.MeshStandardMaterial, hasDepth: boolean, time: { value: number }) {
+  const water = new THREE.MeshStandardMaterial({ color: base.color, roughness: 0.12, metalness: 0, vertexColors: hasDepth })
+  water.name = base.name
+  water.onBeforeCompile = (shader) => {
+    shader.uniforms.uTime = time
+    shader.uniforms.uShallow = { value: new THREE.Color('#a8e7ef') }
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vWaterPos;')
+      .replace('#include <project_vertex>', '#include <project_vertex>\nvWaterPos = (modelMatrix * vec4(transformed, 1.0)).xyz;')
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform float uTime;\nuniform vec3 uShallow;\nvarying vec3 vWaterPos;')
+      .replace('#include <color_fragment>', `
+        float depth = 1.0;
+        #if defined( USE_COLOR_ALPHA ) || defined( USE_COLOR )
+          depth = vColor.r;
+        #endif
+        vec2 wp = vWaterPos.xz;
+        float ripple = sin(wp.x * 1.6 + uTime * 0.7 + sin(wp.y * 1.2 + uTime * 0.4) * 1.6)
+          * sin(wp.y * 2.0 - uTime * 0.55 + sin(wp.x * 0.8) * 1.3);
+        vec3 waterColor = mix(uShallow, diffuseColor.rgb, smoothstep(0.0, 1.0, depth));
+        waterColor += smoothstep(0.45, 0.95, ripple) * 0.07;
+        float foam = 1.0 - smoothstep(0.0, 0.14, depth);
+        diffuseColor.rgb = mix(waterColor, vec3(0.96, 0.99, 1.0), foam * 0.6);
+      `)
+      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
+        float glint = sin(wp.x * 4.1 + uTime * 1.3 + sin(wp.y * 1.7) * 2.0)
+          * sin(wp.y * 3.7 - uTime * 1.1 + sin(wp.x * 1.3 + uTime * 0.3) * 2.0);
+        totalEmissiveRadiance += vec3(pow(max(glint, 0.0), 40.0) * 0.3);`)
+  }
+  return water
+}
+
 /** Phones and small screens skip ambient occlusion and use a smaller shadow map. */
 function isLowPower(): boolean {
   return window.matchMedia('(pointer: coarse)').matches || Math.min(window.innerWidth, window.innerHeight) < 600
@@ -114,6 +154,7 @@ export function VillageStage(props: Props) {
       composer.addPass(new OutputPass())
     }
     const instances = new Map<string, Instance>()
+    const waterTime = { value: 0 }
     const draco = new DRACOLoader().setDecoderPath('/draco/').setDecoderConfig({ type: 'wasm' })
     const loader = new GLTFLoader().setDRACOLoader(draco)
     let disposed = false
@@ -125,8 +166,10 @@ export function VillageStage(props: Props) {
       try {
         const [village, walk, idle] = await Promise.all([
           loader.loadAsync('/assets/village/diary-village-v4.glb'),
-          loader.loadAsync('/assets/characters/male/character-walk.glb'),
-          loader.loadAsync('/assets/characters/male/character-idle.glb'),
+          // Light copies made in Blender: 9.4k instead of 31k triangles, JPEG texture, and
+          // an idle file that only carries the animation. Bones and tracks match the originals.
+          loader.loadAsync('/assets/characters/male/character-walk-light.glb'),
+          loader.loadAsync('/assets/characters/male/character-idle-anim.glb'),
         ])
         if (disposed) {
           for (const asset of [village, walk, idle]) disposeObject(asset.scene)
@@ -140,6 +183,15 @@ export function VillageStage(props: Props) {
           const name = `${mesh.name} ${mesh.parent?.name ?? ''}`
           mesh.castShadow = !FLAT_PARTS.test(name)
           mesh.receiveShadow = true
+          const material = mesh.material as THREE.MeshStandardMaterial
+          if (WATER_MATERIALS.has(material.name)) {
+            mesh.material = makeWater(material, 'color' in mesh.geometry.attributes, waterTime)
+            material.dispose()
+          } else if (material.vertexColors) {
+            // Only water uses the exported "Water Depth" colours; the pond stones must not.
+            material.vertexColors = false
+            material.needsUpdate = true
+          }
         })
         scene.add(terrain)
         walkClip = walk.animations[0] ?? null
@@ -205,6 +257,7 @@ export function VillageStage(props: Props) {
     const tick = () => {
       raf = requestAnimationFrame(tick)
       const now = performance.now()
+      waterTime.value = now / 1000
       const delta = Math.min(0.05, (now - previous) / 1000)
       previous = now
       const { characters, view, focusId } = dataRef.current
