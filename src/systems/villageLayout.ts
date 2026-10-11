@@ -7,15 +7,12 @@ import { isInsideAnyArea, type Point } from './worldSystem'
  * (Blender scene "Diary Village V4 | Legacy View"). Blender Z-up → glTF Y-up,
  * so Blender (x, y, z) becomes (x, z, -y).
  *
- * The map was widened 1.35× around the lawn in Blender (trees, shop, house, pond and
- * fences pushed outwards; river, paths and island scaled), so characters have about
- * twice the room. Three landmark trees and three flower islands decorate the lawn,
- * leaving an open gathering space in the middle. World coordinates 0–1 span the lawn
- * (25.5 × 32 units). Its irregular shape is covered by touching rectangles, measured
- * in Blender on a 0.5-unit grid:
- * inside the lawn, 0.6 units clear of ground-level obstacles (pond, reeds, bushes,
- * fences, trunks, the lawn trees and flower islands) and on screen in the whole-village
- * view (≈ 475 m² in twenty rectangles).
+ * The map was widened 1.35× around the lawn in Blender and tidied into one rounded
+ * island: the surroundings (trees, shop, house, pond, fences, river) frame an open lawn
+ * that is left free for the decorations players place. World coordinates 0–1 span the
+ * lawn (25.5 × 32 units). The free ground is covered by touching rectangles, measured
+ * in Blender on a 0.5-unit grid: 3 units inside the coast, 0.6 units clear of
+ * ground-level obstacles and on screen in the whole-village view (≈ 650 m²).
  */
 export const VILLAGE_WIDTH = 25.5
 export const VILLAGE_DEPTH = 32
@@ -23,26 +20,14 @@ export const VILLAGE_CENTER = { x: 0.25, z: -3 }
 export const VILLAGE_CHARACTER_HEIGHT = 1.7
 
 export const VILLAGE_WALKABLE_AREAS: AreaRect[] = [
-  { id: 'lawn-01', x: [0.1765, 0.5294], y: [0.0312, 0.4219] },
-  { id: 'lawn-02', x: [0.4314, 0.6078], y: [0.4688, 1] },
-  { id: 'lawn-03', x: [0.0784, 0.3725], y: [0.7656, 1] },
-  { id: 'lawn-04', x: [0.8235, 0.9608], y: [0.375, 0.8125] },
-  { id: 'lawn-05', x: [0.7059, 0.8235], y: [0.2344, 0.5312] },
-  { id: 'lawn-06', x: [0.6078, 0.8235], y: [0.5938, 0.7188] },
-  { id: 'lawn-07', x: [0.6078, 0.8627], y: [0.8438, 0.9375] },
-  { id: 'lawn-08', x: [0.3137, 0.4314], y: [0.4219, 0.5938] },
-  { id: 'lawn-09', x: [0.5294, 0.6667], y: [0.0781, 0.2188] },
-  { id: 'lawn-10', x: [0.1569, 0.4314], y: [0.7188, 0.7656] },
-  { id: 'lawn-11', x: [0.6078, 0.7059], y: [0.4688, 0.5938] },
-  { id: 'lawn-12', x: [0.9608, 1], y: [0.5156, 0.7656] },
-  { id: 'lawn-13', x: [0.1176, 0.1765], y: [0.0469, 0.2031] },
-  { id: 'lawn-14', x: [0.2745, 0.549], y: [0, 0.0312] },
-  { id: 'lawn-15', x: [0, 0.0784], y: [0.7969, 0.9062] },
-  { id: 'lawn-16', x: [0.5294, 0.5882], y: [0.2188, 0.3438] },
-  { id: 'lawn-17', x: [0.2353, 0.3137], y: [0.5, 0.5938] },
-  { id: 'lawn-18', x: [0.6078, 0.7255], y: [0.9375, 1] },
-  { id: 'lawn-19', x: [0.3725, 0.4314], y: [0.8906, 1] },
-  { id: 'lawn-20', x: [0.6667, 0.7451], y: [0.1562, 0.2344] },
+  { id: 'lawn-main', x: [0.2353, 0.8235], y: [0.0625, 0.9375] },
+  { id: 'lawn-right', x: [0.8235, 0.9804], y: [0.3281, 0.875] },
+  { id: 'lawn-back-left', x: [0.0588, 0.2353], y: [0.0312, 0.3594] },
+  { id: 'lawn-left', x: [0.1176, 0.2353], y: [0.5938, 1] },
+  { id: 'lawn-front', x: [0.2353, 0.7255], y: [0.9375, 1] },
+  { id: 'lawn-back', x: [0.2353, 0.7255], y: [0.0156, 0.0625] },
+  { id: 'lawn-front-left', x: [0.0196, 0.1176], y: [0.75, 0.9688] },
+  { id: 'lawn-back-right', x: [0.8235, 0.9804], y: [0.125, 0.2344] },
 ]
 
 /**
@@ -83,11 +68,8 @@ export const DECORATION_RADIUS: Record<string, number> = {
 }
 const decorationRadius = (itemId: string) => DECORATION_RADIUS[itemId] ?? 0.6
 
-/** Stepping stones on the lawn (three.js x, z, radius), measured in Blender. Walkable, but not for decorations. */
-export const VILLAGE_STEPPING_STONES: readonly [number, number, number][] = [
-  [-8.91, -15.46, 0.53], [-6.57, -11.8, 0.53], [-4.88, -8.61, 0.54],
-  [-3.5, -5.77, 0.58], [0.38, 5.9, 0.63], [2.33, 8.99, 0.58],
-]
+/** Centre of the pond in three.js units (the duck swims around it). */
+export const VILLAGE_POND = { x: -15.57, z: -4.17 }
 
 export interface VillageDecoration extends Point {
   id: string
@@ -100,7 +82,7 @@ const unitsBetween = (a: Point, b: Point) =>
 
 /**
  * Whether a decoration fits at `point` (village coordinates): its whole footprint on the
- * lawn, clear of stepping stones, other decorations and the characters standing there.
+ * lawn, clear of other decorations and the characters standing there.
  * Points stay where `fromLegacyPoint(toLegacyPoint(p))` returns them unchanged.
  */
 export function canPlaceInVillage(
@@ -121,8 +103,6 @@ export function canPlaceInVillage(
     }
     if (!isInsideAnyArea(sample, VILLAGE_WALKABLE_AREAS)) return false
   }
-  const ground = villageGround(point.x, point.y)
-  if (VILLAGE_STEPPING_STONES.some(([x, z, r]) => Math.hypot(ground.x - x, ground.z - z) < radius + r + 0.1)) return false
   if (decorations.some((d) => d.id !== movingId && unitsBetween(point, d) < radius + decorationRadius(d.itemId))) return false
   return !occupants.some((o) => unitsBetween(point, o) < radius + 0.45)
 }

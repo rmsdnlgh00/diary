@@ -6,7 +6,7 @@ It is a 3D remake of the legacy painted village
 every object was placed by casting rays from the legacy camera through the painting,
 and the materials use colours measured from it (lawn ≈ #C8D078). The asset contains only
 the `Diary V4 | Legacy View Village` collection of the `Diary Village V4 | Legacy View`
-scene: lawn, stepping stones, pond with a swimming duck and three lily pads, shop stall, house, river,
+scene: one rounded island with an open lawn, pond with a swimming duck and three lily pads, shop stall, house, river,
 arch bridge, fences, lamp, notice board, signpost, 29 trees, bushes, reeds and rocks.
 The painted bench is now the "긴 벤치" decoration, and the scattered small flowers were removed.
 Preview characters, Blender lights and cameras are not exported.
@@ -29,13 +29,13 @@ Run `scripts/export-village.py` inside Blender to update the public GLB. Point
   back, so the 1.7-unit character is about 6% of the frame height there. "기본 시점" and
   "따라가기" keep their earlier close-ups at 0.48× and 0.35× (`VILLAGE_VIEW_DISTANCE`).
 - Blender coordinates `(x, y, z)` become glTF `(x, z, -y)`.
-- World coordinates 0–1 span the lawn (25.5 × 32 units around `VILLAGE_CENTER`). Two
-  pink blossom trees, a yellow tree and three round flower islands (stone ring, tulips,
-  small bushes) decorate it and leave an open gathering space in the middle.
-  Movement follows the lawn's shape through twenty touching rectangles
-  (`VILLAGE_WALKABLE_AREAS`, ≈ 475 m²) measured in Blender: 0.6 units clear of
-  ground-level obstacles (pond, reeds, bushes, fences, trunks, flower islands) and on
-  screen in the whole-village view.
+- World coordinates 0–1 span the lawn (25.5 × 32 units around `VILLAGE_CENTER`). The
+  island was tidied for player decorating: the ground is one rounded island with cliffs
+  (the river runs through its right side to the sea at both ends), and the stepping
+  stones, lawn trees, flower islands and inner bushes were removed. Movement and
+  placement use eight touching rectangles (`VILLAGE_WALKABLE_AREAS`, ≈ 650 m², one of
+  them 15 × 28 units) measured in Blender: 3 units inside the coast, 0.6 units clear of
+  ground-level obstacles and on screen in the whole-village view.
 - Characters spread over the wide lawn: they wander up to `wanderRadius` (0.2 of the
   width, ≈ 5 units) from home, and with `roamChance` (30 %) an idle character walks
   anywhere on the lawn via pathfinding and makes that spot its new home. Every step is
@@ -78,8 +78,8 @@ Run `scripts/export-village.py` inside Blender to update the public GLB. Point
   (`toLegacyPoint` is the inverse) and `VillageStage` shows them as 3D clones.
 - Decorating happens in the 3D village (the legacy view keeps its own 2D editor). While
   placing, a translucent ghost follows the pointer, green when `canPlaceInVillage` allows
-  it: the whole footprint (`DECORATION_RADIUS`) on the lawn areas, clear of the stepping
-  stones (`VILLAGE_STEPPING_STONES`), other decorations and standing characters. The
+  it: the whole footprint (`DECORATION_RADIUS`) on the lawn areas, clear of other
+  decorations and standing characters. The
   store's `placeAt` takes that check and saves legacy coordinates (`toLegacyPoint`).
   Tapping a decoration selects it (orange ring) for moving or recalling. Placed
   decorations become blocked squares in `villageWorld`, so characters walk around them.
@@ -92,7 +92,7 @@ Run `scripts/export-village.py` inside Blender to update the public GLB. Point
   slightly deeper green away from the lawn centre. Blender keeps the flat base colour.
 - V4 uses flat base colours only, so glTF matches Blender's material colours.
   The web lighting is recreated in Three.js. Flat parts (ground, sea, river, paths,
-  pond, stepping stones, lawn flowers) receive shadows but do not cast them.
+  pond) receive shadows but do not cast them.
 
 ## Verification and deployment
 

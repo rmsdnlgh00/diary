@@ -9,7 +9,7 @@ import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import type { StageCharacter } from './ThreeStage'
 import { MALE_WALK_STRIDE } from '@/systems/walkSystem'
-import { DECORATION_RADIUS, VILLAGE_CAMERA, VILLAGE_CENTER, VILLAGE_CHARACTER_HEIGHT, VILLAGE_VIEW_DISTANCE,
+import { DECORATION_RADIUS, VILLAGE_CAMERA, VILLAGE_CENTER, VILLAGE_CHARACTER_HEIGHT, VILLAGE_POND, VILLAGE_VIEW_DISTANCE,
   VILLAGE_WIDTH, villageGround, villagePoint } from '@/systems/villageLayout'
 
 export type VillageView = 'whole' | 'basic' | 'follow'
@@ -50,7 +50,7 @@ interface Instance {
 }
 
 /** Flat village parts that only receive shadows. */
-const FLAT_PARTS = /Ground|Sea|River|Path|Pond|Stepping|Lawn_Flowers/
+const FLAT_PARTS = /Ground|Sea|River|Path|Pond/
 /** Pastel lighting tuned so the lawn renders close to the painting's #C8D078. */
 const SUN_INTENSITY = 2.2
 const SKY_INTENSITY = 1.6
@@ -140,7 +140,7 @@ function makeLawn(base: THREE.MeshStandardMaterial) {
  * at 0.45 of the pond radii (±12 %) it stays ≥ 0.9 units from the shore and ≥ 1.3 from
  * the three lily pads. One lap takes about a minute.
  */
-const DUCK_POND = { x: -15.57, z: -4.17, rx: 5.44 * 0.45, rz: 5.6 * 0.45, lapSpeed: 0.11 }
+const DUCK_POND = { x: VILLAGE_POND.x, z: VILLAGE_POND.z, rx: 5.44 * 0.45, rz: 5.6 * 0.45, lapSpeed: 0.11 }
 const WAKE_PERIOD = 2.4
 
 function duckPosition(t: number, out: THREE.Vector3): THREE.Vector3 {

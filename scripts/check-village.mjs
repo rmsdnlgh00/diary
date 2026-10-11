@@ -242,9 +242,9 @@ try {
   const chair = decorated[0]
   assert.ok(chair.x >= 0 && chair.x <= 1 && chair.y >= 0 && chair.y <= 1, 'stored in legacy coordinates')
   await store('chooseDecoration', 'flower_pot')
-  const { VILLAGE_STEPPING_STONES } = await page.evaluate(async () => import('/src/systems/villageLayout.ts').then((m) => ({ VILLAGE_STEPPING_STONES: m.VILLAGE_STEPPING_STONES })))
-  await page.mouse.click(...await screenOf(VILLAGE_STEPPING_STONES[4]))
-  assert.equal((await placedNow()).length, 1, 'stepping stones are not a place for decorations')
+  const { VILLAGE_POND } = await page.evaluate(async () => import('/src/systems/villageLayout.ts').then((m) => ({ VILLAGE_POND: m.VILLAGE_POND })))
+  await page.mouse.click(...await screenOf([VILLAGE_POND.x, VILLAGE_POND.z]))
+  assert.equal((await placedNow()).length, 1, 'the pond is not a place for decorations')
   assert.match((await state()).feedback, /놓을 수 없어요/)
   await store('cancelPlacement')
   const chairScreen = await page.evaluate(async (id) => {
@@ -289,7 +289,7 @@ try {
     const s = useGameStore.getState()
     const placements = (s.worldDecorations[s.worldId] ?? []).map((d) => ({ ...d, ...layout.fromLegacyPoint(d) }))
     const occupants = [...instances.values()].map((i) => layout.villagePoint(i.object.position))
-    const target = invalid ? new THREE.Vector3(...[layout.VILLAGE_STEPPING_STONES[4][0], 0, layout.VILLAGE_STEPPING_STONES[4][1]])
+    const target = invalid ? new THREE.Vector3(layout.VILLAGE_POND.x, 0, layout.VILLAGE_POND.z)
       : layout.lawnSpots(120).filter((p) => layout.canPlaceInVillage('chair', p, placements, occupants, id))
         .map((p) => layout.villageGround(p.x, p.y)).find((p) => {
           const end = screen(p.clone().sub(offset))
