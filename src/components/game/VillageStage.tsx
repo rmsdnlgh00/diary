@@ -9,7 +9,7 @@ import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import type { StageCharacter } from './ThreeStage'
 import { MALE_WALK_STRIDE } from '@/systems/walkSystem'
-import { DECORATION_RADIUS, VILLAGE_CAMERA, VILLAGE_CHARACTER_HEIGHT, VILLAGE_VIEW_DISTANCE,
+import { DECORATION_RADIUS, VILLAGE_CAMERA, VILLAGE_CENTER, VILLAGE_CHARACTER_HEIGHT, VILLAGE_VIEW_DISTANCE,
   VILLAGE_WIDTH, villageGround, villagePoint } from '@/systems/villageLayout'
 
 export type VillageView = 'whole' | 'basic' | 'follow'
@@ -94,6 +94,43 @@ function makeWater(base: THREE.MeshStandardMaterial, hasDepth: boolean, time: { 
         totalEmissiveRadiance += vec3(pow(max(glint, 0.0), 40.0) * 0.3);`)
   }
   return water
+}
+
+/**
+ * Painted lawn: soft patches of sunny yellow-green and calmer green (like the brush
+ * strokes in the legacy painting), a faint fine grain, and slightly deeper green away
+ * from the middle of the lawn so the open grass reads as the centre of the village.
+ */
+function makeLawn(base: THREE.MeshStandardMaterial) {
+  const lawn = base.clone()
+  lawn.onBeforeCompile = (shader) => {
+    shader.uniforms.uLawnCentre = { value: new THREE.Vector2(VILLAGE_CENTER.x, VILLAGE_CENTER.z) }
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vLawnPos;')
+      .replace('#include <project_vertex>', '#include <project_vertex>\nvLawnPos = (modelMatrix * vec4(transformed, 1.0)).xyz;')
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', `#include <common>
+        uniform vec2 uLawnCentre;
+        varying vec3 vLawnPos;
+        float lawnHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+        float lawnNoise(vec2 p) {
+          vec2 i = floor(p);
+          vec2 f = fract(p);
+          vec2 u = f * f * (3.0 - 2.0 * f);
+          return mix(mix(lawnHash(i), lawnHash(i + vec2(1.0, 0.0)), u.x),
+            mix(lawnHash(i + vec2(0.0, 1.0)), lawnHash(i + vec2(1.0, 1.0)), u.x), u.y);
+        }`)
+      .replace('#include <color_fragment>', `#include <color_fragment>
+        vec2 lp = vLawnPos.xz;
+        float patches = lawnNoise(lp * 0.16) * 0.6 + lawnNoise(lp * 0.42 + 7.3) * 0.3 + lawnNoise(lp * 1.1 + 3.1) * 0.1;
+        vec3 sunny = diffuseColor.rgb * vec3(1.1, 1.08, 0.92);
+        vec3 calm = diffuseColor.rgb * vec3(0.86, 0.92, 0.88);
+        vec3 grass = mix(calm, sunny, smoothstep(0.32, 0.72, patches));
+        grass *= 0.97 + 0.06 * lawnNoise(lp * 5.0);
+        float edge = smoothstep(0.75, 1.35, length((lp - uLawnCentre) / vec2(13.0, 12.0)));
+        diffuseColor.rgb = mix(grass, grass * vec3(0.88, 0.93, 0.9), edge);`)
+  }
+  return lawn
 }
 
 /** Phones and small screens skip ambient occlusion and use a smaller shadow map. */
@@ -214,6 +251,9 @@ export function VillageStage(props: Props) {
           const material = mesh.material as THREE.MeshStandardMaterial
           if (WATER_MATERIALS.has(material.name)) {
             mesh.material = makeWater(material, 'color' in mesh.geometry.attributes, waterTime)
+            material.dispose()
+          } else if (material.name === 'V4 grass') {
+            mesh.material = makeLawn(material)
             material.dispose()
           } else if (material.vertexColors) {
             // Only water uses the exported "Water Depth" colours; the pond stones must not.

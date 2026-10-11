@@ -69,6 +69,9 @@ Run `scripts/export-village.py` inside Blender to update the public GLB. Point
   store's `placeAt` takes that check and saves legacy coordinates (`toLegacyPoint`).
   Tapping a decoration selects it (orange ring) for moving or recalling. Placed
   decorations become blocked squares in `villageWorld`, so characters walk around them.
+- Lawn: `makeLawn` replaces the `V4 grass` material in the game with painted patches
+  (sunny yellow-green and calmer green from world-position noise), a faint grain, and a
+  slightly deeper green away from the lawn centre. Blender keeps the flat base colour.
 - V4 uses flat base colours only, so glTF matches Blender's material colours.
   The web lighting is recreated in Three.js. Flat parts (ground, sea, river, paths,
   pond, stepping stones, lawn flowers) receive shadows but do not cast them.
