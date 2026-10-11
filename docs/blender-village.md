@@ -10,7 +10,7 @@ scene: lawn, stepping stones, pond with a swimming duck and three lily pads, sho
 arch bridge, fences, lamp, notice board, signpost, 29 trees, bushes, reeds and rocks.
 The painted bench is now the "긴 벤치" decoration, and the scattered small flowers were removed.
 Preview characters, Blender lights and cameras are not exported.
-`diary-village-v2.glb` and `diary-village-v3.glb` are kept but no longer loaded.
+Older village GLBs (v2, v3) were removed; git history still has them.
 
 The source files remain on the author's Mac:
 

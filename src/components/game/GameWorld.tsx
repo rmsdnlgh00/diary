@@ -1,7 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { getWorld } from '@/data/worlds'
 import { useVillagers } from '@/hooks/useVillagers'
-import { useDebugStore } from '@/store/debugStore'
 import { useGameStore } from '@/store/gameStore'
 import { DEFAULT_DEPTH_CONFIG } from '@/systems/depthSystem'
 import { toMonthKey } from '@/utils/date'
@@ -10,10 +9,8 @@ import { PlacedItem } from './PlacedItem'
 import { Background } from './Background'
 import { NPC } from './NPC'
 import { PlaceableObject } from './PlaceableObject'
-import { SpriteInspector } from './SpriteInspector'
 import { StaticEnvironment } from './StaticEnvironment'
-import { RENDER_3D, ThreeStage } from './ThreeStage'
-import { Villager } from './Villager'
+import { ThreeStage } from './ThreeStage'
 import { VillageWorld } from './VillageWorld'
 
 /**
@@ -41,19 +38,14 @@ function LegacyGameWorld() {
   const placementTool = useGameStore((state) => state.placementTool)
   const placeAt = useGameStore((state) => state.placeAt)
   const decorations = useGameStore((state) => state.decorations)
-  const selectedCharacterId = useGameStore((state) => state.selectedCharacterId)
-  const selectCharacter = useGameStore((state) => state.selectCharacter)
-  const debug = useDebugStore()
 
   const world = getWorld(worldId)
   const depthConfig = { ...DEFAULT_DEPTH_CONFIG, horizonY: world.horizonY }
 
   const stageRef = useRef<HTMLDivElement>(null)
   const monthlyCharacters = useMemo(() => characters.filter((c) => toMonthKey(c.diaryDate) === worldId), [characters, worldId])
-  const { agents, commandWalk } = useVillagers(world, monthlyCharacters, debug.speed)
+  const { agents, commandWalk } = useVillagers(world, monthlyCharacters)
   const charactersById = new Map(monthlyCharacters.map((c) => [c.id, c]))
-
-  const liveDirection = 'front' as const
 
   /** 잔디를 클릭하면 오늘의 캐릭터가 그리로 걸어간다. */
   const handleGroundClick = (event: React.MouseEvent<HTMLDivElement>) => {
@@ -104,40 +96,16 @@ function LegacyGameWorld() {
           <NPC key={npc.id} npc={npc} depthConfig={depthConfig} />
         ))}
 
-        {/* 캐릭터는 매 프레임 움직이므로 z-index 로만 앞뒤를 정한다 (WorldObject 가 처리) */}
-        {!RENDER_3D &&
-          agents.map((agent) => {
-            const character = charactersById.get(agent.id)
-            if (!character) return null
-            return (
-              <Villager
-                key={agent.id}
-                agent={agent}
-                character={character}
-                depthConfig={depthConfig}
-                fps={debug.fps}
-                selected={agent.id === selectedCharacterId}
-                onSelect={selectCharacter}
-                zoom={debug.zoom}
-                showAnchors={debug.showAnchors}
-                directionOverride={debug.direction}
-                frameOverride={debug.paused ? debug.frame : null}
-              />
-            )
-          })}
       </div>
 
-      {/* 3D 캐릭터를 확인하는 동안만 켜 둔다. ThreeStage 참고. */}
-      {RENDER_3D && (
-        <ThreeStage
-          characters={agents.filter((a) => charactersById.has(a.id))}
-          depthConfig={depthConfig}
-        />
-      )}
+      {/* 캐릭터는 3D 로 그린다. ThreeStage 참고. */}
+      <ThreeStage
+        characters={agents.filter((a) => charactersById.has(a.id))}
+        depthConfig={depthConfig}
+      />
 
       <div className="layer layer--effects" />
 
-      {import.meta.env.DEV && <SpriteInspector liveDirection={liveDirection} />}
     </div>
   )
 }

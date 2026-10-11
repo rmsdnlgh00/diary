@@ -1,5 +1,9 @@
-import { MALE_WALK_FRAMES_PER_STEP, MALE_WALK_STRIDE_RATIO } from '@/data/maleWalkFrames'
-import type { Facing, WalkDirection } from '@/types'
+import type { Facing } from '@/types'
+
+/** 걷기 사이클 32프레임 = 두 걸음이므로 한 걸음은 16프레임이다. */
+const MALE_WALK_FRAMES_PER_STEP = 16
+/** 보폭 ÷ 캐릭터 키. 예전 렌더 원본에서 실측한 값이다. */
+const MALE_WALK_STRIDE_RATIO = 0.4641
 
 /**
  * 3D 렌더 걷기의 재생 속도.
@@ -10,15 +14,12 @@ import type { Facing, WalkDirection } from '@/types'
  */
 export const MALE_WALK_FPS = 24
 
-/** 화면에서 캐릭터 키가 마을 전체 높이의 몇 %인지. WalkingCharacter 와 같은 값. */
+/** 화면에서 캐릭터 키가 마을 전체 높이의 몇 %인지. ThreeStage 와 같은 값. */
 const CHARACTER_HEIGHT_FRACTION = 0.08
 /** 16:9 이므로 세로 비율을 가로 단위로 환산한다. 월드 좌표는 가로 기준이다. */
 const HEIGHT_TO_WIDTH_UNITS = 9 / 16
 
-/**
- * 한 걸음에 나아가는 거리 (월드 가로 길이 대비).
- * 보폭은 렌더 원본에서 실측한 값이라 pack-male 을 다시 돌리면 같이 갱신된다.
- */
+/** 한 걸음에 나아가는 거리 (월드 가로 길이 대비). */
 export const MALE_WALK_STRIDE =
   CHARACTER_HEIGHT_FRACTION * HEIGHT_TO_WIDTH_UNITS * MALE_WALK_STRIDE_RATIO
 
@@ -30,13 +31,6 @@ export const WALK_CONFIG = {
    * 둘이 어긋나면 걸음보다 몸이 빨라져 발이 미끄러진다.
    */
   speed: MALE_WALK_STRIDE * (MALE_WALK_FPS / MALE_WALK_FRAMES_PER_STEP),
-  /**
-   * 걷기 프레임 재생 속도.
-   * 받은 그림이 제대로 된 걷기 사이클이 아니라 프레임마다 작화 편차만 있어서,
-   * 8fps 로 전부 돌리면 걷는 게 아니라 떠는 것처럼 보인다.
-   * 그래서 방향별 sequence 로 2장만 고르고 속도도 낮췄다.
-   */
-  fps: 3,
   /*
    * 출발·도착의 완급.
    *
@@ -91,16 +85,6 @@ export function pickFacing(dx: number, dy: number, current: Facing, groundDepthR
   if (preferHorizontal) return dx >= 0 ? 'right' : 'left'
   return dy >= 0 ? 'down' : 'up'
 }
-
-export const directionOf = (facing: Facing): WalkDirection => {
-  if (facing === 'down') return 'front'
-  if (facing === 'up') return 'back'
-  return facing === 'left' ? 'left' : 'right'
-}
-
-/** 걷기 시작 후 흐른 시간으로 재생할 프레임 번호를 구한다. */
-export const frameAt = (elapsedSeconds: number, sequence: readonly number[], fps: number): number =>
-  sequence[Math.floor(elapsedSeconds * fps) % sequence.length]
 
 /** 0~1 을 양 끝이 완만한 곡선으로 바꾼다 */
 const smoothstep = (t: number): number => {

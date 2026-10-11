@@ -131,79 +131,6 @@
   font-size: 1.3cqw;
 }
 
-/* ---------- 개발용 스프라이트 패널 ---------- */
-
-.inspector-toggle {
-  position: absolute;
-  z-index: 30;
-  right: 1cqw;
-  bottom: 1cqw;
-  padding: 0.5cqw 1cqw;
-  border-radius: var(--radius-pill);
-  background: rgba(40, 32, 28, 0.72);
-  color: #fff;
-  font-family: 'Gowun Dodum', sans-serif;
-  font-size: 1cqw;
-}
-
-.inspector {
-  position: absolute;
-  z-index: 30;
-  right: 1cqw;
-  bottom: 1cqw;
-  width: 24cqw;
-  padding: 1cqw 1.2cqw;
-  border-radius: 1cqw;
-  background: rgba(32, 26, 22, 0.88);
-  color: #f3ece4;
-  font-family: 'Gowun Dodum', sans-serif;
-  font-size: 1cqw;
-  display: grid;
-  gap: 0.5cqw;
-}
-
-.inspector__row {
-  display: flex;
-  align-items: center;
-  gap: 0.5cqw;
-}
-
-.inspector__row--title {
-  justify-content: space-between;
-  font-size: 1.2cqw;
-}
-
-.inspector__row label {
-  min-width: 5cqw;
-}
-
-.inspector__row button,
-.inspector__row select {
-  padding: 0.25cqw 0.6cqw;
-  border-radius: 0.5cqw;
-  background: rgba(255, 255, 255, 0.14);
-  color: inherit;
-  font: inherit;
-  border: none;
-}
-
-.inspector__row input[type='range'] {
-  flex: 1;
-  min-width: 0;
-}
-
-.inspector__value {
-  min-width: 4cqw;
-  text-align: right;
-  opacity: 0.75;
-}
-
-.inspector__x {
-  background: none;
-  color: inherit;
-  font-size: 1.1cqw;
-}
-
 /* ---------- modal ---------- */
 
 .modal-backdrop {
@@ -476,3 +403,44 @@
 .commerce-sheet button:focus-visible,
 .month-arrow:focus-visible { outline: 0.2cqw solid #ab662d; outline-offset: 0.15cqw; }
 
+
+/* Phone landscape: physical touch sizes and scrollable panels. */
+@media (any-pointer: coarse) and (max-width: 1024px) {
+  .stage button { min-width: 44px; min-height: 44px; font-size: 14px; }
+  .topbar { padding: 4px 8px; gap: 8px; }
+  .pill { padding: 0 8px; min-height: 44px; font-size: 14px; }
+  .pill__sub { display: none; }
+  .month-arrow, .icon-button { flex-shrink: 0; }
+  .bottombar { bottom: 4px; padding: 4px; gap: 4px; max-width: calc(100% - 16px); }
+  .menu-button { padding: 6px 10px; white-space: nowrap; }
+  .menu-button__icon { font-size: 18px; }
+  .village-controls { top: 56px; left: 8px; right: 8px; gap: 4px; }
+  .village-controls button, .village-return { padding: 6px 10px; }
+  .village-return { top: 56px; left: 8px; }
+  .village-hint { bottom: 64px; font-size: 12px; }
+  .sheet, .editor {
+    width: min(480px, calc(100% - 16px));
+    bottom: 64px;
+    max-height: calc(100% - 72px);
+    overflow-y: auto;
+    padding: 12px;
+  }
+  .sheet__header h2, .editor__header h2,
+  .commerce-sheet--decorate .sheet__header h2 { font-size: 18px; }
+  .sheet__body, .editor__emotion, .editor__hint, .panel-hint,
+  .panel-feedback, .item-card, .decoration-actions, .character-picker { font-size: 14px; }
+  .editor__text, .character-picker select { font-size: 16px; }
+  .editor__text { min-height: 80px; }
+  .editor__footer { flex-wrap: wrap; }
+  .commerce-sheet, .commerce-sheet--decorate {
+    left: auto; right: 8px; top: 56px; bottom: 64px;
+    width: min(360px, 48%); transform: none;
+  }
+  .commerce-sheet--decorate { width: min(280px, 40%); }
+  .item-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .item-tabs { flex-wrap: wrap; }
+  .item-tabs button { flex: 1 0 40%; }
+  .decoration-choice small, .equipment-summary > span { font-size: 12px; }
+  .modal { width: min(440px, calc(100% - 16px)); max-height: calc(100% - 16px); overflow-y: auto; padding: 16px; }
+  .modal__text { font-size: 16px; }
+}

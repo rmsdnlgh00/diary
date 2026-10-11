@@ -24,6 +24,25 @@ try {
   page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()) })
   await page.goto(server.resolvedUrls.local[0], { waitUntil: 'networkidle0' })
   await page.waitForFunction(() => !!window.__village?.scene.getObjectByName('V4_Ground'), { timeout: 30000 })
+  // Touch phones show a rotation notice in portrait and fill the landscape viewport.
+  await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 3, isMobile: true, hasTouch: true })
+  await page.reload({ waitUntil: 'networkidle0' })
+  await page.waitForFunction(() => !!window.__village?.scene.getObjectByName('V4_Ground'), { timeout: 30000 })
+  assert.equal(await page.$eval('.rotate-notice', (el) => getComputedStyle(el).display), 'flex')
+  assert.equal(await page.$eval('.stage', (el) => getComputedStyle(el).visibility), 'hidden')
+  await page.setViewport({ width: 844, height: 390, deviceScaleFactor: 3, isMobile: true, hasTouch: true })
+  await page.waitForFunction(() => document.querySelector('.stage').clientWidth === 844 &&
+    window.__village.renderer.getPixelRatio() === 2)
+  assert.equal(await page.$eval('.stage', (el) => el.clientHeight), 390)
+  assert.equal(await page.$eval('.rotate-notice', (el) => getComputedStyle(el).display), 'none')
+  assert.equal(await page.$eval('.stage', (el) => getComputedStyle(el).touchAction), 'pan-x pan-y')
+  const touchTargets = await page.$$eval('.menu-button, .village-controls button, .month-arrow',
+    (buttons) => buttons.every((el) => el.getBoundingClientRect().width >= 44 && el.getBoundingClientRect().height >= 44))
+  assert.ok(touchTargets, 'phone navigation has 44px touch targets')
+  await page.screenshot({ path: join(artifacts, 'phone-landscape.png') })
+  await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 1, isMobile: false, hasTouch: false })
+  await page.reload({ waitUntil: 'networkidle0' })
+  await page.waitForFunction(() => !!window.__village?.scene.getObjectByName('V4_Ground'), { timeout: 30000 })
   const button = async (label) => {
     assert.ok(await page.evaluate((label) => {
       const b = [...document.querySelectorAll('button')].find((el) => el.textContent.trim() === label || el.querySelector('.menu-button__label')?.textContent.trim() === label)

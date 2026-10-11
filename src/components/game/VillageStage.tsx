@@ -189,7 +189,9 @@ export function VillageStage(props: Props) {
       return
     }
     const lowPower = isLowPower()
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
+    const pixelRatio = () => Math.min(window.devicePixelRatio || 1,
+      window.matchMedia('(any-pointer: coarse)').matches ? 2 : 1.5)
+    renderer.setPixelRatio(pixelRatio())
     renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.shadowMap.enabled = true
     renderer.shadowMap.type = THREE.PCFSoftShadowMap
@@ -345,6 +347,7 @@ export function VillageStage(props: Props) {
     void load()
     const resize = () => {
       if (!host.clientWidth || !host.clientHeight) return
+      renderer.setPixelRatio(pixelRatio())
       camera.aspect = host.clientWidth / host.clientHeight
       camera.updateProjectionMatrix()
       renderer.setSize(host.clientWidth, host.clientHeight, false)

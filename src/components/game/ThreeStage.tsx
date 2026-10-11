@@ -11,12 +11,7 @@ import { MALE_WALK_STRIDE } from '@/systems/walkSystem'
  * 스프라이트와 달리 방향이 끊기지 않는다. 모델을 진행 방향으로 돌리기만
  * 하면 되므로 360° 어디로든 향할 수 있고, 걷기와 서 있기는 섞어서(크로스페이드)
  * 넘어가므로 프레임을 맞춰 이어붙일 필요도 없다.
- *
- * 스프라이트 경로는 지우지 않고 RENDER_3D 플래그로 갈아탈 수 있게 두었다.
  */
-
-/** true 면 스프라이트 대신 3D 캐릭터를 그린다. */
-export const RENDER_3D = true
 
 const WALK_URL = '/assets/characters/male/character-walk.glb'
 /** 서 있기는 애니메이션만 꺼내 쓴다. 뼈대가 같아 걷기 모델에 그대로 붙는다. */
