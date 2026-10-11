@@ -475,3 +475,30 @@
 }
 .commerce-sheet button:focus-visible,
 .month-arrow:focus-visible { outline: 0.2cqw solid #ab662d; outline-offset: 0.15cqw; }
+
+/* Portrait 3D village: retain readable diary and commerce controls. */
+.stage:has(.game-world--village) .topbar { flex-wrap: wrap; padding: 3cqw; gap: 2cqw; }
+.stage:has(.game-world--village) .pill { font-size: max(10px, 3cqw); padding: 1.5cqw 2.5cqw; gap: 1.5cqw; }
+.stage:has(.game-world--village) .pill--month { flex: 1 0 100%; justify-content: space-between; }
+.stage:has(.game-world--village) .pill__sub { font-size: inherit; }
+.stage:has(.game-world--village) .month-arrow { width: 6cqw; font-size: 5cqw; }
+.stage:has(.game-world--village) .dot { width: 2cqw; height: 2cqw; }
+.stage:has(.game-world--village) .coin { font-size: inherit; }
+.stage:has(.game-world--village) .bottombar { bottom: 3cqw; width: 94%; justify-content: space-around; padding: 2cqw 1cqw; }
+.stage:has(.game-world--village) .menu-button { flex-direction: column; padding: 2cqw; font-size: max(10px, 2.7cqw); }
+.stage:has(.game-world--village) .menu-button__icon { font-size: 5cqw; }
+.stage:has(.game-world--village) :is(.editor, .sheet) { width: 94cqw; padding: 4cqw; bottom: 20cqw; border-radius: 4cqw; }
+.stage:has(.game-world--village) .commerce-sheet { right: 3cqw; top: 34cqw; }
+.stage:has(.game-world--village) .modal { width: 90cqw; padding: 5cqw; border-radius: 4cqw; max-height: 80%; overflow-y: auto; }
+.stage:has(.game-world--village) :is(.editor__header h2, .sheet__header h2, .modal__date) { font-size: 5cqw; }
+.stage:has(.game-world--village) :is(.editor__text, .modal__text, .sheet__body) { font-size: max(13px, 3.7cqw); }
+.stage:has(.game-world--village) .editor__text { padding: 3cqw; }
+.stage:has(.game-world--village) .editor__footer { flex-wrap: wrap; gap: 2cqw; }
+.stage:has(.game-world--village) :is(.editor__emotion, .editor__hint, .editor__saved, .panel-hint, .panel-feedback, .character-picker, .item-card, .equipment-summary > span) { font-size: max(11px, 3cqw); }
+.stage:has(.game-world--village) :is(.primary-button, .item-action, .item-tabs button, .modal__emotion) { font-size: max(12px, 3.4cqw); padding: 2cqw; }
+.stage:has(.game-world--village) .icon-button { width: 8cqw; height: 8cqw; font-size: 4cqw; }
+.stage:has(.game-world--village) .modal__portrait { width: 25cqw; }
+.stage:has(.game-world--village) .item-grid { gap: 2cqw; }
+.stage:has(.game-world--village) .item-card { padding: 2cqw; gap: 2cqw; }
+.stage:has(.game-world--village) .item-artwork { width: 10cqw; height: 10cqw; font-size: 7cqw; }
+.stage:has(.game-world--village) .save-warning { top: 35cqw; width: 90%; font-size: 3.4cqw; padding: 3cqw; }

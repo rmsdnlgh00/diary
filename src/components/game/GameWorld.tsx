@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { getWorld } from '@/data/worlds'
 import { useVillagers } from '@/hooks/useVillagers'
 import { useDebugStore } from '@/store/debugStore'
@@ -14,6 +14,7 @@ import { SpriteInspector } from './SpriteInspector'
 import { StaticEnvironment } from './StaticEnvironment'
 import { RENDER_3D, ThreeStage } from './ThreeStage'
 import { Villager } from './Villager'
+import { VillageWorld } from './VillageWorld'
 
 /**
  * 데이터상 레이어는 Background / Environment / Decoration / NPC / Character 로 나뉘지만,
@@ -21,6 +22,16 @@ import { Villager } from './Villager'
  * 세워지는 오브젝트는 하나의 컨테이너에 모아 y 기준으로 함께 정렬한다.
  */
 export function GameWorld() {
+  const [legacy, setLegacy] = useState(() => new URLSearchParams(window.location.search).get('village') === 'legacy')
+  const editing = useGameStore((s) => s.activePanel === 'DECORATE')
+  if (!legacy && !editing) return <VillageWorld onLegacy={() => setLegacy(true)} />
+  return <>
+    <LegacyGameWorld />
+    {!editing && <button className="village-return" type="button" onClick={() => setLegacy(false)}>3D 마을</button>}
+  </>
+}
+
+function LegacyGameWorld() {
   const worldId = useGameStore((state) => state.worldId)
   const characters = useGameStore((state) => state.characters)
   const todayDate = useGameStore((state) => state.today)

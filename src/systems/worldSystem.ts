@@ -36,7 +36,7 @@ export function furthestWalkablePoint(
 
   const dx = to.x - from.x
   const dy = to.y - from.y
-  const distance = Math.hypot(dx, dy * Y_TO_X)
+  const distance = Math.hypot(dx, dy * (world.groundDepthRatio ?? Y_TO_X))
   const steps = Math.max(1, Math.ceil(distance / PATH_STEP))
 
   let last: Point | null = null

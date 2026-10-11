@@ -178,6 +178,8 @@ export interface WorldPalette {
 }
 
 export interface WorldDefinition {
+  /** Ground depth divided by width; legacy screen-space worlds use 9/16. */
+  groundDepthRatio?: number
   /** YYYY-MM */
   id: string
   year: number

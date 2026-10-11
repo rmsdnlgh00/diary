@@ -20,10 +20,13 @@ try {
   await server.listen()
   browser = await puppeteer.launch({ executablePath, headless: true })
   page = await browser.newPage()
+  await page.setRequestInterception(true)
+  page.on('request', (request) => /https:\/\/fonts\.(googleapis|gstatic)\.com\//.test(request.url())
+    ? request.respond({ status: 200, contentType: 'text/css', body: '' }) : request.continue())
   await page.setViewport({ width: 1440, height: 900 })
   const errors = []
   page.on('pageerror', (error) => errors.push(error.message))
-  await page.goto(server.resolvedUrls.local[0], { waitUntil: 'networkidle0' })
+  await page.goto(server.resolvedUrls.local[0] + '?village=legacy', { waitUntil: 'networkidle0' })
   const settle = () => page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))))
   const state = () => page.evaluate(async () => {
     const { useGameStore } = await import('/src/store/gameStore.ts')
@@ -110,7 +113,7 @@ try {
   assert.equal(s.characters.find((c) => c.id === firstCharacter).equippedItems.top, 'hoodie_gray')
   await page.select('.character-picker select', firstCharacter)
   await settle()
-  assert.ok(await page.$('.equipment-badge'))
+  assert.equal(await page.$$eval('.wardrobe-preview .equipment-summary > span', (els) => els.length), 6)
   await page.screenshot({ path: join(artifacts, 'wardrobe.png') })
   report('6개 의상 슬롯·날짜별 장착 분리·해제·미보유/잘못된 분류 차단')
 
@@ -209,11 +212,16 @@ try {
   assert.deepEqual(s.worldDecorations, beforeDiary.worldDecorations)
   assert.equal(s.coins, 0)
   await action('closePanel')
-  const walkerPositions = () => page.$$eval('.walker', (els) => els.map((el) => el.getAttribute('style')))
+  const walkerPositions = () => page.evaluate(() => window.__three
+    ? [...window.__three.instances.values()].map((i) => i.object.position.toArray().join(','))
+    : [...document.querySelectorAll('.walker')].map((el) => el.getAttribute('style')))
   const positionBefore = await walkerPositions()
-  await page.waitForFunction((before) => [...document.querySelectorAll('.walker')].some((el, i) => el.getAttribute('style') !== before[i]),
+  await page.waitForFunction((before) => window.__three
+    ? [...window.__three.instances.values()].some((inst, i) => inst.object.position.toArray().join(',') !== before[i])
+    : [...document.querySelectorAll('.walker')].some((el, i) => el.getAttribute('style') !== before[i]),
     { timeout: 20_000 }, positionBefore)
-  await click('.walker')
+  // The 3D village test covers mesh picking; verify diary detail persistence here.
+  await action('selectCharacter', (await state()).characters.find((c) => c.diaryDate.startsWith(month)).id)
   assert.ok(await page.$('.modal__text'))
   await button('닫기')
   report('기존 일기 작성·감정 수정·날짜 중복 방지·랜덤 이동·일기 상세 유지')

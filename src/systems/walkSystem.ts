@@ -69,16 +69,17 @@ export const worldDistance = (
   ay: number,
   bx: number,
   by: number,
-): number => Math.hypot(bx - ax, (by - ay) * Y_TO_X)
+  groundDepthRatio: number = Y_TO_X,
+): number => Math.hypot(bx - ax, (by - ay) * groundDepthRatio)
 
 /**
  * 이동 벡터에서 바라볼 방향을 고른다.
  * 대각선에서는 더 큰 축을 따르되, 현재 방향에 가산점을 줘서
  * 경계에서 방향이 계속 뒤집히지 않게 한다.
  */
-export function pickFacing(dx: number, dy: number, current: Facing): Facing {
+export function pickFacing(dx: number, dy: number, current: Facing, groundDepthRatio: number = Y_TO_X): Facing {
   const horizontal = Math.abs(dx)
-  const vertical = Math.abs(dy) * Y_TO_X
+  const vertical = Math.abs(dy) * groundDepthRatio
   if (horizontal === 0 && vertical === 0) return current
 
   const currentIsHorizontal = current === 'left' || current === 'right'

@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "check:game": "node scripts/check-game.mjs",
+    "check:village": "node scripts/check-village.mjs",
     "check:side": "node scripts/check-side-expressions.mjs",
     "pack-sprites": "node scripts/pack-sprites.mjs",
     "pack-side": "node scripts/pack-side-expressions.mjs",

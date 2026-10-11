@@ -97,7 +97,7 @@ function pickWanderTarget(
     const candidate = {
       x: agent.homeX + Math.cos(angle) * radius,
       // y 는 화면 세로라 같은 실제 거리를 만들려면 늘려줘야 한다
-      y: agent.homeY + (Math.sin(angle) * radius * 16) / 9,
+      y: agent.homeY + Math.sin(angle) * radius / (world.groundDepthRatio ?? 9 / 16),
     }
     if (!isWalkable(world, candidate)) continue
     const reachable = furthestWalkablePoint(world, { x: agent.x, y: agent.y }, candidate)
@@ -107,9 +107,9 @@ function pickWanderTarget(
 }
 
 /** 서로 마주 보게 한다. */
-function faceEachOther(a: Agent, b: Agent): void {
-  a.facing = pickFacing(b.x - a.x, b.y - a.y, a.facing)
-  b.facing = pickFacing(a.x - b.x, a.y - b.y, b.facing)
+function faceEachOther(a: Agent, b: Agent, groundDepthRatio: number): void {
+  a.facing = pickFacing(b.x - a.x, b.y - a.y, a.facing, groundDepthRatio)
+  b.facing = pickFacing(a.x - b.x, a.y - b.y, b.facing, groundDepthRatio)
 }
 
 /**
@@ -142,7 +142,7 @@ export function stepAgents(
     if (agent.phase === 'WALK') {
       const dx = agent.targetX - agent.x
       const dy = agent.targetY - agent.y
-      const distance = worldDistance(agent.x, agent.y, agent.targetX, agent.targetY)
+      const distance = worldDistance(agent.x, agent.y, agent.targetX, agent.targetY, world.groundDepthRatio)
 
       if (distance <= WALK_CONFIG.arriveEpsilon) {
         agent.x = agent.targetX
@@ -158,7 +158,7 @@ export function stepAgents(
         const ratio = step / distance
         agent.x += dx * ratio
         agent.y += dy * ratio
-        agent.facing = pickFacing(dx, dy, agent.facing)
+        agent.facing = pickFacing(dx, dy, agent.facing, world.groundDepthRatio)
         agent.walkTime += delta
         agent.walkDistance += step
       }
@@ -181,7 +181,7 @@ export function stepAgents(
   }
 
   separate(agents, world, delta)
-  pairForConversation(agents)
+  pairForConversation(agents, world.groundDepthRatio ?? 9 / 16)
 }
 
 /*
@@ -205,7 +205,7 @@ function separate(agents: Agent[], world: WorldDefinition, delta: number): void 
       // 대화 중인 짝은 마주 보고 서 있어야 하므로 밀지 않는다.
       if (a.partnerId === b.id || b.partnerId === a.id) continue
 
-      const distance = worldDistance(a.x, a.y, b.x, b.y)
+      const distance = worldDistance(a.x, a.y, b.x, b.y, world.groundDepthRatio)
       if (distance >= separation || distance === 0) continue
 
       // 가까울수록 세게 민다.
@@ -228,7 +228,7 @@ function nudge(agent: Agent, dx: number, dy: number, world: WorldDefinition): vo
 }
 
 /** 가까이 있고 둘 다 한가하면 서로 말을 걸게 한다. */
-function pairForConversation(agents: Agent[]): void {
+function pairForConversation(agents: Agent[], groundDepthRatio: number): void {
   const free = agents.filter(
     (a) => a.phase !== 'TALK' && !a.commanded && a.talkCooldown === 0,
   )
@@ -240,7 +240,7 @@ function pairForConversation(agents: Agent[]): void {
     for (let j = i + 1; j < free.length; j += 1) {
       const b = free[j]
       if (b.phase === 'TALK') continue
-      if (worldDistance(a.x, a.y, b.x, b.y) > AGENT_CONFIG.talkRadius) continue
+      if (worldDistance(a.x, a.y, b.x, b.y, groundDepthRatio) > AGENT_CONFIG.talkRadius) continue
 
       a.phase = 'TALK'
       b.phase = 'TALK'
@@ -250,7 +250,7 @@ function pairForConversation(agents: Agent[]): void {
       b.timer = AGENT_CONFIG.talkDuration
       a.walkTime = 0
       b.walkTime = 0
-      faceEachOther(a, b)
+      faceEachOther(a, b, groundDepthRatio)
       break
     }
   }
