@@ -405,6 +405,14 @@ try {
   await button('기본 시점')
   await new Promise((resolve) => setTimeout(resolve, 1200))
   await page.screenshot({ path: join(artifacts, 'decorate-tiles.png') })
+  // While placing, the graph-paper grid shows where things may go and what is taken.
+  await store('chooseDecoration', 'floor_tile')
+  await new Promise((resolve) => setTimeout(resolve, 600))
+  await page.screenshot({ path: join(artifacts, 'decorate-grid.png') })
+  await button('마을 전체')
+  await new Promise((resolve) => setTimeout(resolve, 1200))
+  await page.screenshot({ path: join(artifacts, 'decorate-grid-whole.png') })
+  await store('cancelPlacement')
   await store('closePanel')
   await page.evaluate(async (saved) => {
     const { useGameStore } = await import('/src/store/gameStore.ts')

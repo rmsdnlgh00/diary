@@ -10,7 +10,8 @@ import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js
 import type { StageCharacter } from './ThreeStage'
 import { MALE_WALK_STRIDE } from '@/systems/walkSystem'
 import { DECORATION_RADIUS, VILLAGE_CAMERA, VILLAGE_CENTER, VILLAGE_CHARACTER_HEIGHT, VILLAGE_POND, VILLAGE_VIEW_DISTANCE,
-  VILLAGE_WIDTH, isFloorDecoration, snapDecoration, villageGround, villagePoint } from '@/systems/villageLayout'
+  VILLAGE_DEPTH, VILLAGE_WALKABLE_AREAS, VILLAGE_WIDTH, FLOOR_TILE_SIZE, isFloorDecoration, snapDecoration, villageGround,
+  villagePoint } from '@/systems/villageLayout'
 
 export type VillageView = 'whole' | 'basic' | 'follow'
 /** A placed decoration in village coordinates (0–1 over the lawn). */
@@ -66,27 +67,35 @@ const WATER_MATERIALS = new Set(['V4 water', 'V4 sea'])
  * a soft foam line at the shore, slowly drifting light ripples and small sun glints.
  * The sea has no depth data, so it stays deep and only gets ripples and glints.
  */
-function makeWater(base: THREE.MeshStandardMaterial, hasDepth: boolean, time: { value: number }) {
+function makeWater(base: THREE.MeshStandardMaterial, hasDepth: boolean, time: { value: number }, fountain = false) {
   const water = new THREE.MeshStandardMaterial({ color: base.color, roughness: 0.12, metalness: 0, vertexColors: hasDepth })
   water.name = base.name
   water.onBeforeCompile = (shader) => {
     shader.uniforms.uTime = time
     shader.uniforms.uShallow = { value: new THREE.Color('#a8e7ef') }
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vWaterPos;')
-      .replace('#include <project_vertex>', '#include <project_vertex>\nvWaterPos = (modelMatrix * vec4(transformed, 1.0)).xyz;')
+      .replace('#include <common>', '#include <common>\nvarying vec3 vWaterPos;\nvarying vec2 vWaterLocal;')
+      .replace('#include <project_vertex>', `#include <project_vertex>
+        vWaterPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
+        vWaterLocal = transformed.xz;`)
     shader.fragmentShader = shader.fragmentShader
-      .replace('#include <common>', '#include <common>\nuniform float uTime;\nuniform vec3 uShallow;\nvarying vec3 vWaterPos;')
+      .replace('#include <common>', `#include <common>
+        uniform float uTime;
+        uniform vec3 uShallow;
+        varying vec3 vWaterPos;
+        varying vec2 vWaterLocal;`)
       .replace('#include <color_fragment>', `
         float depth = 1.0;
         #if defined( USE_COLOR_ALPHA ) || defined( USE_COLOR )
           depth = vColor.r;
         #endif
-        vec2 wp = vWaterPos.xz;
+        // Fountain basins are small: finer ripples, plus rings spreading from where the water falls.
+        vec2 wp = vWaterPos.xz * ${fountain ? '3.5' : '1.0'};
         float ripple = sin(wp.x * 1.6 + uTime * 0.7 + sin(wp.y * 1.2 + uTime * 0.4) * 1.6)
           * sin(wp.y * 2.0 - uTime * 0.55 + sin(wp.x * 0.8) * 1.3);
         vec3 waterColor = mix(uShallow, diffuseColor.rgb, smoothstep(0.0, 1.0, depth));
         waterColor += smoothstep(0.45, 0.95, ripple) * 0.07;
+        ${fountain ? 'waterColor += smoothstep(0.55, 1.0, sin(length(vWaterLocal) * 16.0 - uTime * 3.2)) * 0.06;' : ''}
         float foam = 1.0 - smoothstep(0.0, 0.14, depth);
         diffuseColor.rgb = mix(waterColor, vec3(0.96, 0.99, 1.0), foam * 0.6);
       `)
@@ -96,6 +105,46 @@ function makeWater(base: THREE.MeshStandardMaterial, hasDepth: boolean, time: { 
         totalEmissiveRadiance += vec3(pow(max(glint, 0.0), 40.0) * 0.3);`)
   }
   return water
+}
+
+/**
+ * Falling fountain water. Blender gives the curtains a UV whose v is metres along the flow
+ * (copied to `flowUv`), so streaks scrolling along v pour from the bowl down into the basin.
+ * Clear aqua with brighter threads; thinner where it leaves the rim and where it lands.
+ */
+function makeFall(time: { value: number }) {
+  const fall = new THREE.MeshStandardMaterial({ color: '#c8eef5', roughness: 0.08, metalness: 0, transparent: true,
+    depthWrite: false, side: THREE.DoubleSide })
+  fall.name = 'V4 fountain fall'
+  fall.onBeforeCompile = (shader) => {
+    shader.uniforms.uTime = time
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nattribute vec2 flowUv;\nvarying vec2 vFlow;')
+      .replace('#include <uv_vertex>', '#include <uv_vertex>\nvFlow = flowUv;')
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', `#include <common>
+        uniform float uTime;
+        varying vec2 vFlow;
+        float fallHash(vec2 p) { return fract(sin(dot(p, vec2(41.3, 289.1))) * 43758.5453); }
+        float fallNoise(vec2 p) {
+          vec2 i = floor(p);
+          vec2 f = fract(p);
+          vec2 u = f * f * (3.0 - 2.0 * f);
+          return mix(mix(fallHash(i), fallHash(i + vec2(1.0, 0.0)), u.x),
+            mix(fallHash(i + vec2(0.0, 1.0)), fallHash(i + vec2(1.0, 1.0)), u.x), u.y);
+        }`)
+      .replace('#include <color_fragment>', `#include <color_fragment>
+        // Long thin threads across the flow, short pulses along it, all moving downstream.
+        vec2 flow = vec2(vFlow.x * 14.0, vFlow.y * 1.6 - uTime * 2.2);
+        float threads = fallNoise(flow) * 0.6 + fallNoise(flow * vec2(2.1, 2.6) + 5.1) * 0.4;
+        float pulse = fallNoise(vec2(vFlow.x * 3.0, vFlow.y * 5.0 - uTime * 6.0));
+        float bright = smoothstep(0.5, 0.8, threads) * (0.6 + 0.4 * pulse);
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(1.0), bright * 0.75);
+        float ends = smoothstep(0.0, 0.06, vFlow.y);
+        diffuseColor.a = (0.1 + 0.7 * bright) * ends;`)
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += vec3(bright * 0.22);')
+  }
+  return fall
 }
 
 /**
@@ -153,6 +202,88 @@ function duckPosition(t: number, out: THREE.Vector3): THREE.Vector3 {
 /** Phones and small screens skip ambient occlusion and use a smaller shadow map. */
 function isLowPower(): boolean {
   return window.matchMedia('(pointer: coarse)').matches || Math.min(window.innerWidth, window.innerHeight) < 600
+}
+
+/** Most footprints the placement grid can mark as taken at once. */
+const GRID_BLOCKERS = 64
+
+/**
+ * Graph-paper overlay shown while placing: fills the lawn areas where decorations may go,
+ * draws the 2-unit floor-tile grid (with fainter 1-unit lines) and the outline of the
+ * area, and tints the footprints of decorations already there.
+ */
+function makePlacementGrid() {
+  const rects = VILLAGE_WALKABLE_AREAS.map((a) => {
+    const min = villageGround(a.x[0], a.y[0])
+    const max = villageGround(a.x[1], a.y[1])
+    return new THREE.Vector4(min.x, min.z, max.x, max.z)
+  })
+  const blockers = Array.from({ length: GRID_BLOCKERS }, () => new THREE.Vector4())
+  const material = new THREE.ShaderMaterial({
+    transparent: true,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -4,
+    uniforms: {
+      opacity: { value: 0 },
+      rects: { value: rects },
+      blockers: { value: blockers },
+      blockerCount: { value: 0 },
+      origin: { value: new THREE.Vector2(VILLAGE_CENTER.x + FLOOR_TILE_SIZE / 2, VILLAGE_CENTER.z + FLOOR_TILE_SIZE / 2) },
+    },
+    vertexShader: `
+      varying vec2 vWorld;
+      void main() {
+        vec4 world = modelMatrix * vec4(position, 1.0);
+        vWorld = world.xz;
+        gl_Position = projectionMatrix * viewMatrix * world;
+      }`,
+    fragmentShader: `
+      uniform float opacity;
+      uniform vec4 rects[${rects.length}];
+      uniform vec4 blockers[${GRID_BLOCKERS}];
+      uniform int blockerCount;
+      uniform vec2 origin;
+      varying vec2 vWorld;
+      bool inside(vec2 p) {
+        for (int i = 0; i < ${rects.length}; i++) {
+          vec4 r = rects[i];
+          if (p.x >= r.x && p.x <= r.z && p.y >= r.y && p.y <= r.w) return true;
+        }
+        return false;
+      }
+      float lines(vec2 p, float size, float width) {
+        vec2 cell = (p - origin) / size;
+        vec2 dist = abs(cell - floor(cell + 0.5)) * size / max(fwidth(p), vec2(1e-4));
+        return 1.0 - clamp(min(dist.x, dist.y) - width + 0.5, 0.0, 1.0);
+      }
+      void main() {
+        if (!inside(vWorld)) discard;
+        float e = 0.12;
+        bool edge = !inside(vWorld + vec2(e, 0.0)) || !inside(vWorld - vec2(e, 0.0)) ||
+          !inside(vWorld + vec2(0.0, e)) || !inside(vWorld - vec2(0.0, e));
+        float taken = 0.0;
+        for (int i = 0; i < ${GRID_BLOCKERS}; i++) {
+          if (i >= blockerCount) break;
+          vec4 b = blockers[i];
+          vec2 d = abs(vWorld - b.xy);
+          float inBlock = b.w > 0.5 ? step(max(d.x, d.y), b.z) : step(length(vWorld - b.xy), b.z);
+          taken = max(taken, inBlock);
+        }
+        float major = lines(vWorld, 2.0, 1.2);
+        float minor = lines(vWorld, 1.0, 0.8) * 0.45;
+        vec3 color = mix(vec3(1.0, 0.99, 0.9), vec3(1.0, 0.45, 0.4), taken);
+        float alpha = 0.10 + 0.12 * taken + max(major * 0.55, minor * 0.5);
+        if (edge) { color = vec3(1.0, 0.98, 0.86); alpha = 0.9; }
+        gl_FragColor = vec4(color, alpha * opacity);
+      }`,
+  })
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(VILLAGE_WIDTH + 2, VILLAGE_DEPTH + 2), material)
+  mesh.rotation.x = -Math.PI / 2
+  mesh.position.set(VILLAGE_CENTER.x, 0.04, VILLAGE_CENTER.z)
+  mesh.renderOrder = 2
+  mesh.visible = false
+  return { mesh, material, blockers }
 }
 
 function disposeObject(root: THREE.Object3D) {
@@ -312,7 +443,16 @@ export function VillageStage(props: Props) {
             mesh.castShadow = !isFloorDecoration(itemId)
             mesh.receiveShadow = true
             const material = mesh.material as THREE.MeshStandardMaterial
-            if (WATER_MATERIALS.has(material.name)) mesh.material = makeWater(material, false, waterTime)
+            if (WATER_MATERIALS.has(material.name)) {
+              mesh.material = makeWater(material, 'color' in mesh.geometry.attributes, waterTime, true)
+            } else if (material.name === 'V4 fountain fall') {
+              mesh.geometry.setAttribute('flowUv', mesh.geometry.attributes.uv)
+              mesh.material = makeFall(waterTime)
+              mesh.castShadow = false
+            } else if (material.vertexColors) {
+              // The fountain's water depth colours are only meant for the water.
+              material.vertexColors = false
+            }
           })
           decorationModels.set(itemId, model)
         }
@@ -603,9 +743,27 @@ export function VillageStage(props: Props) {
     selectionRing.rotation.x = -Math.PI / 2
     selectionRing.visible = false
     scene.add(selectionRing)
+    const placementGrid = makePlacementGrid()
+    scene.add(placementGrid.mesh)
     const fits = new THREE.Color('#5fd17a')
     const blocked = new THREE.Color('#ff6b6b')
-    const updateDecorating = (decorating: StageDecorating | null) => {
+    // Fades the grid in while placing and marks what the item being placed must keep clear of:
+    // tiles avoid tiles, everything else avoids non-floor decorations.
+    const updateGrid = (placing: { itemId: string; movingId?: string } | undefined, delta: number) => {
+      const uniforms = placementGrid.material.uniforms
+      uniforms.opacity.value = THREE.MathUtils.damp(uniforms.opacity.value, placing ? 1 : 0, 10, delta)
+      placementGrid.mesh.visible = uniforms.opacity.value > 0.01
+      if (!placing) return
+      const floor = isFloorDecoration(placing.itemId)
+      const others = dataRef.current.decorations
+        .filter((d) => d.id !== placing.movingId && isFloorDecoration(d.itemId) === floor).slice(0, GRID_BLOCKERS)
+      others.forEach((d, i) => {
+        const at = villageGround(d.x, d.y)
+        placementGrid.blockers[i].set(at.x, at.z, floor ? FLOOR_TILE_SIZE / 2 : DECORATION_RADIUS[d.itemId] ?? 0.6, floor ? 1 : 0)
+      })
+      uniforms.blockerCount.value = others.length
+    }
+    const updateDecorating = (decorating: StageDecorating | null, delta: number) => {
       if (dragging && (!decorating || !dataRef.current.decorations.some((d) => d.id === dragging!.id) ||
         decorating.selectedId !== dragging.id || decorating.placing)) cancelDrag()
       const selected = decorating?.selectedId ? placed.get(decorating.selectedId) : undefined
@@ -615,6 +773,7 @@ export function VillageStage(props: Props) {
         selectionRing.position.copy(dragging?.point ?? selected.object.position).setY(0.05)
       }
       const placing = dragging ? { itemId: dragging.itemId, movingId: dragging.id } : decorating?.placing
+      updateGrid(decorating ? placing ?? undefined : undefined, delta)
       const previewPoint = dragging?.point ?? pointerGround
       if (!decorating || !placing || !previewPoint) {
         clearGhost()
@@ -642,7 +801,7 @@ export function VillageStage(props: Props) {
       const { characters, decorations, decorating, view, focusId } = dataRef.current
       if (decorationModels.size) {
         syncDecorations(decorations)
-        updateDecorating(decorating)
+        updateDecorating(decorating, delta)
       }
       if (template && walkClip && idleClip) {
         const ids = new Set(characters.map((c) => c.id))
@@ -713,6 +872,8 @@ export function VillageStage(props: Props) {
       renderer.domElement.removeEventListener('pointermove', pointerMove)
       renderer.domElement.removeEventListener('pointerleave', leave)
       clearGhost()
+      placementGrid.mesh.geometry.dispose()
+      placementGrid.material.dispose()
       selectionRing.geometry.dispose()
       ;(selectionRing.material as THREE.Material).dispose()
       for (const instance of instances.values()) {

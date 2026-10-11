@@ -70,10 +70,15 @@ Run `scripts/export-village.py` inside Blender to update the public GLB. Point
   instead of 7.8 MB) and `character-idle-anim.glb` (only the idle animation is used,
   1.1 MB instead of 9.5 MB). Bone names, animation tracks and durations match the
   originals, which the legacy village still uses.
-- Decorations: `public/assets/village/decorations-v1.glb` (113 KB, Draco) holds one model
+- Decorations: `public/assets/village/decorations-v1.glb` (118 KB, Draco) holds one model
   per shop decoration, named `Deco <item id>` (flower pot, picnic mat, small lamp, flower
-  bed, chair, long bench, sign, plant, fountain, bicycle, floor tile). The fountain's
-  `V4 water` gets the same `makeWater` shader as the pond. They come from the `Diary V4 | Decorations` collection in the
+  bed, chair, long bench, sign, plant, fountain, bicycle, floor tile). The fountain's two water discs carry their own "Water Depth"
+  colours and get `makeWater` in fountain mode (finer ripples plus rings spreading from the
+  middle). Its falling water is two open lathe meshes with the `V4 fountain fall` material:
+  a curtain over the upper bowl's rim and an umbrella jet from the top ornament. Their UV
+  v runs along the flow in metres, and `makeFall` scrolls bright threads along it, so the
+  water pours down. To add flowing water elsewhere, model a thin open surface, unwrap it
+  so v follows the flow, and give it that material. They come from the `Diary V4 | Decorations` collection in the
   `Diary Decorations V4` scene, scaled 1.3–1.5× to match the village props. Saved
   decorations keep their legacy coordinates; `fromLegacyPoint` maps them onto the lawn
   (`toLegacyPoint` is the inverse) and `VillageStage` shows them as 3D clones.
@@ -82,6 +87,10 @@ Run `scripts/export-village.py` inside Blender to update the public GLB. Point
   it: the whole footprint (`DECORATION_RADIUS`) on the lawn areas, clear of other
   decorations and standing characters. The
   store's `placeAt` takes that check and saves legacy coordinates (`toLegacyPoint`).
+  While placing or dragging, a graph-paper grid (`makePlacementGrid`, one shader plane)
+  fades in over the placeable lawn: 2-unit lines matching the floor-tile grid, fainter
+  1-unit lines, a light outline around the area, and red footprints of what the item
+  must keep clear of (tiles for tiles, other decorations otherwise).
   Tapping a decoration selects it (orange ring) for moving or recalling. Placed
   decorations become blocked squares in `villageWorld`, so characters walk around them.
 - Floor tiles (`floor: true`, `stackable: true` in `items.ts`): bought once, laid many
