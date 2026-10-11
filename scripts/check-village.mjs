@@ -36,6 +36,46 @@ try {
     return box.left >= 0 && box.right <= innerWidth && box.height >= 44
   })), 'portrait menus fit inside the screen')
   await page.screenshot({ path: join(artifacts, 'phone-portrait.png') })
+  const initialCamera = await page.evaluate(async () => {
+    const { VILLAGE_CAMERA } = await import('/src/systems/villageLayout.ts')
+    return { y: window.__village.camera.position.y, originalY: VILLAGE_CAMERA.position.y }
+  })
+  assert.ok(Math.abs(initialCamera.y / initialCamera.originalY - 1.45) < 0.01, 'phone starts zoomed out')
+  assert.equal(await page.$eval('.village-stage canvas', (el) => getComputedStyle(el).touchAction), 'none')
+  const touchClient = await page.createCDPSession()
+  const touch = async (type, points) => {
+    await touchClient.send('Input.dispatchTouchEvent', {
+      type, touchPoints: points.map(([id, x, y]) => ({ id, x, y })),
+    })
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+  }
+  const cameraPosition = () => page.evaluate(() => window.__village.camera.position.toArray())
+  const beforePan = await cameraPosition()
+  await touch('touchStart', [[1, 140, 440]])
+  await new Promise((resolve) => setTimeout(resolve, 400))
+  await touch('touchMove', [[1, 220, 470]])
+  await touch('touchEnd', [])
+  const afterPan = await cameraPosition()
+  assert.ok(Math.hypot(afterPan[0] - beforePan[0], afterPan[2] - beforePan[2]) > 1, 'hold and drag pans the village')
+  // Spread and close two real emulated fingers, without zooming the browser page.
+  await touch('touchStart', [[1, 140, 470], [2, 250, 470]])
+  await touch('touchMove', [[1, 80, 470], [2, 310, 470]])
+  const zoomedIn = await cameraPosition()
+  assert.ok(zoomedIn[1] < afterPan[1] * 0.8, 'spreading fingers zooms in')
+  await touch('touchMove', [[1, 155, 470], [2, 235, 470]])
+  const zoomedOut = await cameraPosition()
+  assert.ok(zoomedOut[1] > zoomedIn[1] * 1.5, `closing fingers zooms out (${zoomedIn[1]} → ${zoomedOut[1]})`)
+  await touch('touchEnd', [])
+  assert.equal(await page.evaluate(() => window.visualViewport.scale), 1, 'pinch moves the camera rather than magnifying the page')
+  await page.screenshot({ path: join(artifacts, 'phone-pan-and-zoom.png') })
+  await page.evaluate(() => [...document.querySelectorAll('.village-controls button')]
+    .find((b) => b.textContent === '마을 전체').click())
+  await page.waitForFunction((y) => Math.abs(window.__village.camera.position.y - y) < 0.01, {}, initialCamera.y)
+  const resetPosition = await cameraPosition()
+  assert.ok(Math.abs(resetPosition[0] - beforePan[0]) < 0.01 && Math.abs(resetPosition[2] - beforePan[2]) < 0.01, 'overview restores the initial framing')
+  await touch('touchStart', [[1, 170, 440]])
+  await touch('touchCancel', [])
+  await touchClient.detach()
   await page.setViewport({ width: 844, height: 390, deviceScaleFactor: 3, isMobile: true, hasTouch: true })
   await page.waitForFunction(() => document.querySelector('.stage').clientWidth === 844 &&
     window.__village.renderer.getPixelRatio() === 2)
@@ -185,6 +225,16 @@ try {
   await page.mouse.move(...spotA)
   await new Promise((resolve) => setTimeout(resolve, 300))
   await page.screenshot({ path: join(artifacts, 'decorate-ghost.png') })
+  await page.mouse.down()
+  await new Promise((resolve) => setTimeout(resolve, 400))
+  await page.mouse.up()
+  assert.equal((await placedNow()).length, 0, 'holding the canvas does not place a decoration')
+  await page.mouse.down()
+  await page.mouse.move(spotA[0] + 50, spotA[1] + 20, { steps: 5 })
+  await page.mouse.up()
+  assert.equal((await placedNow()).length, 0, 'dragging the camera does not place a decoration')
+  await button('마을 전체')
+  await new Promise((resolve) => setTimeout(resolve, 300))
   await page.mouse.click(...spotA)
   let decorated = await placedNow()
   assert.equal(decorated.length, 1, 'chair placed from the 3D village')

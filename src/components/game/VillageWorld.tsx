@@ -24,6 +24,7 @@ export function VillageWorld({ onLegacy }: { onLegacy: () => void }) {
   const selectDecoration = useGameStore((s) => s.selectDecoration)
   const placeAt = useGameStore((s) => s.placeAt)
   const [view, setView] = useState<VillageView>('whole')
+  const [cameraResetKey, setCameraResetKey] = useState(0)
   const [preview, setPreview] = useState(false)
   const [focusId, setFocusId] = useState<string | null>(null)
   // Existing save coordinates belong to the old background. Remap only the live view.
@@ -60,13 +61,13 @@ export function VillageWorld({ onLegacy }: { onLegacy: () => void }) {
   const showPreview = preview && !editing
   return <div className="game-world game-world--village">
     <VillageStage characters={showPreview ? PREVIEW : agents} decorations={decorations} decorating={decorating}
-      view={view} focusId={focusId} onGround={onGround} onSelect={(id) => {
+      view={view} cameraResetKey={cameraResetKey} focusId={focusId} onGround={onGround} onSelect={(id) => {
         setFocusId(id)
         if (!showPreview) selectCharacter(id)
       }} />
     <div className="village-controls" aria-label="마을 시점">
       {([['whole', '마을 전체'], ['basic', '기본 시점'], ['follow', '따라가기']] as const).map(([id, label]) =>
-        <button key={id} type="button" aria-pressed={view === id} onClick={() => setView(id)}>{label}</button>)}
+        <button key={id} type="button" aria-pressed={view === id} onClick={() => { setView(id); setCameraResetKey((key) => key + 1) }}>{label}</button>)}
       {!editing && <>
         <button type="button" aria-pressed={preview} onClick={() => { setPreview(!preview); setFocusId(null) }}>30명 미리보기</button>
         <button type="button" onClick={onLegacy}>기존 마을</button>
@@ -75,6 +76,7 @@ export function VillageWorld({ onLegacy }: { onLegacy: () => void }) {
     <p className="village-hint">{editing ? (placing ? '잔디 위를 눌러 놓아요 · 초록색이면 놓을 수 있어요'
       : '놓인 장식물을 누르면 이동하거나 회수할 수 있어요')
       : showPreview ? '배치 확인용 30명 · 일기 데이터에는 저장되지 않아요'
-      : monthly.length ? '캐릭터를 누르면 일기 · 잔디를 누르면 이동해요' : '오늘 기록을 쓰면 마을에 캐릭터가 생겨요'}</p>
+      : monthly.length ? '짧게 누르면 일기·이동 · 드래그로 화면 이동 · 두 손가락으로 확대·축소'
+      : '오늘 기록을 쓰면 캐릭터가 생겨요 · 드래그로 이동 · 두 손가락으로 확대·축소'}</p>
   </div>
 }

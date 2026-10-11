@@ -33,6 +33,7 @@ interface Props {
   /** Set while the decorate panel is open. */
   decorating: StageDecorating | null
   view: VillageView
+  cameraResetKey: number
   focusId: string | null
   onSelect: (id: string) => void
   onGround: (point: { x: number; y: number }) => void
@@ -200,6 +201,19 @@ export function VillageStage(props: Props) {
     scene.background = new THREE.Color('#9fd0e6')
     scene.fog = new THREE.Fog(HAZE.color, HAZE.near, HAZE.far)
     const camera = new THREE.PerspectiveCamera(VILLAGE_CAMERA.fov, 16 / 9, 0.5, 600)
+    const initialZoom = window.matchMedia('(any-pointer: coarse)').matches ? 1.45 : 1
+    let zoom = initialZoom
+    const pan = new THREE.Vector3()
+    const focus = VILLAGE_CAMERA.target.clone()
+    let distance = VILLAGE_VIEW_DISTANCE[props.view] as number
+    let resetKey = props.cameraResetKey
+    const updateCamera = () => {
+      const target = focus.clone().add(pan)
+      camera.position.copy(target).addScaledVector(CAMERA_OFFSET, distance * zoom)
+      camera.lookAt(target)
+      camera.updateMatrixWorld()
+    }
+    updateCamera()
     // Soft warm sun from the upper left, matching Blender's "V4 Soft Sun" direction.
     const key = new THREE.DirectionalLight(new THREE.Color(1, 0.95, 0.86), SUN_INTENSITY)
     key.position.set(-0.551, 0.636, 0.54).multiplyScalar(80).add(VILLAGE_CAMERA.target)
@@ -407,8 +421,75 @@ export function VillageStage(props: Props) {
       pointerGround = raycaster.ray.intersectPlane(groundPlane, new THREE.Vector3())
     }
     const leave = () => { pointerGround = null }
-    renderer.domElement.addEventListener('pointerup', click)
-    renderer.domElement.addEventListener('pointermove', hover)
+    // Capture each finger so dragging outside the canvas still finishes cleanly.
+    const pointers = new Map<number, { x: number; y: number; startX: number; startY: number; time: number }>()
+    let gesturing = false
+    const groundAt = (x: number, y: number) => {
+      const box = renderer.domElement.getBoundingClientRect()
+      raycaster.setFromCamera(new THREE.Vector2(
+        (x - box.left) / box.width * 2 - 1, 1 - (y - box.top) / box.height * 2,
+      ), camera)
+      return raycaster.ray.intersectPlane(groundPlane, new THREE.Vector3())
+    }
+    const reposition = (before: THREE.Vector3 | null, x: number, y: number) => {
+      const after = groundAt(x, y)
+      if (!before || !after) return
+      pan.add(before.sub(after))
+      pan.x = THREE.MathUtils.clamp(pan.x, -18, 18)
+      pan.z = THREE.MathUtils.clamp(pan.z, -22, 22)
+      updateCamera()
+    }
+    const pointerDown = (event: PointerEvent) => {
+      if (event.button !== 0) return
+      if (!pointers.size) gesturing = false
+      pointers.set(event.pointerId, { x: event.clientX, y: event.clientY,
+        startX: event.clientX, startY: event.clientY, time: performance.now() })
+      renderer.domElement.setPointerCapture(event.pointerId)
+      if (pointers.size > 1) { gesturing = true; leave() }
+    }
+    const pointerMove = (event: PointerEvent) => {
+      const pointer = pointers.get(event.pointerId)
+      if (!pointer) { hover(event); return }
+      const touches = [...pointers.values()]
+      if (touches.length >= 2) {
+        const [a, b] = touches
+        const oldGap = Math.hypot(a.x - b.x, a.y - b.y)
+        const anchor = groundAt((a.x + b.x) / 2, (a.y + b.y) / 2)
+        pointer.x = event.clientX
+        pointer.y = event.clientY
+        const newGap = Math.hypot(a.x - b.x, a.y - b.y)
+        if (oldGap > 0 && newGap > 0) {
+          zoom = THREE.MathUtils.clamp(zoom * oldGap / newGap, 0.55, 2.4)
+          updateCamera()
+        }
+        reposition(anchor, (a.x + b.x) / 2, (a.y + b.y) / 2)
+        leave()
+        return
+      }
+      if (!gesturing && Math.hypot(event.clientX - pointer.startX, event.clientY - pointer.startY) > 8) gesturing = true
+      if (gesturing) {
+        reposition(groundAt(pointer.x, pointer.y), event.clientX, event.clientY)
+        leave()
+      } else hover(event)
+      pointer.x = event.clientX
+      pointer.y = event.clientY
+    }
+    const pointerEnd = (event: PointerEvent) => {
+      const pointer = pointers.get(event.pointerId)
+      if (!pointer) return
+      const tap = event.type === 'pointerup' && !gesturing && pointers.size === 1 &&
+        performance.now() - pointer.time < 350 &&
+        Math.hypot(event.clientX - pointer.startX, event.clientY - pointer.startY) <= 8
+      pointers.delete(event.pointerId)
+      if (renderer.domElement.hasPointerCapture(event.pointerId)) renderer.domElement.releasePointerCapture(event.pointerId)
+      if (tap) click(event)
+      if (!pointers.size) { gesturing = false; leave() }
+    }
+    renderer.domElement.addEventListener('pointerdown', pointerDown)
+    renderer.domElement.addEventListener('pointerup', pointerEnd)
+    renderer.domElement.addEventListener('pointercancel', pointerEnd)
+    renderer.domElement.addEventListener('lostpointercapture', pointerEnd)
+    renderer.domElement.addEventListener('pointermove', pointerMove)
     renderer.domElement.addEventListener('pointerleave', leave)
     /** Adds, moves and removes decoration models to match the placed list. */
     const syncDecorations = (decorations: readonly StageDecoration[]) => {
@@ -489,8 +570,6 @@ export function VillageStage(props: Props) {
       const tint = decorating.canPlace(placing.itemId, point, placing.movingId) ? fits : blocked
       for (const material of ghost.materials) material.emissive.copy(tint)
     }
-    const focus = VILLAGE_CAMERA.target.clone()
-    let distance = 1
     let raf = 0
     let previous = performance.now()
     const tick = () => {
@@ -546,15 +625,18 @@ export function VillageStage(props: Props) {
         }
       }
       const tracked = characters.find((c) => c.id === focusId) ?? characters[0]
+      if (resetKey !== dataRef.current.cameraResetKey) {
+        resetKey = dataRef.current.cameraResetKey
+        zoom = initialZoom
+        pan.set(0, 0, 0)
+      }
       // Every view keeps the legacy angle; only the look-at point and distance change.
       const target = view === 'whole' ? VILLAGE_CAMERA.target
         : view === 'follow' && tracked ? villageGround(tracked.x, tracked.y) : villageGround(0.5, 0.5)
       const ease = Math.min(1, delta * 6)
-      focus.lerp(target, ease)
+      if (!pointers.size) focus.lerp(target, ease)
       distance += (VILLAGE_VIEW_DISTANCE[view] - distance) * ease
-      camera.position.copy(focus).addScaledVector(CAMERA_OFFSET, distance)
-      camera.lookAt(focus)
-      camera.updateMatrixWorld()
+      updateCamera()
       if (composer) composer.render(delta)
       else renderer.render(scene, camera)
     }
@@ -563,8 +645,11 @@ export function VillageStage(props: Props) {
       disposed = true
       cancelAnimationFrame(raf)
       observer.disconnect()
-      renderer.domElement.removeEventListener('pointerup', click)
-      renderer.domElement.removeEventListener('pointermove', hover)
+      renderer.domElement.removeEventListener('pointerdown', pointerDown)
+      renderer.domElement.removeEventListener('pointerup', pointerEnd)
+      renderer.domElement.removeEventListener('pointercancel', pointerEnd)
+      renderer.domElement.removeEventListener('lostpointercapture', pointerEnd)
+      renderer.domElement.removeEventListener('pointermove', pointerMove)
       renderer.domElement.removeEventListener('pointerleave', leave)
       clearGhost()
       selectionRing.geometry.dispose()
