@@ -9,7 +9,7 @@ import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import type { StageCharacter } from './ThreeStage'
 import { MALE_WALK_STRIDE } from '@/systems/walkSystem'
-import { VILLAGE_CAMERA, VILLAGE_CHARACTER_HEIGHT, VILLAGE_VIEW_DISTANCE,
+import { DECORATION_RADIUS, VILLAGE_CAMERA, VILLAGE_CHARACTER_HEIGHT, VILLAGE_VIEW_DISTANCE,
   VILLAGE_WIDTH, villageGround, villagePoint } from '@/systems/villageLayout'
 
 export type VillageView = 'whole' | 'basic' | 'follow'
@@ -20,9 +20,18 @@ export interface StageDecoration {
   x: number
   y: number
 }
+/** Decorating state: the item being placed or moved follows the pointer as a ghost. */
+export interface StageDecorating {
+  selectedId: string | null
+  placing: { itemId: string; movingId?: string } | null
+  canPlace: (itemId: string, point: { x: number; y: number }, movingId?: string) => boolean
+  onSelectDecoration: (id: string) => void
+}
 interface Props {
   characters: readonly StageCharacter[]
   decorations: readonly StageDecoration[]
+  /** Set while the decorate panel is open. */
+  decorating: StageDecorating | null
   view: VillageView
   focusId: string | null
   onSelect: (id: string) => void
@@ -252,23 +261,51 @@ export function VillageStage(props: Props) {
     resize()
     const raycaster = new THREE.Raycaster()
     const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)
-    const click = (event: PointerEvent) => {
+    const aim = (event: PointerEvent) => {
       const box = renderer.domElement.getBoundingClientRect()
       raycaster.setFromCamera(new THREE.Vector2(
         (event.clientX - box.left) / box.width * 2 - 1,
         1 - (event.clientY - box.top) / box.height * 2,
       ), camera)
-      const hits = raycaster.intersectObjects([...instances.values()].map((i) => i.object), true)
-      if (hits.length) {
-        let object: THREE.Object3D | null = hits[0].object
-        while (object && !object.userData.characterId) object = object.parent
-        if (object) dataRef.current.onSelect(object.userData.characterId as string)
+    }
+    /** First object under the pointer that carries `key` in its userData, if any. */
+    const pick = (objects: THREE.Object3D[], key: string): string | null => {
+      for (const hit of raycaster.intersectObjects(objects, true)) {
+        let object: THREE.Object3D | null = hit.object
+        while (object && !object.userData[key]) object = object.parent
+        if (object) return object.userData[key] as string
+      }
+      return null
+    }
+    const click = (event: PointerEvent) => {
+      aim(event)
+      const { decorating } = dataRef.current
+      if (decorating && !decorating.placing) {
+        // Decorating: tap a decoration to select it for moving or recalling.
+        const id = pick([...placed.values()].map((p) => p.object), 'decorationId')
+        if (id) decorating.onSelectDecoration(id)
         return
+      }
+      if (!decorating) {
+        const id = pick([...instances.values()].map((i) => i.object), 'characterId')
+        if (id) {
+          dataRef.current.onSelect(id)
+          return
+        }
       }
       const point = raycaster.ray.intersectPlane(groundPlane, new THREE.Vector3())
       if (point) dataRef.current.onGround(villagePoint(point))
     }
+    /** Where the pointer touches the lawn, for the placement ghost. */
+    let pointerGround: THREE.Vector3 | null = null
+    const hover = (event: PointerEvent) => {
+      aim(event)
+      pointerGround = raycaster.ray.intersectPlane(groundPlane, new THREE.Vector3())
+    }
+    const leave = () => { pointerGround = null }
     renderer.domElement.addEventListener('pointerup', click)
+    renderer.domElement.addEventListener('pointermove', hover)
+    renderer.domElement.addEventListener('pointerleave', leave)
     /** Adds, moves and removes decoration models to match the placed list. */
     const syncDecorations = (decorations: readonly StageDecoration[]) => {
       const ids = new Set(decorations.map((d) => d.id))
@@ -293,6 +330,61 @@ export function VillageStage(props: Props) {
         entry.object.position.copy(villageGround(d.x, d.y))
       }
     }
+    // Decorating: a translucent ghost follows the pointer (green = fits, red = not here),
+    // and the selected decoration gets an orange ring.
+    let ghost: { itemId: string; object: THREE.Object3D; materials: THREE.MeshStandardMaterial[] } | null = null
+    const clearGhost = () => {
+      if (!ghost) return
+      scene.remove(ghost.object)
+      for (const material of ghost.materials) material.dispose()
+      ghost = null
+    }
+    const makeGhost = (itemId: string) => {
+      const model = decorationModels.get(itemId)
+      if (!model) return null
+      const object = model.clone()
+      const materials: THREE.MeshStandardMaterial[] = []
+      object.traverse((o) => {
+        const mesh = o as THREE.Mesh
+        if (!mesh.isMesh) return
+        mesh.castShadow = false
+        const material = (mesh.material as THREE.MeshStandardMaterial).clone()
+        Object.assign(material, { transparent: true, opacity: 0.6, depthWrite: false, emissiveIntensity: 0.6 })
+        mesh.material = material
+        materials.push(material)
+      })
+      scene.add(object)
+      return { itemId, object, materials }
+    }
+    const selectionRing = new THREE.Mesh(new THREE.RingGeometry(0.9, 1.08, 48),
+      new THREE.MeshBasicMaterial({ color: '#ffb347', transparent: true, opacity: 0.9, depthWrite: false }))
+    selectionRing.rotation.x = -Math.PI / 2
+    selectionRing.visible = false
+    scene.add(selectionRing)
+    const fits = new THREE.Color('#5fd17a')
+    const blocked = new THREE.Color('#ff6b6b')
+    const updateDecorating = (decorating: StageDecorating | null) => {
+      const selected = decorating?.selectedId ? placed.get(decorating.selectedId) : undefined
+      selectionRing.visible = !!selected && !decorating?.placing
+      if (selected) {
+        selectionRing.scale.setScalar(DECORATION_RADIUS[selected.itemId] ?? 0.6)
+        selectionRing.position.copy(selected.object.position).setY(0.05)
+      }
+      const placing = decorating?.placing
+      if (!decorating || !placing || !pointerGround) {
+        clearGhost()
+        return
+      }
+      if (ghost?.itemId !== placing.itemId) {
+        clearGhost()
+        ghost = makeGhost(placing.itemId)
+      }
+      if (!ghost) return
+      const point = villagePoint(pointerGround)
+      ghost.object.position.copy(villageGround(point.x, point.y))
+      const tint = decorating.canPlace(placing.itemId, point, placing.movingId) ? fits : blocked
+      for (const material of ghost.materials) material.emissive.copy(tint)
+    }
     const focus = VILLAGE_CAMERA.target.clone()
     let distance = 1
     let raf = 0
@@ -303,8 +395,11 @@ export function VillageStage(props: Props) {
       waterTime.value = now / 1000
       const delta = Math.min(0.05, (now - previous) / 1000)
       previous = now
-      const { characters, decorations, view, focusId } = dataRef.current
-      if (decorationModels.size) syncDecorations(decorations)
+      const { characters, decorations, decorating, view, focusId } = dataRef.current
+      if (decorationModels.size) {
+        syncDecorations(decorations)
+        updateDecorating(decorating)
+      }
       if (template && walkClip && idleClip) {
         const ids = new Set(characters.map((c) => c.id))
         for (const [id, instance] of instances) if (!ids.has(id)) {
@@ -364,6 +459,11 @@ export function VillageStage(props: Props) {
       cancelAnimationFrame(raf)
       observer.disconnect()
       renderer.domElement.removeEventListener('pointerup', click)
+      renderer.domElement.removeEventListener('pointermove', hover)
+      renderer.domElement.removeEventListener('pointerleave', leave)
+      clearGhost()
+      selectionRing.geometry.dispose()
+      ;(selectionRing.material as THREE.Material).dispose()
       for (const instance of instances.values()) {
         instance.mixer.stopAllAction()
         instance.mixer.uncacheRoot(instance.object)

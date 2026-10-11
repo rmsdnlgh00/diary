@@ -6,10 +6,12 @@ import { canPlaceDecoration } from '@/systems/decorationSystem'
 import { writeDiary } from '@/systems/diarySystem'
 import { isMonthKey, loadSave, persistSave } from '@/systems/saveSystem'
 import type { Point } from '@/systems/worldSystem'
-import type { ClothingCategory, DecorationData, DiaryCharacterData, DiaryEntry, Inventory, PanelId, WorldDecorations } from '@/types'
+import type { ClothingCategory, DecorationData, DiaryCharacterData, DiaryEntry, GameItem, Inventory, PanelId,
+  PlacedDecoration, WorldDecorations } from '@/types'
 import { TODAY, toDateKey, toMonthKey } from '@/utils/date'
 
 type PlacementTool = { kind: 'place'; itemId: string } | { kind: 'move'; placedId: string } | null
+export type PlacementCheck = (item: GameItem, point: Point, placed: readonly PlacedDecoration[], movingId?: string) => boolean
 
 interface GameState {
   worldId: string
@@ -39,7 +41,11 @@ interface GameState {
   chooseDecoration: (itemId: string) => void
   selectDecoration: (placedId: string) => void
   startMovingDecoration: () => void
-  placeAt: (point: Point) => void
+  /**
+   * Places or moves the chosen decoration at `point` (legacy world coordinates).
+   * `isValid` replaces the legacy placement check, e.g. for the 3D village.
+   */
+  placeAt: (point: Point, isValid?: PlacementCheck) => void
   recallDecoration: () => void
   cancelPlacement: () => void
   setWorld: (worldId: string) => void
@@ -154,7 +160,7 @@ export const useGameStore = create<GameState>((set, get) => {
       set({ placementTool: { kind: 'move', placedId: selectedDecorationId }, feedback: '옮길 곳을 눌러주세요.' })
     },
 
-    placeAt: (point) => {
+    placeAt: (point, isValid) => {
       const { activePanel, worldId, worldDecorations, placementTool, inventory } = get()
       if (activePanel !== 'DECORATE' || !placementTool) return
       const placed = worldDecorations[worldId] ?? []
@@ -162,7 +168,9 @@ export const useGameStore = create<GameState>((set, get) => {
       const item = getItem(placementTool.kind === 'place' ? placementTool.itemId : moving?.itemId ?? '')
       if (!item || !inventory.decorations.includes(item.id) || (placementTool.kind === 'move' && !moving)) return
       if (!moving && placed.some((d) => d.itemId === item.id)) return
-      if (!canPlaceDecoration(getWorld(worldId), item, point, placed, moving?.id)) {
+      const valid = isValid ? isValid(item, point, placed, moving?.id)
+        : canPlaceDecoration(getWorld(worldId), item, point, placed, moving?.id)
+      if (!valid) {
         set({ feedback: '여기에는 놓을 수 없어요. 비어 있는 잔디를 골라주세요.' }); return
       }
       const decoration = { id: moving?.id ?? `placed_${crypto.randomUUID()}`, itemId: item.id,

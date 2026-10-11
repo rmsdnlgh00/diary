@@ -61,6 +61,13 @@ Run `scripts/export-village.py` inside Blender to update the public GLB. Point
   `Diary Decorations V4` scene, scaled 1.3–1.5× to match the village props. Saved
   decorations keep their legacy coordinates; `fromLegacyPoint` maps them onto the lawn
   (`toLegacyPoint` is the inverse) and `VillageStage` shows them as 3D clones.
+- Decorating happens in the 3D village (the legacy view keeps its own 2D editor). While
+  placing, a translucent ghost follows the pointer, green when `canPlaceInVillage` allows
+  it: the whole footprint (`DECORATION_RADIUS`) on the lawn areas, clear of the stepping
+  stones (`VILLAGE_STEPPING_STONES`), other decorations and standing characters. The
+  store's `placeAt` takes that check and saves legacy coordinates (`toLegacyPoint`).
+  Tapping a decoration selects it (orange ring) for moving or recalling. Placed
+  decorations become blocked squares in `villageWorld`, so characters walk around them.
 - V4 uses flat base colours only, so glTF matches Blender's material colours.
   The web lighting is recreated in Three.js. Flat parts (ground, sea, river, paths,
   pond, stepping stones, lawn flowers) receive shadows but do not cast them.

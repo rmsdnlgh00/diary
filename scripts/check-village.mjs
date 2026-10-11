@@ -123,6 +123,81 @@ try {
     const s = useGameStore.getState()
     useGameStore.setState({ worldDecorations: { ...s.worldDecorations, [s.worldId]: [] } })
   })
+
+  // Decorating happens in the 3D village: place, reject a stepping stone, select, move, recall.
+  const store = (fn, arg) => page.evaluate(async ({ fn, arg }) => {
+    const { useGameStore } = await import('/src/store/gameStore.ts')
+    const s = useGameStore.getState()
+    if (fn === 'own') useGameStore.setState({ inventory: { ...s.inventory, decorations: [...new Set([...s.inventory.decorations, ...arg])] } })
+    else s[fn](arg)
+  }, { fn, arg })
+  /** Screen point of a free lawn spot (or of `world` = [x, z] if given), in page pixels. */
+  const screenOf = (world) => page.evaluate(async (world) => {
+    const THREE = await import('/node_modules/.vite/deps/three.js')
+    const layout = await import('/src/systems/villageLayout.ts')
+    const { useGameStore } = await import('/src/store/gameStore.ts')
+    const { camera, renderer, instances } = window.__village
+    let point
+    if (world) point = new THREE.Vector3(world[0], 0, world[1])
+    else {
+      const s = useGameStore.getState()
+      const placed = (s.worldDecorations[s.worldId] ?? []).map((d) => ({ id: d.id, itemId: d.itemId, ...layout.fromLegacyPoint(d) }))
+      const occupants = [...instances.values()].map((i) => layout.villagePoint(i.object.position))
+      const spot = layout.lawnSpots(80).find((p) => layout.canPlaceInVillage('chair', p, placed, occupants) &&
+        Math.abs(layout.fromLegacyPoint(layout.toLegacyPoint(p)).x - p.x) < 1e-6)
+      point = layout.villageGround(spot.x, spot.y)
+    }
+    const p = point.project(camera)
+    const rect = renderer.domElement.getBoundingClientRect()
+    return [rect.left + (p.x + 1) / 2 * rect.width, rect.top + (1 - p.y) / 2 * rect.height]
+  }, world ?? null)
+  const placedNow = async () => { const s = await state(); return s.worldDecorations[s.worldId] ?? [] }
+  const beforeDecorating = await state()
+  await store('own', ['chair', 'flower_pot'])
+  await store('togglePanel', 'DECORATE')
+  await page.waitForSelector('.village-stage')
+  await store('chooseDecoration', 'chair')
+  const spotA = await screenOf()
+  await page.mouse.move(...spotA)
+  await new Promise((resolve) => setTimeout(resolve, 300))
+  await page.screenshot({ path: join(artifacts, 'decorate-ghost.png') })
+  await page.mouse.click(...spotA)
+  let decorated = await placedNow()
+  assert.equal(decorated.length, 1, 'chair placed from the 3D village')
+  assert.equal((await state()).feedback, '배치했어요!')
+  const chair = decorated[0]
+  assert.ok(chair.x >= 0 && chair.x <= 1 && chair.y >= 0 && chair.y <= 1, 'stored in legacy coordinates')
+  await store('chooseDecoration', 'flower_pot')
+  const { VILLAGE_STEPPING_STONES } = await page.evaluate(async () => import('/src/systems/villageLayout.ts').then((m) => ({ VILLAGE_STEPPING_STONES: m.VILLAGE_STEPPING_STONES })))
+  await page.mouse.click(...await screenOf(VILLAGE_STEPPING_STONES[4]))
+  assert.equal((await placedNow()).length, 1, 'stepping stones are not a place for decorations')
+  assert.match((await state()).feedback, /놓을 수 없어요/)
+  await store('cancelPlacement')
+  const chairScreen = await page.evaluate(async (id) => {
+    const THREE = await import('/node_modules/.vite/deps/three.js')
+    const { scene, camera, renderer } = window.__village
+    let target
+    scene.traverse((o) => { if (o.userData.decorationId === id) target = o })
+    const p = new THREE.Box3().setFromObject(target).getCenter(new THREE.Vector3()).project(camera)
+    const rect = renderer.domElement.getBoundingClientRect()
+    return [rect.left + (p.x + 1) / 2 * rect.width, rect.top + (1 - p.y) / 2 * rect.height]
+  }, chair.id)
+  await page.mouse.click(...chairScreen)
+  assert.equal((await state()).selectedDecorationId, chair.id, 'tap selects the decoration')
+  await page.screenshot({ path: join(artifacts, 'decorate-selected.png') })
+  await store('startMovingDecoration')
+  await page.mouse.click(...await screenOf())
+  decorated = await placedNow()
+  assert.equal(decorated.length, 1)
+  assert.ok(decorated[0].x !== chair.x || decorated[0].y !== chair.y, 'chair moved')
+  assert.equal((await state()).feedback, '옮겼어요!')
+  await store('recallDecoration')
+  assert.equal((await placedNow()).length, 0, 'chair recalled')
+  await store('closePanel')
+  await page.evaluate(async (saved) => {
+    const { useGameStore } = await import('/src/store/gameStore.ts')
+    useGameStore.setState({ inventory: saved.inventory, worldDecorations: saved.worldDecorations })
+  }, beforeDecorating)
   await button('기존 마을')
   await page.waitForSelector('.three-stage')
   assert.equal(await page.$('.village-stage'), null)
@@ -130,7 +205,7 @@ try {
   await page.waitForFunction(() => !!window.__village)
   assert.equal((await state()).characters.filter((c) => c.diaryDate === before.today).length, 1)
   assert.deepEqual(errors, [])
-  console.log('PASS GLB load, 16:9 legacy-view layout, 30-person preview on lawn areas, 3D decorations, save preservation, diary picking, ground movement, responsive editor, legacy switch')
+  console.log('PASS GLB load, 16:9 legacy-view layout, 30-person preview on lawn areas, 3D decorations, 3D decorating, save preservation, diary picking, ground movement, responsive editor, legacy switch')
   console.log(`Screenshots: ${artifacts}`)
 } catch (error) {
   await page?.screenshot({ path: join(artifacts, 'failure.png') }).catch(() => {})

@@ -57,13 +57,68 @@ export function villagePoint(point: THREE.Vector3) {
   }
 }
 
-export function villageWorld(world: WorldDefinition): WorldDefinition {
+/** Ground footprint radius of each decoration model, in units (≈ metres). */
+export const DECORATION_RADIUS: Record<string, number> = {
+  flower_pot: 0.45, picnic_mat: 1.35, small_lamp: 0.35, flower_bed: 1.1, chair: 0.5, sign: 0.6, plant: 1.0,
+}
+const decorationRadius = (itemId: string) => DECORATION_RADIUS[itemId] ?? 0.6
+
+/** Stepping stones on the lawn (three.js x, z, radius), measured in Blender. Walkable, but not for decorations. */
+export const VILLAGE_STEPPING_STONES: readonly [number, number, number][] = [
+  [-6.6, -12.55, 0.53], [-4.87, -9.84, 0.53], [-3.61, -7.48, 0.54],
+  [-2.59, -5.37, 0.58], [0.28, 3.27, 0.63], [1.72, 5.56, 0.58],
+]
+
+export interface VillageDecoration extends Point {
+  id: string
+  itemId: string
+}
+
+/** Distance in units between two village points. */
+const unitsBetween = (a: Point, b: Point) =>
+  Math.hypot((a.x - b.x) * VILLAGE_WIDTH, (a.y - b.y) * VILLAGE_DEPTH)
+
+/**
+ * Whether a decoration fits at `point` (village coordinates): its whole footprint on the
+ * lawn, clear of stepping stones, other decorations and the characters standing there.
+ * Points stay where `fromLegacyPoint(toLegacyPoint(p))` returns them unchanged.
+ */
+export function canPlaceInVillage(
+  itemId: string,
+  point: Point,
+  decorations: readonly VillageDecoration[],
+  occupants: readonly Point[] = [],
+  movingId?: string,
+): boolean {
+  if (point.x < 0.1 || point.x > 0.9 || point.y < 0.08 || point.y > 0.92) return false
+  const radius = decorationRadius(itemId)
+  for (let i = 0; i <= 8; i += 1) {
+    const angle = i * Math.PI / 4
+    const r = i === 8 ? 0 : radius
+    const sample = {
+      x: point.x + Math.cos(angle) * r / VILLAGE_WIDTH,
+      y: point.y + Math.sin(angle) * r / VILLAGE_DEPTH,
+    }
+    if (!isInsideAnyArea(sample, VILLAGE_WALKABLE_AREAS)) return false
+  }
+  const ground = villageGround(point.x, point.y)
+  if (VILLAGE_STEPPING_STONES.some(([x, z, r]) => Math.hypot(ground.x - x, ground.z - z) < radius + r + 0.1)) return false
+  if (decorations.some((d) => d.id !== movingId && unitsBetween(point, d) < radius + decorationRadius(d.itemId))) return false
+  return !occupants.some((o) => unitsBetween(point, o) < radius + 0.45)
+}
+
+/** Placed decorations become blocked squares, so characters walk around them. */
+export function villageWorld(world: WorldDefinition, decorations: readonly VillageDecoration[] = []): WorldDefinition {
   return {
     ...world,
     horizonY: 0,
     groundDepthRatio: VILLAGE_DEPTH / VILLAGE_WIDTH,
     walkableAreas: VILLAGE_WALKABLE_AREAS,
-    blockedAreas: [],
+    blockedAreas: decorations.map((d) => {
+      const r = decorationRadius(d.itemId)
+      return { id: `decoration-${d.id}`, x: [d.x - r / VILLAGE_WIDTH, d.x + r / VILLAGE_WIDTH],
+        y: [d.y - r / VILLAGE_DEPTH, d.y + r / VILLAGE_DEPTH] }
+    }),
   }
 }
 
