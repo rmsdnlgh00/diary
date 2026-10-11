@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
+import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js'
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import type { StageCharacter } from './ThreeStage'
 import { MALE_WALK_STRIDE } from '@/systems/walkSystem'
@@ -31,6 +36,13 @@ const FLAT_PARTS = /Ground|Sea|River|Path|Pond|Stepping|Lawn_Flowers/
 const SUN_INTENSITY = 2.2
 const SKY_INTENSITY = 1.6
 const CAMERA_OFFSET = VILLAGE_CAMERA.position.clone().sub(VILLAGE_CAMERA.target)
+/** Light aerial haze: only the far trees and sea fade a little, like the painting. */
+const HAZE = { color: '#dcebf2', near: 70, far: 260 }
+
+/** Phones and small screens skip ambient occlusion and use a smaller shadow map. */
+function isLowPower(): boolean {
+  return window.matchMedia('(pointer: coarse)').matches || Math.min(window.innerWidth, window.innerHeight) < 600
+}
 
 function disposeObject(root: THREE.Object3D) {
   const geometries = new Set<THREE.BufferGeometry>()
@@ -67,6 +79,7 @@ export function VillageStage(props: Props) {
       setFailed(true)
       return
     }
+    const lowPower = isLowPower()
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
     renderer.outputColorSpace = THREE.SRGBColorSpace
     renderer.shadowMap.enabled = true
@@ -74,21 +87,35 @@ export function VillageStage(props: Props) {
     host.appendChild(renderer.domElement)
     const scene = new THREE.Scene()
     scene.background = new THREE.Color('#9fd0e6')
+    scene.fog = new THREE.Fog(HAZE.color, HAZE.near, HAZE.far)
     const camera = new THREE.PerspectiveCamera(VILLAGE_CAMERA.fov, 16 / 9, 0.5, 600)
     // Soft warm sun from the upper left, matching Blender's "V4 Soft Sun" direction.
     const key = new THREE.DirectionalLight(new THREE.Color(1, 0.95, 0.86), SUN_INTENSITY)
     key.position.set(-0.551, 0.636, 0.54).multiplyScalar(80).add(VILLAGE_CAMERA.target)
     key.target.position.copy(VILLAGE_CAMERA.target)
     key.castShadow = true
-    key.shadow.mapSize.set(4096, 4096)
+    key.shadow.mapSize.setScalar(lowPower ? 2048 : 4096)
     // Covers everything the legacy view can see (about 50 × 46 units of ground).
     Object.assign(key.shadow.camera, { left: -45, right: 45, top: 45, bottom: -45, near: 1, far: 200 })
     key.shadow.bias = -0.0003
     key.shadow.normalBias = 0.035
     key.shadow.radius = 4
     scene.add(key, key.target, new THREE.HemisphereLight(new THREE.Color(0.78, 0.86, 0.95), 0xd9d3a8, SKY_INTENSITY))
+    // Soft contact shadows under trees, fences and characters (desktop only).
+    let composer: EffectComposer | null = null
+    let ambientOcclusion: GTAOPass | null = null
+    if (!lowPower) {
+      composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(1, 1, { samples: 4, type: THREE.HalfFloatType }))
+      composer.addPass(new RenderPass(scene, camera))
+      ambientOcclusion = new GTAOPass(scene, camera, 1, 1)
+      ambientOcclusion.blendIntensity = 0.6
+      ambientOcclusion.updateGtaoMaterial({ radius: 0.9, distanceExponent: 1.5, thickness: 1.5, scale: 1, samples: 8 })
+      composer.addPass(ambientOcclusion)
+      composer.addPass(new OutputPass())
+    }
     const instances = new Map<string, Instance>()
-    const loader = new GLTFLoader()
+    const draco = new DRACOLoader().setDecoderPath('/draco/').setDecoderConfig({ type: 'wasm' })
+    const loader = new GLTFLoader().setDRACOLoader(draco)
     let disposed = false
     let terrain: THREE.Object3D | null = null
     let template: THREE.Group | null = null
@@ -129,7 +156,7 @@ export function VillageStage(props: Props) {
         template.add(raw)
         disposeObject(idle.scene)
         setStatus('')
-        if (import.meta.env.DEV) Object.assign(window, { __village: { scene, camera, renderer, instances } })
+        if (import.meta.env.DEV) Object.assign(window, { __village: { scene, camera, renderer, instances, lowPower } })
       } catch (error) {
         if (!disposed) {
           console.error('[VillageStage] 마을 로드 실패', error)
@@ -144,6 +171,10 @@ export function VillageStage(props: Props) {
       camera.aspect = host.clientWidth / host.clientHeight
       camera.updateProjectionMatrix()
       renderer.setSize(host.clientWidth, host.clientHeight, false)
+      if (composer) {
+        composer.setPixelRatio(renderer.getPixelRatio())
+        composer.setSize(host.clientWidth, host.clientHeight)
+      }
     }
     const observer = new ResizeObserver(resize)
     observer.observe(host)
@@ -227,7 +258,8 @@ export function VillageStage(props: Props) {
       camera.position.copy(focus).addScaledVector(CAMERA_OFFSET, distance)
       camera.lookAt(focus)
       camera.updateMatrixWorld()
-      renderer.render(scene, camera)
+      if (composer) composer.render(delta)
+      else renderer.render(scene, camera)
     }
     tick()
     return () => {
@@ -242,6 +274,9 @@ export function VillageStage(props: Props) {
       if (template) disposeObject(template)
       if (terrain) disposeObject(terrain)
       key.shadow.map?.dispose()
+      ambientOcclusion?.dispose()
+      composer?.dispose()
+      draco.dispose()
       renderer.dispose()
       host.removeChild(renderer.domElement)
       if (import.meta.env.DEV) Reflect.deleteProperty(window, '__village')

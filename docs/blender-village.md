@@ -27,8 +27,12 @@ Run `scripts/export-village.py` inside Blender to update the public GLB. Point
   height. "마을 전체" is exactly the legacy view; "기본 시점" and "따라가기" keep the same
   angle at 0.62× and 0.45× of the distance (`VILLAGE_VIEW_DISTANCE`).
 - Blender coordinates `(x, y, z)` become glTF `(x, z, -y)`.
-- Movement stays in an 11 × 13 unit rectangle on the lawn (`VILLAGE_CENTER`), clear of
-  the pond, bench, bushes and trees. Ground clicks use camera raycasting.
+- World coordinates 0–1 span the painted lawn (18 × 22.5 units around `VILLAGE_CENTER`).
+  Movement follows the lawn's shape through nine touching rectangles
+  (`VILLAGE_WALKABLE_AREAS`, ≈ 277 m²) measured in Blender: 0.6 units clear of the pond,
+  bench, bushes, fences and trees, and kept above the bottom menu. Walks stop at the
+  furthest reachable point, and saved positions that land off the lawn are moved to
+  the nearest lawn point in memory only. Ground clicks use camera raycasting.
 - Existing monthly diary positions are remapped only in memory. Saved diaries,
   equipment, coins and decorations retain their original format and coordinates.
 - Picking a real character opens its existing diary. Click the lawn to move the
@@ -36,6 +40,12 @@ Run `scripts/export-village.py` inside Blender to update the public GLB. Point
 - The 30-person preview is a static size/layout reference, independent of saves.
 - Existing space decoration opens the legacy background. Placed decoration
   assets and clothing overlays have not been converted to 3D.
+- The GLB is Draco-compressed (about 1.4 MB instead of 10 MB). `GLTFLoader` decodes it
+  with the WASM decoder copied to `public/draco/` from `three/examples/jsm/libs/draco/gltf`.
+- Rendering quality: on desktop an `EffectComposer` adds 4× MSAA and GTAO ambient
+  occlusion, with a 4096 shadow map. Touch devices and screens under 600 px use the
+  low-power path: direct rendering and a 2048 shadow map. Both use a light distance haze
+  (`HAZE`) so only the far trees and sea fade a little.
 - V4 uses flat base colours only, so glTF matches Blender's material colours.
   The web lighting is recreated in Three.js. Flat parts (ground, sea, river, paths,
   pond, stepping stones, lawn flowers) receive shadows but do not cast them.

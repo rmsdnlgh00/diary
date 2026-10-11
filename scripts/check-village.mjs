@@ -39,6 +39,13 @@ try {
   const before = await state()
   await button('30명 미리보기')
   await page.waitForFunction(() => window.__village.instances.size === 30)
+  const offLawn = await page.evaluate(async () => {
+    const { VILLAGE_WALKABLE_AREAS, villagePoint } = await import('/src/systems/villageLayout.ts')
+    const { isInsideAnyArea } = await import('/src/systems/worldSystem.ts')
+    return [...window.__village.instances.values()]
+      .filter((i) => !isInsideAnyArea(villagePoint(i.object.position), VILLAGE_WALKABLE_AREAS)).length
+  })
+  assert.equal(offLawn, 0, '30-person preview must stand on the lawn areas')
   await page.screenshot({ path: join(artifacts, 'mobile-overview.png') })
   const layout = await page.$eval('.stage', (el) => ({ width: el.clientWidth, height: el.clientHeight }))
   assert.ok(Math.abs(layout.width / layout.height - 16 / 9) < 0.01)
@@ -103,7 +110,7 @@ try {
   await page.waitForFunction(() => !!window.__village)
   assert.equal((await state()).characters.filter((c) => c.diaryDate === before.today).length, 1)
   assert.deepEqual(errors, [])
-  console.log('PASS GLB load, 16:9 legacy-view layout, 30-person preview, save preservation, diary picking, ground movement, responsive editor, legacy switch')
+  console.log('PASS GLB load, 16:9 legacy-view layout, 30-person preview on lawn areas, save preservation, diary picking, ground movement, responsive editor, legacy switch')
   console.log(`Screenshots: ${artifacts}`)
 } catch (error) {
   await page?.screenshot({ path: join(artifacts, 'failure.png') }).catch(() => {})

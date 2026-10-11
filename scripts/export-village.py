@@ -18,6 +18,11 @@ try:
         filepath=str(output), export_format="GLB", use_selection=True,
         use_active_scene=True, export_animations=False, export_apply=True,
         export_cameras=False, export_lights=False,
+        # Draco: ~10 MB → ~1.4 MB. The game decodes it with public/draco/.
+        export_draco_mesh_compression_enable=True, export_draco_mesh_compression_level=6,
+        export_draco_position_quantization=14, export_draco_normal_quantization=10,
+        export_draco_texcoord_quantization=12, export_draco_color_quantization=10,
+        export_draco_generic_quantization=12,
     )
     print(f"Exported {output} ({output.stat().st_size:,} bytes)")
 finally:

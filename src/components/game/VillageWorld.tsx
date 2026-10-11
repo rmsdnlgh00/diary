@@ -3,14 +3,12 @@ import { getWorld } from '@/data/worlds'
 import { useVillagers } from '@/hooks/useVillagers'
 import { useGameStore } from '@/store/gameStore'
 import { toMonthKey } from '@/utils/date'
-import { villageWorld } from '@/systems/villageLayout'
+import { lawnSpots, nearestLawnPoint, villageWorld } from '@/systems/villageLayout'
 import { VillageStage, type VillageView } from './VillageStage'
 import type { StageCharacter } from './ThreeStage'
 
-const PREVIEW: StageCharacter[] = Array.from({ length: 30 }, (_, i) => ({
-  id: `preview-${i + 1}`, x: 0.1 + (i % 5) * 0.2, y: 0.08 + Math.floor(i / 5) * 0.168,
-  targetX: 0.1 + (i % 5) * 0.2, targetY: 0.08 + Math.floor(i / 5) * 0.168,
-  phase: 'IDLE', walkDistance: 0,
+const PREVIEW: StageCharacter[] = lawnSpots(30).map(({ x, y }, i) => ({
+  id: `preview-${i + 1}`, x, y, targetX: x, targetY: y, phase: 'IDLE', walkDistance: 0,
 }))
 
 export function VillageWorld({ onLegacy }: { onLegacy: () => void }) {
@@ -25,8 +23,10 @@ export function VillageWorld({ onLegacy }: { onLegacy: () => void }) {
   // Existing save coordinates belong to the old background. Remap only the live view.
   const monthly = useMemo(() => characters.filter((c) => toMonthKey(c.diaryDate) === worldId).map((c) => ({
     ...c,
-    x: Math.max(0.1, Math.min(0.9, 0.1 + (c.x - 0.3) / 0.5 * 0.8)),
-    y: Math.max(0.08, Math.min(0.92, 0.08 + (c.y - 0.36) / 0.42 * 0.84)),
+    ...nearestLawnPoint({
+      x: Math.max(0.1, Math.min(0.9, 0.1 + (c.x - 0.3) / 0.5 * 0.8)),
+      y: Math.max(0.08, Math.min(0.92, 0.08 + (c.y - 0.36) / 0.42 * 0.84)),
+    }),
   })), [characters, worldId])
   const { agents, commandWalk } = useVillagers(world, monthly)
   const onGround = (point: { x: number; y: number }) => {
