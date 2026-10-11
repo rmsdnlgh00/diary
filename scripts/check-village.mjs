@@ -23,7 +23,7 @@ try {
   page.on('pageerror', (e) => errors.push(e.message))
   page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()) })
   await page.goto(server.resolvedUrls.local[0], { waitUntil: 'networkidle0' })
-  await page.waitForFunction(() => window.__village?.scene.children.some((o) => o.name === 'Diary_Village_V2' || o.children.some((c) => c.name.includes('Meadow'))), { timeout: 30000 })
+  await page.waitForFunction(() => window.__village?.scene.children.some((o) => o.children.some((c) => c.name.includes('V3_Ground'))), { timeout: 30000 })
   const button = async (label) => {
     assert.ok(await page.evaluate((label) => {
       const b = [...document.querySelectorAll('button')].find((el) => el.textContent.trim() === label || el.querySelector('.menu-button__label')?.textContent.trim() === label)

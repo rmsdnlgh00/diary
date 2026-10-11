@@ -1,9 +1,14 @@
 # Blender village → web game
 
-The default game view loads `public/assets/village/diary-village-v2.glb` in Three.js.
-The asset contains only the `Diary Village V2` terrain collection: the meadow,
-36 independent trees, a small pond, 14 independent shore rocks, and a backdrop.
-Original scenes, test characters and Blender lights/cameras are not exported.
+The default game view loads `public/assets/village/diary-village-v3.glb` in Three.js.
+The asset contains only the `Diary V3 | Full Frame Village` collection from the
+`Diary Test | Spread` scene. It fills the whole overview frame (about 34 × 92 units)
+in the style of `assets/references/village_reference.png`: a clear lawn for 30
+characters with stepping stones, a pond, a shop stall, a river with an arch bridge,
+a house, fences, benches, 95 independent trees, flower bushes, rocks and the sea.
+In that scene the old `Diary V2 | Terrain Trees Water` collection is only excluded
+from the view layer; other scenes still use it. `diary-village-v2.glb` is kept but
+no longer loaded. Test characters and Blender lights/cameras are not exported.
 
 The source files remain on the author's Mac:
 
@@ -27,8 +32,9 @@ Run `scripts/export-village.py` inside Blender to update the public GLB. Point
 - The 30-person preview is a static size/layout reference, independent of saves.
 - Existing space decoration opens the legacy background. Placed decoration
   assets and clothing overlays have not been converted to 3D.
-- Blender's procedural grass colour variation is not included in glTF; the web
-  version uses its pastel base colour. The web lighting is recreated in Three.js.
+- V3 uses flat base colours only, so glTF matches Blender's material colours.
+  The web lighting is recreated in Three.js. Flat parts (ground, sea, river, paths,
+  pond, stepping stones, lawn flowers) receive shadows but do not cast them.
 
 ## Verification and deployment
 

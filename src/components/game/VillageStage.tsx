@@ -25,6 +25,9 @@ interface Instance {
   lastDistance: number
 }
 
+/** Flat V3 village parts that only receive shadows. */
+const FLAT_PARTS = /Ground|Sea|River|Path|Pond(?!_Dock)|Stepping|Lawn_Flowers/
+
 function disposeObject(root: THREE.Object3D) {
   const geometries = new Set<THREE.BufferGeometry>()
   const materials = new Set<THREE.Material>()
@@ -66,13 +69,14 @@ export function VillageStage(props: Props) {
     renderer.shadowMap.type = THREE.PCFSoftShadowMap
     host.appendChild(renderer.domElement)
     const scene = new THREE.Scene()
-    scene.background = new THREE.Color('#d5dfbe')
+    scene.background = new THREE.Color('#45a6e6')
     const camera = new THREE.OrthographicCamera(-17, 17, 37, -37, 0.1, 200)
     const key = new THREE.DirectionalLight(0xfff5df, 2.3)
     key.position.set(-20, 45, 25)
     key.castShadow = true
-    key.shadow.mapSize.set(2048, 2048)
-    Object.assign(key.shadow.camera, { left: -35, right: 35, top: 40, bottom: -40, near: 1, far: 100 })
+    key.shadow.mapSize.set(4096, 4096)
+    // The V3 village fills the whole overview frame (about 34 × 92 units), so the shadow box covers it all.
+    Object.assign(key.shadow.camera, { left: -30, right: 30, top: 55, bottom: -55, near: 1, far: 140 })
     key.shadow.bias = -0.0003
     key.shadow.normalBias = 0.035
     key.shadow.radius = 3
@@ -87,7 +91,7 @@ export function VillageStage(props: Props) {
     const load = async () => {
       try {
         const [village, walk, idle] = await Promise.all([
-          loader.loadAsync('/assets/village/diary-village-v2.glb'),
+          loader.loadAsync('/assets/village/diary-village-v3.glb'),
           loader.loadAsync('/assets/characters/male/character-walk.glb'),
           loader.loadAsync('/assets/characters/male/character-idle.glb'),
         ])
@@ -99,13 +103,10 @@ export function VillageStage(props: Props) {
         terrain.traverse((o) => {
           const mesh = o as THREE.Mesh
           if (!mesh.isMesh) return
-          mesh.castShadow = !mesh.name.includes('Meadow') && !mesh.name.includes('Backdrop')
+          // Multi-material meshes arrive as a group, so check the parent's name as well.
+          const name = `${mesh.name} ${mesh.parent?.name ?? ''}`
+          mesh.castShadow = !FLAT_PARTS.test(name)
           mesh.receiveShadow = true
-          // Blender's procedural grass shader isn't part of glTF. Use its pastel base colour.
-          if (mesh.name.includes('Flat_Meadow') || mesh.name.includes('Flat Meadow')) {
-            const material = mesh.material as THREE.MeshStandardMaterial
-            material.color.setRGB(0.56, 0.68, 0.27)
-          }
         })
         scene.add(terrain)
         walkClip = walk.animations[0] ?? null
