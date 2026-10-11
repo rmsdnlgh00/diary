@@ -133,6 +133,21 @@ function makeLawn(base: THREE.MeshStandardMaterial) {
   return lawn
 }
 
+/**
+ * The duck swims a slow, wobbly loop around the middle of the pond. Measured in Blender:
+ * at 0.45 of the pond radii (±12 %) it stays ≥ 0.9 units from the shore and ≥ 1.3 from
+ * the three lily pads. One lap takes about a minute.
+ */
+const DUCK_POND = { x: -11.6, z: -4.29, rx: 5.44 * 0.45, rz: 5.6 * 0.45, lapSpeed: 0.11 }
+const WAKE_PERIOD = 2.4
+
+function duckPosition(t: number, out: THREE.Vector3): THREE.Vector3 {
+  const angle = t * DUCK_POND.lapSpeed
+  const wobble = 1 + 0.12 * Math.sin(t * 0.23 + 1)
+  return out.set(DUCK_POND.x + Math.cos(angle) * DUCK_POND.rx * wobble, out.y,
+    DUCK_POND.z + Math.sin(angle) * DUCK_POND.rz * wobble)
+}
+
 /** Phones and small screens skip ambient occlusion and use a smaller shadow map. */
 function isLowPower(): boolean {
   return window.matchMedia('(pointer: coarse)').matches || Math.min(window.innerWidth, window.innerHeight) < 600
@@ -217,6 +232,41 @@ export function VillageStage(props: Props) {
     let walkClip: THREE.AnimationClip | null = null
     let idleClip: THREE.AnimationClip | null = null
     let decorationAsset: THREE.Object3D | null = null
+    let duck: THREE.Object3D | null = null
+    let duckBaseY = 0
+    let duckHeading = 0
+    // Small ripple rings that spread behind the swimming duck.
+    const wakeMaterial = new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, depthWrite: false })
+    const wakeRings = [0, 1, 2].map(() => {
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.2, 0.26, 32), wakeMaterial.clone())
+      ring.rotation.x = -Math.PI / 2
+      ring.visible = false
+      scene.add(ring)
+      return { ring, phase: 1 }
+    })
+    const duckNow = new THREE.Vector3()
+    const duckNext = new THREE.Vector3()
+    const updateDuck = (t: number) => {
+      if (!duck) return
+      duckPosition(t, duckNow)
+      duckPosition(t + 0.1, duckNext)
+      // The model looks along -X, so turn -X towards the direction of travel.
+      const target = Math.atan2(duckNext.z - duckNow.z, -(duckNext.x - duckNow.x))
+      duckHeading += Math.atan2(Math.sin(target - duckHeading), Math.cos(target - duckHeading)) * 0.1
+      duck.position.set(duckNow.x, duckBaseY + 0.015 * Math.sin(t * 2.4), duckNow.z)
+      duck.rotation.set(0, duckHeading, 0.04 * Math.sin(t * 2.4 + 0.6))
+      wakeRings.forEach((wake, k) => {
+        const phase = ((t + k * WAKE_PERIOD / wakeRings.length) % WAKE_PERIOD) / WAKE_PERIOD
+        if (phase < wake.phase) {
+          // A new ring starts just behind the duck.
+          wake.ring.position.set(duckNow.x + Math.cos(duckHeading) * 0.2, 0.03, duckNow.z - Math.sin(duckHeading) * 0.2)
+          wake.ring.visible = true
+        }
+        wake.phase = phase
+        wake.ring.scale.setScalar(1 + phase * 2.4)
+        ;(wake.ring.material as THREE.MeshBasicMaterial).opacity = 0.45 * (1 - phase)
+      })
+    }
     /** One model per shop item, keyed by item id ("Deco flower_pot" → "flower_pot"). */
     const decorationModels = new Map<string, THREE.Object3D>()
     const placed = new Map<string, { itemId: string; object: THREE.Object3D }>()
@@ -262,6 +312,13 @@ export function VillageStage(props: Props) {
           }
         })
         scene.add(terrain)
+        // Lift the duck out of the (cm → m scaled) village group so it can swim in world units.
+        terrain.updateMatrixWorld(true)
+        duck = terrain.getObjectByName('V4_Duck') ?? null
+        if (duck) {
+          scene.attach(duck)
+          duckBaseY = duck.position.y
+        }
         walkClip = walk.animations[0] ?? null
         idleClip = idle.animations[0]?.clone() ?? null
         if (!walkClip || !idleClip) throw new Error('Character animation missing')
@@ -433,6 +490,7 @@ export function VillageStage(props: Props) {
       raf = requestAnimationFrame(tick)
       const now = performance.now()
       waterTime.value = now / 1000
+      updateDuck(now / 1000)
       const delta = Math.min(0.05, (now - previous) / 1000)
       previous = now
       const { characters, decorations, decorating, view, focusId } = dataRef.current
@@ -512,6 +570,13 @@ export function VillageStage(props: Props) {
       if (terrain) disposeObject(terrain)
       // Placed decorations are clones that share these geometries and materials.
       if (decorationAsset) disposeObject(decorationAsset)
+      // The duck left the terrain group, so it is disposed on its own.
+      if (duck) disposeObject(duck)
+      for (const { ring } of wakeRings) {
+        ring.geometry.dispose()
+        ;(ring.material as THREE.Material).dispose()
+      }
+      wakeMaterial.dispose()
       key.shadow.map?.dispose()
       ambientOcclusion?.dispose()
       composer?.dispose()

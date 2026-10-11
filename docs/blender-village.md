@@ -6,7 +6,7 @@ It is a 3D remake of the legacy painted village
 every object was placed by casting rays from the legacy camera through the painting,
 and the materials use colours measured from it (lawn ≈ #C8D078). The asset contains only
 the `Diary V4 | Legacy View Village` collection of the `Diary Village V4 | Legacy View`
-scene: lawn, stepping stones, pond with duck and lilies, shop stall, house, river,
+scene: lawn, stepping stones, pond with a swimming duck and three lily pads, shop stall, house, river,
 arch bridge, fences, lamp, notice board, signpost, 29 trees, bushes, reeds and rocks.
 The painted bench is now the "긴 벤치" decoration, and the scattered small flowers were removed.
 Preview characters, Blender lights and cameras are not exported.
@@ -34,6 +34,12 @@ Run `scripts/export-village.py` inside Blender to update the public GLB. Point
   bench, bushes, fences and trees, and kept above the bottom menu. Walks stop at the
   furthest reachable point, and saved positions that land off the lawn are moved to
   the nearest lawn point in memory only. Ground clicks use camera raycasting.
+- Pathfinding (`src/systems/pathSystem.ts`, both villages): when the straight line to a
+  clicked point is blocked, A* on a grid of ~0.2-unit cells (built once per world, so
+  again only after decorations change) finds a way around ponds, fences and decorations,
+  then keeps only the corner waypoints. Unreachable targets resolve to the nearest
+  walkable spot. Agents chain the waypoints without stopping; slowing down uses the
+  distance left to the final point. Wandering stays straight and short.
 - Existing monthly diary positions are remapped only in memory. Saved diaries,
   equipment, coins and decorations retain their original format and coordinates.
 - Picking a real character opens its existing diary. Click the lawn to move the
@@ -69,6 +75,10 @@ Run `scripts/export-village.py` inside Blender to update the public GLB. Point
   store's `placeAt` takes that check and saves legacy coordinates (`toLegacyPoint`).
   Tapping a decoration selects it (orange ring) for moving or recalling. Placed
   decorations become blocked squares in `villageWorld`, so characters walk around them.
+- The duck is its own object (`V4 Duck`) so the game can animate it: it swims a slow,
+  wobbly loop around the pond centre (`DUCK_POND`, about a minute per lap), faces where
+  it goes, bobs, and leaves ripple rings. The game lifts it out of the cm-scaled village
+  group into world units. The pond keeps three lily pads near the front shore.
 - Lawn: `makeLawn` replaces the `V4 grass` material in the game with painted patches
   (sunny yellow-green and calmer green from world-position noise), a faint grain, and a
   slightly deeper green away from the lawn centre. Blender keeps the flat base colour.

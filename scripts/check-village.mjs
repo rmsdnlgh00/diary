@@ -198,6 +198,34 @@ try {
     const { useGameStore } = await import('/src/store/gameStore.ts')
     useGameStore.setState({ inventory: saved.inventory, worldDecorations: saved.worldDecorations })
   }, beforeDecorating)
+
+  // Pathfinding walks around a decoration that blocks the straight line, on clear ground only.
+  const pathCheck = await page.evaluate(async () => {
+    const layout = await import('/src/systems/villageLayout.ts')
+    const { findPath } = await import('/src/systems/pathSystem.ts')
+    const { isWalkable, furthestWalkablePoint } = await import('/src/systems/worldSystem.ts')
+    const { getWorld } = await import('/src/data/worlds.ts')
+    const { useGameStore } = await import('/src/store/gameStore.ts')
+    const bench = { id: 'path-bench', itemId: 'bench', x: 0.6, y: 0.62 }
+    const world = layout.villageWorld(getWorld(useGameStore.getState().worldId), [bench])
+    const gap = (layout.DECORATION_RADIUS.bench + 0.8) / layout.VILLAGE_DEPTH
+    const from = { x: bench.x, y: bench.y - gap }
+    const to = { x: bench.x, y: bench.y + gap }
+    const direct = furthestWalkablePoint(world, from, to)
+    const started = performance.now()
+    const path = findPath(world, from, to)
+    const ms = performance.now() - started
+    const clear = (a, b) => { const r = furthestWalkablePoint(world, a, b); return !!r && r.x === b.x && r.y === b.y }
+    const legs = path ? [from, ...path].slice(0, -1).map((a, i) => clear(a, path[i])) : []
+    return { directBlocked: !direct || direct.y < to.y - 1e-6, found: !!path, waypoints: path?.length ?? 0,
+      allWalkable: !!path && path.every((p) => isWalkable(world, p)), legsClear: legs.every(Boolean),
+      endsAtTarget: !!path && path.at(-1).x === to.x && path.at(-1).y === to.y, ms }
+  })
+  assert.ok(pathCheck.directBlocked, 'the bench blocks the straight line')
+  assert.ok(pathCheck.found && pathCheck.waypoints >= 2, 'a path goes around the bench')
+  assert.ok(pathCheck.allWalkable && pathCheck.legsClear, 'every leg of the path is on walkable ground')
+  assert.ok(pathCheck.endsAtTarget, 'the path ends at the clicked point')
+  console.log(`path around bench: ${pathCheck.waypoints} waypoints in ${pathCheck.ms.toFixed(1)} ms`)
   await button('기존 마을')
   await page.waitForSelector('.three-stage')
   assert.equal(await page.$('.village-stage'), null)
@@ -205,7 +233,7 @@ try {
   await page.waitForFunction(() => !!window.__village)
   assert.equal((await state()).characters.filter((c) => c.diaryDate === before.today).length, 1)
   assert.deepEqual(errors, [])
-  console.log('PASS GLB load, 16:9 legacy-view layout, 30-person preview on lawn areas, 3D decorations, 3D decorating, save preservation, diary picking, ground movement, responsive editor, legacy switch')
+  console.log('PASS GLB load, 16:9 legacy-view layout, 30-person preview on lawn areas, 3D decorations, 3D decorating, pathfinding, save preservation, diary picking, ground movement, responsive editor, legacy switch')
   console.log(`Screenshots: ${artifacts}`)
 } catch (error) {
   await page?.screenshot({ path: join(artifacts, 'failure.png') }).catch(() => {})

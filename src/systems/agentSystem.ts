@@ -29,6 +29,8 @@ export interface Agent {
   walkDistance: number
   /** 사용자가 직접 보낸 목적지면 배회보다 우선한다 */
   commanded: boolean
+  /** target 다음에 이어서 걸을 경유지. 장애물을 돌아갈 때 쓴다. */
+  path: { x: number; y: number }[]
   partnerId: string | null
   /** 대화가 끝난 뒤 다시 말 걸기까지 남은 시간 */
   talkCooldown: number
@@ -80,6 +82,7 @@ export function createAgent(
     walkTime: 0,
     walkDistance: 0,
     commanded: false,
+    path: [],
     partnerId: null,
     talkCooldown: 0,
   }
@@ -144,7 +147,14 @@ export function stepAgents(
       const dy = agent.targetY - agent.y
       const distance = worldDistance(agent.x, agent.y, agent.targetX, agent.targetY, world.groundDepthRatio)
 
-      if (distance <= WALK_CONFIG.arriveEpsilon) {
+      if (distance <= WALK_CONFIG.arriveEpsilon && agent.path.length) {
+        // 경유지에 닿았다. 멈추지 않고 다음 경유지로 이어 걷는다.
+        const next = agent.path.shift()!
+        agent.x = agent.targetX
+        agent.y = agent.targetY
+        agent.targetX = next.x
+        agent.targetY = next.y
+      } else if (distance <= WALK_CONFIG.arriveEpsilon) {
         agent.x = agent.targetX
         agent.y = agent.targetY
         agent.phase = 'IDLE'
@@ -154,7 +164,14 @@ export function stepAgents(
         agent.timer = randomBetween(AGENT_CONFIG.idleMin, AGENT_CONFIG.idleMax, random)
       } else {
         // 출발·도착을 부드럽게 한다. walkTime 은 아래에서 더하므로 아직 이번 걸음 이전 값이다.
-        const step = Math.min(distance, speed * speedRatio(agent.walkTime, distance) * delta)
+        // 감속은 최종 도착점까지 남은 거리로 정한다. 경유지마다 느려지지 않게.
+        let remaining = distance
+        let last = { x: agent.targetX, y: agent.targetY }
+        for (const point of agent.path) {
+          remaining += worldDistance(last.x, last.y, point.x, point.y, world.groundDepthRatio)
+          last = point
+        }
+        const step = Math.min(distance, speed * speedRatio(agent.walkTime, remaining) * delta)
         const ratio = step / distance
         agent.x += dx * ratio
         agent.y += dy * ratio
@@ -173,6 +190,7 @@ export function stepAgents(
       if (target) {
         agent.targetX = target.x
         agent.targetY = target.y
+        agent.path = []
         agent.phase = 'WALK'
       } else {
         agent.timer = randomBetween(AGENT_CONFIG.idleMin, AGENT_CONFIG.idleMax, random)

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { type Agent, createAgent, stepAgents } from '@/systems/agentSystem'
 import { WALK_CONFIG } from '@/systems/walkSystem'
+import { findPath } from '@/systems/pathSystem'
 import { furthestWalkablePoint } from '@/systems/worldSystem'
 import type { DiaryCharacterData, WorldDefinition } from '@/types'
 
@@ -37,10 +38,15 @@ export function useVillagers(
   const commandWalk = useCallback((id: string, point: { x: number; y: number }) => {
     const agent = agentsRef.current.find((a) => a.id === id)
     if (!agent) return
-    const reachable = furthestWalkablePoint(worldRef.current, { x: agent.x, y: agent.y }, point)
-    if (!reachable) return
-    agent.targetX = reachable.x
-    agent.targetY = reachable.y
+    // Walk around ponds, fences and decorations. Without a connecting path, go as far as possible.
+    const from = { x: agent.x, y: agent.y }
+    const path = findPath(worldRef.current, from, point)
+    const fallback = path ? null : furthestWalkablePoint(worldRef.current, from, point)
+    const [first, ...rest] = path ?? (fallback ? [fallback] : [])
+    if (!first) return
+    agent.targetX = first.x
+    agent.targetY = first.y
+    agent.path = rest
     agent.phase = 'WALK'
     agent.commanded = true
     agent.partnerId = null
