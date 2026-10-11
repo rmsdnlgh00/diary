@@ -141,7 +141,8 @@ export const useGameStore = create<GameState>((set, get) => {
     chooseDecoration: (itemId) => {
       const { activePanel, inventory, worldDecorations, worldId } = get()
       if (activePanel !== 'DECORATE' || !inventory.decorations.includes(itemId)) return
-      const existing = (worldDecorations[worldId] ?? []).find((d) => d.itemId === itemId)
+      const existing = getItem(itemId)?.stackable ? undefined
+        : (worldDecorations[worldId] ?? []).find((d) => d.itemId === itemId)
       if (existing) {
         set({ selectedDecorationId: existing.id, placementTool: null, feedback: '이미 배치했어요. 이동하거나 회수할 수 있어요.' })
       } else {
@@ -185,7 +186,7 @@ export const useGameStore = create<GameState>((set, get) => {
       const moving = placementTool.kind === 'move' ? placed.find((d) => d.id === placementTool.placedId) : undefined
       const item = getItem(placementTool.kind === 'place' ? placementTool.itemId : moving?.itemId ?? '')
       if (!item || !inventory.decorations.includes(item.id) || (placementTool.kind === 'move' && !moving)) return
-      if (!moving && placed.some((d) => d.itemId === item.id)) return
+      if (!moving && !item.stackable && placed.some((d) => d.itemId === item.id)) return
       const valid = isValid ? isValid(item, point, placed, moving?.id)
         : canPlaceDecoration(getWorld(worldId), item, point, placed, moving?.id)
       if (!valid) {
@@ -194,8 +195,11 @@ export const useGameStore = create<GameState>((set, get) => {
       const decoration = { id: moving?.id ?? `placed_${crypto.randomUUID()}`, itemId: item.id,
         x: point.x, y: point.y }
       const next = moving ? placed.map((d) => d.id === moving.id ? decoration : d) : [...placed, decoration]
-      commit({ worldDecorations: { ...worldDecorations, [worldId]: next }, placementTool: null,
-        selectedDecorationId: decoration.id, feedback: moving ? '옮겼어요!' : '배치했어요!' })
+      // Stackable items (floor tiles) keep the place tool so players can lay them one after another.
+      const keepPlacing = !moving && !!item.stackable
+      commit({ worldDecorations: { ...worldDecorations, [worldId]: next },
+        placementTool: keepPlacing ? placementTool : null, selectedDecorationId: keepPlacing ? null : decoration.id,
+        feedback: moving ? '옮겼어요!' : keepPlacing ? '배치했어요! 계속 눌러 이어 깔 수 있어요.' : '배치했어요!' })
     },
 
     recallDecoration: () => {

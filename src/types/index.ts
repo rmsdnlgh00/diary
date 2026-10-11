@@ -94,6 +94,10 @@ export interface GameItem {
   placeholder: string
   description?: string
   worldWidth?: number
+  /** Can be placed many times once bought (e.g. floor tiles). Others: one per month. */
+  stackable?: boolean
+  /** Lies flat on the ground: characters walk over it and other decorations may sit on it. */
+  floor?: boolean
 }
 
 export interface Inventory {

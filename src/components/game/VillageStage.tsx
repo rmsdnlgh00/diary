@@ -10,7 +10,7 @@ import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js
 import type { StageCharacter } from './ThreeStage'
 import { MALE_WALK_STRIDE } from '@/systems/walkSystem'
 import { DECORATION_RADIUS, VILLAGE_CAMERA, VILLAGE_CENTER, VILLAGE_CHARACTER_HEIGHT, VILLAGE_POND, VILLAGE_VIEW_DISTANCE,
-  VILLAGE_WIDTH, villageGround, villagePoint } from '@/systems/villageLayout'
+  VILLAGE_WIDTH, isFloorDecoration, snapDecoration, villageGround, villagePoint } from '@/systems/villageLayout'
 
 export type VillageView = 'whole' | 'basic' | 'follow'
 /** A placed decoration in village coordinates (0–1 over the lawn). */
@@ -304,8 +304,17 @@ export function VillageStage(props: Props) {
         decorationAsset = decorationsFile.scene
         for (const model of [...decorationAsset.children]) {
           model.position.set(0, 0, 0)
-          model.traverse((o) => { if ((o as THREE.Mesh).isMesh) o.castShadow = o.receiveShadow = true })
-          decorationModels.set(model.name.replace(/^Deco_/, ''), model)
+          const itemId = model.name.replace(/^Deco_/, '')
+          model.traverse((o) => {
+            const mesh = o as THREE.Mesh
+            if (!mesh.isMesh) return
+            // Floor tiles lie flat, so they only receive shadows; the fountain's water ripples like the pond.
+            mesh.castShadow = !isFloorDecoration(itemId)
+            mesh.receiveShadow = true
+            const material = mesh.material as THREE.MeshStandardMaterial
+            if (WATER_MATERIALS.has(material.name)) mesh.material = makeWater(material, false, waterTime)
+          })
+          decorationModels.set(itemId, model)
         }
         terrain = village.scene
         terrain.traverse((o) => {
@@ -522,7 +531,7 @@ export function VillageStage(props: Props) {
       if (drop && event.type === 'pointerup' && Math.hypot(event.clientX - pointer.startX, event.clientY - pointer.startY) > 8 &&
         document.elementFromPoint(event.clientX, event.clientY) === renderer.domElement) {
         const point = groundAt(event.clientX, event.clientY)
-        if (point) dataRef.current.decorating?.onMoveDecoration(drop.id, villagePoint(point.add(drop.offset)))
+        if (point) dataRef.current.decorating?.onMoveDecoration(drop.id, snapDecoration(drop.itemId, villagePoint(point.add(drop.offset))))
       }
       cancelDrag()
       const tap = event.type === 'pointerup' && !gesturing && pointers.size === 1 &&
@@ -616,7 +625,7 @@ export function VillageStage(props: Props) {
         ghost = makeGhost(placing.itemId)
       }
       if (!ghost) return
-      const point = villagePoint(previewPoint)
+      const point = snapDecoration(placing.itemId, villagePoint(previewPoint))
       ghost.object.position.copy(villageGround(point.x, point.y))
       const tint = decorating.canPlace(placing.itemId, point, placing.movingId) ? fits : blocked
       for (const material of ghost.materials) material.emissive.copy(tint)

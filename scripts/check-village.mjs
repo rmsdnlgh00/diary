@@ -352,6 +352,65 @@ try {
     useGameStore.setState({ inventory: saved.inventory, worldDecorations: saved.worldDecorations })
   }, beforeDecorating)
 
+  // Floor tiles: bought once, laid many times on a 2-unit grid; characters walk over them and
+  // other decorations may stand on them.
+  const tiles = await page.evaluate(async () => {
+    const layout = await import('/src/systems/villageLayout.ts')
+    const { getWorld } = await import('/src/data/worlds.ts')
+    const { isWalkable } = await import('/src/systems/worldSystem.ts')
+    const { useGameStore } = await import('/src/store/gameStore.ts')
+    const s = useGameStore.getState()
+    useGameStore.setState({ inventory: { ...s.inventory, decorations: [...new Set([...s.inventory.decorations, 'floor_tile', 'chair'])] },
+      worldDecorations: { ...s.worldDecorations, [s.worldId]: [] } })
+    useGameStore.getState().togglePanel('DECORATE')
+    useGameStore.getState().chooseDecoration('floor_tile')
+    const placedNow = () => { const g = useGameStore.getState(); return (g.worldDecorations[g.worldId] ?? [])
+      .map((d) => ({ id: d.id, itemId: d.itemId, ...layout.fromLegacyPoint(d) })) }
+    const step = (units) => units / layout.VILLAGE_WIDTH
+    const base = layout.snapDecoration('floor_tile', { x: 0.5, y: 0.5 })
+    const snappedNearby = layout.snapDecoration('floor_tile', { x: base.x + step(0.6), y: base.y + 0.4 / layout.VILLAGE_DEPTH })
+    const lay = (p) => {
+      const point = layout.snapDecoration('floor_tile', p)
+      const fits = layout.canPlaceInVillage('floor_tile', point, placedNow())
+      useGameStore.getState().placeAt(layout.toLegacyPoint(point), () => fits)
+    }
+    for (let i = 0; i < 3; i += 1) lay({ x: base.x + step(2 * i), y: base.y })
+    lay({ x: base.x + step(0.5), y: base.y }) // overlaps the first tile → refused
+    const laid = placedNow()
+    const toolKept = useGameStore.getState().placementTool?.kind === 'place'
+    const chairOnTile = layout.canPlaceInVillage('chair', laid[1], laid)
+    const world = layout.villageWorld(getWorld(s.worldId), laid)
+    const walkable = laid.every((t) => isWalkable(world, t))
+    const gapX = laid.length > 1 ? (laid[1].x - laid[0].x) * layout.VILLAGE_WIDTH : 0
+    useGameStore.getState().cancelPlacement()
+    return { count: laid.length, toolKept, chairOnTile, walkable, gapX,
+      snapped: Math.abs(snappedNearby.x - base.x) < 1e-9 && Math.abs(snappedNearby.y - base.y) < 1e-9 }
+  })
+  assert.equal(tiles.count, 3, 'three floor tiles laid in a row, the overlapping one refused')
+  assert.ok(tiles.snapped, 'tiles snap to the 2-unit grid')
+  assert.ok(Math.abs(tiles.gapX - 2) < 1e-6, 'neighbouring tiles touch edge to edge')
+  assert.ok(tiles.toolKept, 'the place tool stays active for stackable tiles')
+  assert.ok(tiles.walkable, 'characters can walk over tiles')
+  assert.ok(tiles.chairOnTile, 'a chair may stand on a tile')
+  await page.evaluate(async () => {
+    const { useGameStore } = await import('/src/store/gameStore.ts')
+    const { villageGround } = await import('/src/systems/villageLayout.ts')
+    const s = useGameStore.getState()
+    const chairAt = (s.worldDecorations[s.worldId] ?? [])[1]
+    useGameStore.setState({ worldDecorations: { ...s.worldDecorations, [s.worldId]: [...s.worldDecorations[s.worldId],
+      { id: 'tile-chair', itemId: 'chair', x: chairAt.x, y: chairAt.y },
+      { id: 'tile-fountain', itemId: 'fountain', x: chairAt.x + 0.035, y: chairAt.y - 0.06 },
+      { id: 'tile-bike', itemId: 'bicycle', x: chairAt.x - 0.05, y: chairAt.y - 0.05 }] } })
+  })
+  await button('기본 시점')
+  await new Promise((resolve) => setTimeout(resolve, 1200))
+  await page.screenshot({ path: join(artifacts, 'decorate-tiles.png') })
+  await store('closePanel')
+  await page.evaluate(async (saved) => {
+    const { useGameStore } = await import('/src/store/gameStore.ts')
+    useGameStore.setState({ inventory: saved.inventory, worldDecorations: saved.worldDecorations })
+  }, beforeDecorating)
+
   // Pathfinding walks around a decoration that blocks the straight line, on clear ground only.
   const pathCheck = await page.evaluate(async () => {
     const layout = await import('/src/systems/villageLayout.ts')
@@ -415,7 +474,7 @@ try {
   await page.waitForFunction(() => !!window.__village)
   assert.equal((await state()).characters.filter((c) => c.diaryDate === before.today).length, 1)
   assert.deepEqual(errors, [])
-  console.log('PASS GLB load, fullscreen portrait/landscape layout, 2x phone resolution, touch targets, 30-person preview on lawn areas, 3D decorations, 3D decorating, pathfinding, roaming spread, save preservation, diary picking, ground movement, responsive editor, legacy switch')
+  console.log('PASS GLB load, fullscreen portrait/landscape layout, 2x phone resolution, touch targets, 30-person preview on lawn areas, 3D decorations, 3D decorating, floor tiles, pathfinding, roaming spread, save preservation, diary picking, ground movement, responsive editor, legacy switch')
   console.log(`Screenshots: ${artifacts}`)
 } catch (error) {
   await page?.screenshot({ path: join(artifacts, 'failure.png') }).catch(() => {})

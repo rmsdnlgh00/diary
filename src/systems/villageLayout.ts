@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { getItem } from '@/data/items'
 import type { AreaRect, WorldDefinition } from '@/types'
 import { isInsideAnyArea, type Point } from './worldSystem'
 
@@ -65,6 +66,7 @@ export function villagePoint(point: THREE.Vector3) {
 /** Ground footprint radius of each decoration model, in units (≈ metres). */
 export const DECORATION_RADIUS: Record<string, number> = {
   flower_pot: 0.45, picnic_mat: 1.35, small_lamp: 0.35, flower_bed: 1.1, chair: 0.5, sign: 0.6, plant: 1.0, bench: 1.25,
+  fountain: 1.35, bicycle: 0.95, floor_tile: 1,
 }
 const decorationRadius = (itemId: string) => DECORATION_RADIUS[itemId] ?? 0.6
 
@@ -80,9 +82,23 @@ export interface VillageDecoration extends Point {
 const unitsBetween = (a: Point, b: Point) =>
   Math.hypot((a.x - b.x) * VILLAGE_WIDTH, (a.y - b.y) * VILLAGE_DEPTH)
 
+/** Floor tiles are 2 × 2 units and snap to a grid around the lawn centre. */
+export const FLOOR_TILE_SIZE = 2
+export const isFloorDecoration = (itemId: string) => !!getItem(itemId)?.floor
+
+/** Snaps floor items to the tile grid so neighbouring tiles line up; other items stay put. */
+export function snapDecoration(itemId: string, point: Point): Point {
+  if (!isFloorDecoration(itemId)) return point
+  const ground = villageGround(point.x, point.y)
+  const snap = (value: number, origin: number) => origin + Math.round((value - origin) / FLOOR_TILE_SIZE) * FLOOR_TILE_SIZE
+  return villagePoint(new THREE.Vector3(snap(ground.x, VILLAGE_CENTER.x), 0, snap(ground.z, VILLAGE_CENTER.z)))
+}
+
 /**
  * Whether a decoration fits at `point` (village coordinates): its whole footprint on the
  * lawn, clear of other decorations and the characters standing there.
+ * Floor items (tiles) are their own layer: they only avoid other tiles, may sit under
+ * other decorations and under characters, and must cover lawn with their whole square.
  * Points stay where `fromLegacyPoint(toLegacyPoint(p))` returns them unchanged.
  */
 export function canPlaceInVillage(
@@ -93,21 +109,25 @@ export function canPlaceInVillage(
   movingId?: string,
 ): boolean {
   if (point.x < 0.1 || point.x > 0.9 || point.y < 0.08 || point.y > 0.92) return false
+  const floor = isFloorDecoration(itemId)
   const radius = decorationRadius(itemId)
-  for (let i = 0; i <= 8; i += 1) {
-    const angle = i * Math.PI / 4
-    const r = i === 8 ? 0 : radius
-    const sample = {
-      x: point.x + Math.cos(angle) * r / VILLAGE_WIDTH,
-      y: point.y + Math.sin(angle) * r / VILLAGE_DEPTH,
-    }
-    if (!isInsideAnyArea(sample, VILLAGE_WALKABLE_AREAS)) return false
+  const half = FLOOR_TILE_SIZE / 2 - 0.02
+  const offsets = floor
+    ? [-1, 0, 1].flatMap((i) => [-1, 0, 1].map((j) => [i * half, j * half]))
+    : Array.from({ length: 9 }, (_, i) => i === 8 ? [0, 0] : [Math.cos(i * Math.PI / 4) * radius, Math.sin(i * Math.PI / 4) * radius])
+  for (const [dx, dz] of offsets) {
+    if (!isInsideAnyArea({ x: point.x + dx / VILLAGE_WIDTH, y: point.y + dz / VILLAGE_DEPTH }, VILLAGE_WALKABLE_AREAS)) return false
   }
-  if (decorations.some((d) => d.id !== movingId && unitsBetween(point, d) < radius + decorationRadius(d.itemId))) return false
+  const others = decorations.filter((d) => d.id !== movingId && isFloorDecoration(d.itemId) === floor)
+  if (floor) {
+    return !others.some((d) => Math.abs(point.x - d.x) * VILLAGE_WIDTH < FLOOR_TILE_SIZE - 0.01 &&
+      Math.abs(point.y - d.y) * VILLAGE_DEPTH < FLOOR_TILE_SIZE - 0.01)
+  }
+  if (others.some((d) => unitsBetween(point, d) < radius + decorationRadius(d.itemId))) return false
   return !occupants.some((o) => unitsBetween(point, o) < radius + 0.45)
 }
 
-/** Placed decorations become blocked squares, so characters walk around them. */
+/** Placed decorations become blocked squares, so characters walk around them (floor tiles excepted). */
 export function villageWorld(world: WorldDefinition, decorations: readonly VillageDecoration[] = []): WorldDefinition {
   return {
     ...world,
@@ -117,7 +137,7 @@ export function villageWorld(world: WorldDefinition, decorations: readonly Villa
     wanderRadius: 0.2,
     roamChance: 0.3,
     walkableAreas: VILLAGE_WALKABLE_AREAS,
-    blockedAreas: decorations.map((d) => {
+    blockedAreas: decorations.filter((d) => !isFloorDecoration(d.itemId)).map((d) => {
       const r = decorationRadius(d.itemId)
       return { id: `decoration-${d.id}`, x: [d.x - r / VILLAGE_WIDTH, d.x + r / VILLAGE_WIDTH],
         y: [d.y - r / VILLAGE_DEPTH, d.y + r / VILLAGE_DEPTH] }

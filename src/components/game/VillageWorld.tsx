@@ -4,7 +4,7 @@ import { getWorld } from '@/data/worlds'
 import { useVillagers } from '@/hooks/useVillagers'
 import { useGameStore } from '@/store/gameStore'
 import { toMonthKey } from '@/utils/date'
-import { canPlaceInVillage, fromLegacyPoint, lawnSpots, toLegacyPoint, villageWorld } from '@/systems/villageLayout'
+import { canPlaceInVillage, fromLegacyPoint, lawnSpots, snapDecoration, toLegacyPoint, villageWorld } from '@/systems/villageLayout'
 import { VillageStage, type StageDecorating, type StageDecoration, type VillageView } from './VillageStage'
 import type { StageCharacter } from './ThreeStage'
 
@@ -48,9 +48,10 @@ export function VillageWorld({ onLegacy }: { onLegacy: () => void }) {
         if (item) moveDecoration(id, toLegacyPoint(point), () => canPlace(item.itemId, point, id))
       } } : null
 
-  const onGround = (point: { x: number; y: number }) => {
+  const onGround = (clicked: { x: number; y: number }) => {
     if (editing) {
       if (!placing || !getItem(placing.itemId)) return
+      const point = snapDecoration(placing.itemId, clicked)
       // Validate in 3D, then store the legacy coordinates the save format expects.
       const fits = canPlace(placing.itemId, point, placing.movingId)
       placeAt(toLegacyPoint(point), () => fits)
@@ -60,7 +61,7 @@ export function VillageWorld({ onLegacy }: { onLegacy: () => void }) {
     const controlled = monthly.find((c) => c.id === focusId) ?? monthly.find((c) => c.diaryDate === today) ?? monthly[0]
     if (controlled) {
       setFocusId(controlled.id)
-      commandWalk(controlled.id, point)
+      commandWalk(controlled.id, clicked)
     }
   }
   const showPreview = preview && !editing

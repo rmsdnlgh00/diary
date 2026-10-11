@@ -17,14 +17,16 @@ export function DecoratePanel() {
   const placed = worldDecorations[worldId] ?? []
   const selected = placed.find((d) => d.id === selectedId)
   return <>
-    <p className="panel-hint">아이템을 고르고 잔디 위를 눌러주세요. 종류마다 이 달에 하나씩 놓을 수 있어요.</p>
+    <p className="panel-hint">아이템을 고르고 잔디 위를 눌러주세요. 종류마다 이 달에 하나씩, 바닥 타일은 여러 장 놓을 수 있어요.</p>
     <div className="decoration-inventory">
       {items.map((item) => {
-        const existing = placed.find((d) => d.itemId === item.id)
+        const count = placed.filter((d) => d.itemId === item.id).length
+        const existing = item.stackable ? undefined : placed.find((d) => d.itemId === item.id)
+        const label = item.stackable ? (count ? `${count}장 깔림 · 더 깔기` : '배치하기') : existing ? '배치 중' : '배치하기'
         return <button key={item.id} type="button" className="decoration-choice" data-item-id={item.id}
           aria-pressed={tool?.kind === 'place' ? tool.itemId === item.id : !!existing && selectedId === existing.id}
           onClick={() => choose(item.id)}>
-          <ItemArtwork item={item} /><span>{item.name}<small>{existing ? '배치 중' : '배치하기'}</small></span>
+          <ItemArtwork item={item} /><span>{item.name}<small>{label}</small></span>
         </button>
       })}
     </div>

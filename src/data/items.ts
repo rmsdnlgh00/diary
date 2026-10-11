@@ -27,6 +27,10 @@ export const ITEMS: GameItem[] = [
   { id: 'bench', name: '긴 벤치', category: 'decoration', price: 25, assetPath: '', placeholder: '🛋️', worldWidth: 0.08 },
   { id: 'sign', name: '마을 안내판', category: 'decoration', price: 10, assetPath: '', placeholder: '🪧', worldWidth: 0.04 },
   { id: 'plant', name: '초록 나무', category: 'decoration', price: 15, assetPath: '', placeholder: '🌳', worldWidth: 0.055 },
+  { id: 'fountain', name: '작은 분수', category: 'decoration', price: 60, assetPath: '', placeholder: '⛲', worldWidth: 0.08 },
+  { id: 'bicycle', name: '산책 자전거', category: 'decoration', price: 30, assetPath: '', placeholder: '🚲', worldWidth: 0.06 },
+  { id: 'floor_tile', name: '돌바닥 타일', category: 'decoration', price: 5, assetPath: '', placeholder: '🟫', worldWidth: 0.06,
+    description: '한 번 사면 여러 장을 이어 깔 수 있어요.', stackable: true, floor: true },
 ]
 
 export const getItem = (id: string): GameItem | undefined => ITEMS.find((item) => item.id === id)

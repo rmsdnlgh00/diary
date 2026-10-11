@@ -70,9 +70,10 @@ Run `scripts/export-village.py` inside Blender to update the public GLB. Point
   instead of 7.8 MB) and `character-idle-anim.glb` (only the idle animation is used,
   1.1 MB instead of 9.5 MB). Bone names, animation tracks and durations match the
   originals, which the legacy village still uses.
-- Decorations: `public/assets/village/decorations-v1.glb` (83 KB, Draco) holds one model
+- Decorations: `public/assets/village/decorations-v1.glb` (113 KB, Draco) holds one model
   per shop decoration, named `Deco <item id>` (flower pot, picnic mat, small lamp, flower
-  bed, chair, long bench, sign, plant). They come from the `Diary V4 | Decorations` collection in the
+  bed, chair, long bench, sign, plant, fountain, bicycle, floor tile). The fountain's
+  `V4 water` gets the same `makeWater` shader as the pond. They come from the `Diary V4 | Decorations` collection in the
   `Diary Decorations V4` scene, scaled 1.3–1.5× to match the village props. Saved
   decorations keep their legacy coordinates; `fromLegacyPoint` maps them onto the lawn
   (`toLegacyPoint` is the inverse) and `VillageStage` shows them as 3D clones.
@@ -83,6 +84,12 @@ Run `scripts/export-village.py` inside Blender to update the public GLB. Point
   store's `placeAt` takes that check and saves legacy coordinates (`toLegacyPoint`).
   Tapping a decoration selects it (orange ring) for moving or recalling. Placed
   decorations become blocked squares in `villageWorld`, so characters walk around them.
+- Floor tiles (`floor: true`, `stackable: true` in `items.ts`): bought once, laid many
+  times. `snapDecoration` snaps them to a 2-unit grid around `VILLAGE_CENTER` so
+  neighbours touch; the whole 2 × 2 square must be on the lawn and must not overlap
+  another tile. Tiles are not blocked areas (characters walk over them), other
+  decorations ignore them (a chair can stand on one), and the place tool stays active
+  after each tile. They receive shadows but do not cast them.
 - The duck is its own object (`V4 Duck`) so the game can animate it: it swims a slow,
   wobbly loop around the pond centre (`DUCK_POND`, about a minute per lap), faces where
   it goes, bobs, and leaves ripple rings. The game lifts it out of the cm-scaled village
