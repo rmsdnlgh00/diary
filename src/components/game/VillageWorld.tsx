@@ -22,6 +22,7 @@ export function VillageWorld({ onLegacy }: { onLegacy: () => void }) {
   const placementTool = useGameStore((s) => s.placementTool)
   const selectedDecorationId = useGameStore((s) => s.selectedDecorationId)
   const selectDecoration = useGameStore((s) => s.selectDecoration)
+  const moveDecoration = useGameStore((s) => s.moveDecoration)
   const placeAt = useGameStore((s) => s.placeAt)
   const [view, setView] = useState<VillageView>('whole')
   const [cameraResetKey, setCameraResetKey] = useState(0)
@@ -41,7 +42,11 @@ export function VillageWorld({ onLegacy }: { onLegacy: () => void }) {
   const placing = !placementTool ? null : placementTool.kind === 'place' ? { itemId: placementTool.itemId }
     : { itemId: decorations.find((d) => d.id === placementTool.placedId)?.itemId ?? '', movingId: placementTool.placedId }
   const decorating: StageDecorating | null = editing
-    ? { selectedId: selectedDecorationId, placing, canPlace, onSelectDecoration: selectDecoration } : null
+    ? { selectedId: selectedDecorationId, placing, canPlace, onSelectDecoration: selectDecoration,
+      onMoveDecoration: (id, point) => {
+        const item = decorations.find((d) => d.id === id)
+        if (item) moveDecoration(id, toLegacyPoint(point), () => canPlace(item.itemId, point, id))
+      } } : null
 
   const onGround = (point: { x: number; y: number }) => {
     if (editing) {
@@ -74,7 +79,7 @@ export function VillageWorld({ onLegacy }: { onLegacy: () => void }) {
       </>}
     </div>
     <p className="village-hint">{editing ? (placing ? '잔디 위를 눌러 놓아요 · 초록색이면 놓을 수 있어요'
-      : '놓인 장식물을 누르면 이동하거나 회수할 수 있어요')
+      : '조형물을 꾹 누른 채 끌어서 이동 · 손을 떼면 놓아요')
       : showPreview ? '배치 확인용 30명 · 일기 데이터에는 저장되지 않아요'
       : monthly.length ? '짧게 누르면 일기·이동 · 드래그로 화면 이동 · 두 손가락으로 확대·축소'
       : '오늘 기록을 쓰면 캐릭터가 생겨요 · 드래그로 이동 · 두 손가락으로 확대·축소'}</p>

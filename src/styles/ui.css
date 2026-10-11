@@ -480,3 +480,7 @@
   .item-artwork { width: 44px; height: 44px; font-size: 30px; }
   .decoration-choice .item-artwork { width: 36px; height: 36px; font-size: 26px; }
 }
+
+.decoration-drag-hint { display: none; }
+.stage:has(.village-stage) .decoration-move { display: none; }
+.stage:has(.village-stage) .decoration-drag-hint { display: block; font-size: max(12px, 1.1cqw); line-height: 1.5; }

@@ -41,6 +41,7 @@ interface GameState {
   chooseDecoration: (itemId: string) => void
   selectDecoration: (placedId: string) => void
   startMovingDecoration: () => void
+  moveDecoration: (placedId: string, point: Point, isValid?: PlacementCheck) => void
   /**
    * Places or moves the chosen decoration at `point` (legacy world coordinates).
    * `isValid` replaces the legacy placement check, e.g. for the 3D village.
@@ -158,6 +159,23 @@ export const useGameStore = create<GameState>((set, get) => {
       const { activePanel, selectedDecorationId } = get()
       if (activePanel !== 'DECORATE' || !selectedDecorationId) return
       set({ placementTool: { kind: 'move', placedId: selectedDecorationId }, feedback: '옮길 곳을 눌러주세요.' })
+    },
+
+    moveDecoration: (placedId, point, isValid) => {
+      const { activePanel, worldId, worldDecorations, inventory } = get()
+      const placed = worldDecorations[worldId] ?? []
+      const moving = placed.find((d) => d.id === placedId)
+      const item = getItem(moving?.itemId ?? '')
+      if (activePanel !== 'DECORATE' || !moving || !item || !inventory.decorations.includes(item.id)) return
+      const valid = isValid ? isValid(item, point, placed, moving.id)
+        : canPlaceDecoration(getWorld(worldId), item, point, placed, moving.id)
+      if (!valid) {
+        set({ feedback: '여기에는 놓을 수 없어요. 원래 자리에 두었어요.' })
+        return
+      }
+      commit({ worldDecorations: { ...worldDecorations, [worldId]: placed.map((d) => d.id === placedId
+        ? { ...d, x: point.x, y: point.y } : d) }, selectedDecorationId: placedId,
+        placementTool: null, feedback: '옮겼어요!' })
     },
 
     placeAt: (point, isValid) => {

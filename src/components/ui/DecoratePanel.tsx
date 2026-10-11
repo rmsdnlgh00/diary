@@ -31,7 +31,8 @@ export function DecoratePanel() {
     {!items.length && <p className="panel-hint">보유한 장식물이 없어요. 상점에서 마음에 드는 아이템을 골라보세요.</p>}
     {selected && <div className="decoration-actions">
       <strong>{getItem(selected.itemId)?.name}</strong>
-      <div><button type="button" className="item-action" onClick={move}>이동</button>
+      <p className="decoration-drag-hint">마을의 조형물을 꾹 누른 채 끌어서 옮겨주세요.</p>
+      <div><button type="button" className="item-action decoration-move" onClick={move}>이동</button>
         <button type="button" className="item-action" onClick={recall}>회수</button></div>
     </div>}
     {tool && <button type="button" className="item-action" onClick={cancel}>{tool.kind === 'move' ? '이동 취소' : '배치 취소'}</button>}

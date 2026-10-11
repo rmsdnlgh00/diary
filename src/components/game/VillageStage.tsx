@@ -26,6 +26,7 @@ export interface StageDecorating {
   placing: { itemId: string; movingId?: string } | null
   canPlace: (itemId: string, point: { x: number; y: number }, movingId?: string) => boolean
   onSelectDecoration: (id: string) => void
+  onMoveDecoration: (id: string, point: { x: number; y: number }) => void
 }
 interface Props {
   characters: readonly StageCharacter[]
@@ -424,6 +425,17 @@ export function VillageStage(props: Props) {
     // Capture each finger so dragging outside the canvas still finishes cleanly.
     const pointers = new Map<number, { x: number; y: number; startX: number; startY: number; time: number }>()
     let gesturing = false
+    let holdTimer: number | undefined
+    let dragging: { pointerId: number; id: string; itemId: string; offset: THREE.Vector3; point: THREE.Vector3 } | null = null
+    const clearHold = () => { window.clearTimeout(holdTimer); holdTimer = undefined }
+    const cancelDrag = () => {
+      clearHold()
+      if (dragging) {
+        const original = placed.get(dragging.id)
+        if (original) original.object.visible = true
+        dragging = null
+      }
+    }
     const groundAt = (x: number, y: number) => {
       const box = renderer.domElement.getBoundingClientRect()
       raycaster.setFromCamera(new THREE.Vector2(
@@ -445,11 +457,35 @@ export function VillageStage(props: Props) {
       pointers.set(event.pointerId, { x: event.clientX, y: event.clientY,
         startX: event.clientX, startY: event.clientY, time: performance.now() })
       renderer.domElement.setPointerCapture(event.pointerId)
-      if (pointers.size > 1) { gesturing = true; leave() }
+      if (pointers.size > 1) { cancelDrag(); gesturing = true; leave(); return }
+      if (dataRef.current.decorating) {
+        aim(event)
+        const id = pick([...placed.values()].map((p) => p.object), 'decorationId')
+        const anchor = groundAt(event.clientX, event.clientY)
+        if (id && anchor) holdTimer = window.setTimeout(() => {
+          const original = placed.get(id)
+          const decorating = dataRef.current.decorating
+          if (gesturing || pointers.size !== 1 || !pointers.has(event.pointerId) || !decorating ||
+            !original || !dataRef.current.decorations.some((d) => d.id === id)) return
+          decorating.onSelectDecoration(id)
+          dragging = { pointerId: event.pointerId, id, itemId: original.itemId,
+            offset: original.object.position.clone().sub(anchor), point: original.object.position.clone() }
+          original.object.visible = false
+          gesturing = true
+          leave()
+        }, 400)
+      }
     }
     const pointerMove = (event: PointerEvent) => {
       const pointer = pointers.get(event.pointerId)
       if (!pointer) { hover(event); return }
+      if (dragging?.pointerId === event.pointerId) {
+        const point = groundAt(event.clientX, event.clientY)
+        if (point) dragging.point.copy(point).add(dragging.offset)
+        pointer.x = event.clientX
+        pointer.y = event.clientY
+        return
+      }
       const touches = [...pointers.values()]
       if (touches.length >= 2) {
         const [a, b] = touches
@@ -466,7 +502,10 @@ export function VillageStage(props: Props) {
         leave()
         return
       }
-      if (!gesturing && Math.hypot(event.clientX - pointer.startX, event.clientY - pointer.startY) > 8) gesturing = true
+      if (!gesturing && Math.hypot(event.clientX - pointer.startX, event.clientY - pointer.startY) > 8) {
+        clearHold()
+        gesturing = true
+      }
       if (gesturing) {
         reposition(groundAt(pointer.x, pointer.y), event.clientX, event.clientY)
         leave()
@@ -477,6 +516,13 @@ export function VillageStage(props: Props) {
     const pointerEnd = (event: PointerEvent) => {
       const pointer = pointers.get(event.pointerId)
       if (!pointer) return
+      const drop = dragging?.pointerId === event.pointerId ? dragging : null
+      if (drop && event.type === 'pointerup' && Math.hypot(event.clientX - pointer.startX, event.clientY - pointer.startY) > 8 &&
+        document.elementFromPoint(event.clientX, event.clientY) === renderer.domElement) {
+        const point = groundAt(event.clientX, event.clientY)
+        if (point) dataRef.current.decorating?.onMoveDecoration(drop.id, villagePoint(point.add(drop.offset)))
+      }
+      cancelDrag()
       const tap = event.type === 'pointerup' && !gesturing && pointers.size === 1 &&
         performance.now() - pointer.time < 350 &&
         Math.hypot(event.clientX - pointer.startX, event.clientY - pointer.startY) <= 8
@@ -549,14 +595,17 @@ export function VillageStage(props: Props) {
     const fits = new THREE.Color('#5fd17a')
     const blocked = new THREE.Color('#ff6b6b')
     const updateDecorating = (decorating: StageDecorating | null) => {
+      if (dragging && (!decorating || !dataRef.current.decorations.some((d) => d.id === dragging!.id) ||
+        decorating.selectedId !== dragging.id || decorating.placing)) cancelDrag()
       const selected = decorating?.selectedId ? placed.get(decorating.selectedId) : undefined
       selectionRing.visible = !!selected && !decorating?.placing
       if (selected) {
         selectionRing.scale.setScalar(DECORATION_RADIUS[selected.itemId] ?? 0.6)
-        selectionRing.position.copy(selected.object.position).setY(0.05)
+        selectionRing.position.copy(dragging?.point ?? selected.object.position).setY(0.05)
       }
-      const placing = decorating?.placing
-      if (!decorating || !placing || !pointerGround) {
+      const placing = dragging ? { itemId: dragging.itemId, movingId: dragging.id } : decorating?.placing
+      const previewPoint = dragging?.point ?? pointerGround
+      if (!decorating || !placing || !previewPoint) {
         clearGhost()
         return
       }
@@ -565,7 +614,7 @@ export function VillageStage(props: Props) {
         ghost = makeGhost(placing.itemId)
       }
       if (!ghost) return
-      const point = villagePoint(pointerGround)
+      const point = villagePoint(previewPoint)
       ghost.object.position.copy(villageGround(point.x, point.y))
       const tint = decorating.canPlace(placing.itemId, point, placing.movingId) ? fits : blocked
       for (const material of ghost.materials) material.emissive.copy(tint)
@@ -643,6 +692,7 @@ export function VillageStage(props: Props) {
     tick()
     return () => {
       disposed = true
+      cancelDrag()
       cancelAnimationFrame(raf)
       observer.disconnect()
       renderer.domElement.removeEventListener('pointerdown', pointerDown)

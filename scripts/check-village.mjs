@@ -265,6 +265,82 @@ try {
   assert.equal(decorated.length, 1)
   assert.ok(decorated[0].x !== chair.x || decorated[0].y !== chair.y, 'chair moved')
   assert.equal((await state()).feedback, '옮겼어요!')
+  // Long-press a placed mesh, preview under the finger, and commit only on release.
+  assert.equal(await page.$eval('.decoration-move', (el) => getComputedStyle(el).display), 'none')
+  const dragCoordinates = (invalid = false) => page.evaluate(async ({ id, invalid }) => {
+    const THREE = await import('/node_modules/.vite/deps/three.js')
+    const layout = await import('/src/systems/villageLayout.ts')
+    const { useGameStore } = await import('/src/store/gameStore.ts')
+    const { scene, camera, renderer, instances } = window.__village
+    let object
+    scene.traverse((o) => { if (o.userData.decorationId === id) object = o })
+    const rect = renderer.domElement.getBoundingClientRect()
+    const screen = (p) => {
+      p = p.clone().project(camera)
+      return [rect.left + (p.x + 1) * rect.width / 2, rect.top + (1 - p.y) * rect.height / 2]
+    }
+    const center = new THREE.Box3().setFromObject(object).getCenter(new THREE.Vector3())
+    const start = screen(center)
+    const ray = new THREE.Raycaster()
+    ray.setFromCamera(new THREE.Vector2((start[0] - rect.left) / rect.width * 2 - 1,
+      1 - (start[1] - rect.top) / rect.height * 2), camera)
+    const ground = ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), new THREE.Vector3())
+    const offset = object.position.clone().sub(ground)
+    const s = useGameStore.getState()
+    const placements = (s.worldDecorations[s.worldId] ?? []).map((d) => ({ ...d, ...layout.fromLegacyPoint(d) }))
+    const occupants = [...instances.values()].map((i) => layout.villagePoint(i.object.position))
+    const target = invalid ? new THREE.Vector3(...[layout.VILLAGE_STEPPING_STONES[4][0], 0, layout.VILLAGE_STEPPING_STONES[4][1]])
+      : layout.lawnSpots(120).filter((p) => layout.canPlaceInVillage('chair', p, placements, occupants, id))
+        .map((p) => layout.villageGround(p.x, p.y)).find((p) => {
+          const end = screen(p.clone().sub(offset))
+          return p.distanceTo(object.position) > 2 && document.elementFromPoint(...end) === renderer.domElement
+        })
+    return { start, end: screen(target.clone().sub(offset)), target: layout.toLegacyPoint(layout.villagePoint(target)) }
+  }, { id: chair.id, invalid })
+  const directTouch = await page.createCDPSession()
+  await directTouch.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 2 })
+  const sendDragTouch = async (type, point) => {
+    await directTouch.send('Input.dispatchTouchEvent', { type,
+      touchPoints: point ? [{ id: 1, x: point[0], y: point[1] }] : [] })
+    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+  }
+  const drag = await dragCoordinates()
+  const beforeDirectDrag = await placedNow()
+  const cameraBeforeDrag = await cameraPosition()
+  await sendDragTouch('touchStart', drag.start)
+  await new Promise((resolve) => setTimeout(resolve, 500))
+  await sendDragTouch('touchMove', drag.end)
+  assert.deepEqual(await placedNow(), beforeDirectDrag, 'preview does not save until release')
+  assert.ok(await page.evaluate((id) => {
+    let object
+    window.__village.scene.traverse((o) => { if (o.userData.decorationId === id) object = o })
+    return object.visible === false
+  }, chair.id), 'original is hidden while the drag preview follows the finger')
+  const cameraDuringDrag = await cameraPosition()
+  assert.ok(cameraDuringDrag.every((value, i) => Math.abs(value - cameraBeforeDrag[i]) < 1e-5), 'dragging a decoration does not pan the camera')
+  await page.screenshot({ path: join(artifacts, 'decorate-direct-drag.png') })
+  await sendDragTouch('touchEnd')
+  decorated = await placedNow()
+  assert.ok(Math.abs(decorated[0].x - drag.target.x) < 1e-5 && Math.abs(decorated[0].y - drag.target.y) < 1e-5, 'finger release moves the same decoration to the preview position')
+  assert.equal(decorated[0].id, chair.id)
+  assert.equal((await state()).placementTool, null)
+  const savedAfterDrag = await page.evaluate((month) => JSON.parse(localStorage.getItem('haru-village:v1')).worldDecorations[month], (await state()).worldId)
+  assert.deepEqual(savedAfterDrag, decorated, 'direct move persists')
+  const cancelled = await dragCoordinates()
+  await sendDragTouch('touchStart', cancelled.start)
+  await new Promise((resolve) => setTimeout(resolve, 500))
+  await sendDragTouch('touchMove', cancelled.end)
+  await sendDragTouch('touchCancel')
+  assert.deepEqual(await placedNow(), decorated, 'interrupted touch restores the original position')
+  const invalidDrag = await dragCoordinates(true)
+  await sendDragTouch('touchStart', invalidDrag.start)
+  await new Promise((resolve) => setTimeout(resolve, 500))
+  await sendDragTouch('touchMove', invalidDrag.end)
+  await sendDragTouch('touchEnd')
+  assert.deepEqual(await placedNow(), decorated, 'invalid direct drop restores the original position')
+  assert.match((await state()).feedback, /원래 자리/)
+  await directTouch.send('Emulation.setTouchEmulationEnabled', { enabled: false })
+  await directTouch.detach()
   await store('recallDecoration')
   assert.equal((await placedNow()).length, 0, 'chair recalled')
   await store('closePanel')
