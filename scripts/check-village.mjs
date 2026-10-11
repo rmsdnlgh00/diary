@@ -309,6 +309,7 @@ try {
   const cameraBeforeDrag = await cameraPosition()
   await sendDragTouch('touchStart', drag.start)
   await new Promise((resolve) => setTimeout(resolve, 500))
+  assert.equal(await page.$eval('.commerce-sheet--decorate', (el) => getComputedStyle(el).visibility), 'hidden', 'holding a decoration hides the panel before moving')
   await sendDragTouch('touchMove', drag.end)
   assert.deepEqual(await placedNow(), beforeDirectDrag, 'preview does not save until release')
   assert.ok(await page.evaluate((id) => {
@@ -320,6 +321,7 @@ try {
   assert.ok(cameraDuringDrag.every((value, i) => Math.abs(value - cameraBeforeDrag[i]) < 1e-5), 'dragging a decoration does not pan the camera')
   await page.screenshot({ path: join(artifacts, 'decorate-direct-drag.png') })
   await sendDragTouch('touchEnd')
+  assert.equal(await page.$eval('.commerce-sheet--decorate', (el) => getComputedStyle(el).visibility), 'visible', 'release restores the decorating panel')
   decorated = await placedNow()
   assert.ok(Math.abs(decorated[0].x - drag.target.x) < 1e-5 && Math.abs(decorated[0].y - drag.target.y) < 1e-5, 'finger release moves the same decoration to the preview position')
   assert.equal(decorated[0].id, chair.id)
@@ -331,6 +333,7 @@ try {
   await new Promise((resolve) => setTimeout(resolve, 500))
   await sendDragTouch('touchMove', cancelled.end)
   await sendDragTouch('touchCancel')
+  assert.equal(await page.$eval('.commerce-sheet--decorate', (el) => getComputedStyle(el).visibility), 'visible', 'interrupted drag restores the panel')
   assert.deepEqual(await placedNow(), decorated, 'interrupted touch restores the original position')
   const invalidDrag = await dragCoordinates(true)
   await sendDragTouch('touchStart', invalidDrag.start)

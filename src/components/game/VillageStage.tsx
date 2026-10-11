@@ -430,6 +430,7 @@ export function VillageStage(props: Props) {
     const clearHold = () => { window.clearTimeout(holdTimer); holdTimer = undefined }
     const cancelDrag = () => {
       clearHold()
+      delete host.dataset.decorationDragging
       if (dragging) {
         const original = placed.get(dragging.id)
         if (original) original.object.visible = true
@@ -470,6 +471,7 @@ export function VillageStage(props: Props) {
           decorating.onSelectDecoration(id)
           dragging = { pointerId: event.pointerId, id, itemId: original.itemId,
             offset: original.object.position.clone().sub(anchor), point: original.object.position.clone() }
+          host.dataset.decorationDragging = 'true'
           original.object.visible = false
           gesturing = true
           leave()
