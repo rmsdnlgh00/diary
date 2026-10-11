@@ -24,6 +24,7 @@ export const ITEMS: GameItem[] = [
   { id: 'small_lamp', name: '작은 가로등', category: 'decoration', price: 15, assetPath: '', placeholder: '🏮', worldWidth: 0.035 },
   { id: 'flower_bed', name: '작은 꽃밭', category: 'decoration', price: 20, assetPath: '', placeholder: '🌷', worldWidth: 0.055 },
   { id: 'chair', name: '쉬어가는 의자', category: 'decoration', price: 15, assetPath: '', placeholder: '🪑', worldWidth: 0.04 },
+  { id: 'bench', name: '긴 벤치', category: 'decoration', price: 25, assetPath: '', placeholder: '🛋️', worldWidth: 0.08 },
   { id: 'sign', name: '마을 안내판', category: 'decoration', price: 10, assetPath: '', placeholder: '🪧', worldWidth: 0.04 },
   { id: 'plant', name: '초록 나무', category: 'decoration', price: 15, assetPath: '', placeholder: '🌳', worldWidth: 0.055 },
 ]

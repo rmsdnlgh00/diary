@@ -7,7 +7,8 @@ every object was placed by casting rays from the legacy camera through the paint
 and the materials use colours measured from it (lawn ≈ #C8D078). The asset contains only
 the `Diary V4 | Legacy View Village` collection of the `Diary Village V4 | Legacy View`
 scene: lawn, stepping stones, pond with duck and lilies, shop stall, house, river,
-arch bridge, fences, bench, lamp, notice board, signpost, 29 trees, bushes and rocks.
+arch bridge, fences, lamp, notice board, signpost, 29 trees, bushes, reeds and rocks.
+The painted bench is now the "긴 벤치" decoration, and the scattered small flowers were removed.
 Preview characters, Blender lights and cameras are not exported.
 `diary-village-v2.glb` and `diary-village-v3.glb` are kept but no longer loaded.
 
@@ -28,8 +29,8 @@ Run `scripts/export-village.py` inside Blender to update the public GLB. Point
   angle at 0.62× and 0.45× of the distance (`VILLAGE_VIEW_DISTANCE`).
 - Blender coordinates `(x, y, z)` become glTF `(x, z, -y)`.
 - World coordinates 0–1 span the painted lawn (18 × 22.5 units around `VILLAGE_CENTER`).
-  Movement follows the lawn's shape through nine touching rectangles
-  (`VILLAGE_WALKABLE_AREAS`, ≈ 277 m²) measured in Blender: 0.6 units clear of the pond,
+  Movement follows the lawn's shape through twelve touching rectangles
+  (`VILLAGE_WALKABLE_AREAS`, ≈ 285 m²) measured in Blender: 0.6 units clear of the pond,
   bench, bushes, fences and trees, and kept above the bottom menu. Walks stop at the
   furthest reachable point, and saved positions that land off the lawn are moved to
   the nearest lawn point in memory only. Ground clicks use camera raycasting.
@@ -55,9 +56,9 @@ Run `scripts/export-village.py` inside Blender to update the public GLB. Point
   instead of 7.8 MB) and `character-idle-anim.glb` (only the idle animation is used,
   1.1 MB instead of 9.5 MB). Bone names, animation tracks and durations match the
   originals, which the legacy village still uses.
-- Decorations: `public/assets/village/decorations-v1.glb` (79 KB, Draco) holds one model
+- Decorations: `public/assets/village/decorations-v1.glb` (83 KB, Draco) holds one model
   per shop decoration, named `Deco <item id>` (flower pot, picnic mat, small lamp, flower
-  bed, chair, sign, plant). They come from the `Diary V4 | Decorations` collection in the
+  bed, chair, long bench, sign, plant). They come from the `Diary V4 | Decorations` collection in the
   `Diary Decorations V4` scene, scaled 1.3–1.5× to match the village props. Saved
   decorations keep their legacy coordinates; `fromLegacyPoint` maps them onto the lawn
   (`toLegacyPoint` is the inverse) and `VillageStage` shows them as 3D clones.

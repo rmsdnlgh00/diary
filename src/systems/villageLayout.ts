@@ -9,8 +9,8 @@ import { isInsideAnyArea, type Point } from './worldSystem'
  *
  * World coordinates 0–1 span the painted lawn (18 × 22.5 units). The lawn's
  * irregular shape is covered by touching rectangles, measured in Blender on a
- * 0.5-unit grid: inside the lawn, 0.6 units clear of the pond, trees, bushes,
- * fences and bench, and on screen above the bottom menu (≈ 277 m²).
+ * 0.5-unit grid: inside the lawn, 0.6 units clear of the pond, trees, reeds,
+ * fences and bushes, and on screen above the bottom menu (≈ 285 m²).
  */
 export const VILLAGE_WIDTH = 18
 export const VILLAGE_DEPTH = 22.5
@@ -27,6 +27,10 @@ export const VILLAGE_WALKABLE_AREAS: AreaRect[] = [
   { id: 'lawn-by-bench', x: [0.5833, 0.8333], y: [0.3333, 0.3778] },
   { id: 'lawn-by-pond', x: [0.1944, 0.25], y: [0.6889, 0.8444] },
   { id: 'lawn-stone-path', x: [0.3056, 0.5], y: [0, 0.0444] },
+  // Freed when the painted bench became the "긴 벤치" decoration.
+  { id: 'lawn-old-bench', x: [0.7222, 0.8056], y: [0.2222, 0.3333] },
+  { id: 'lawn-old-bench-back', x: [0.6667, 0.7222], y: [0.1333, 0.2444] },
+  { id: 'lawn-pond-corner', x: [0.1667, 0.25], y: [0.3778, 0.4444] },
 ]
 
 /**
@@ -59,7 +63,7 @@ export function villagePoint(point: THREE.Vector3) {
 
 /** Ground footprint radius of each decoration model, in units (≈ metres). */
 export const DECORATION_RADIUS: Record<string, number> = {
-  flower_pot: 0.45, picnic_mat: 1.35, small_lamp: 0.35, flower_bed: 1.1, chair: 0.5, sign: 0.6, plant: 1.0,
+  flower_pot: 0.45, picnic_mat: 1.35, small_lamp: 0.35, flower_bed: 1.1, chair: 0.5, sign: 0.6, plant: 1.0, bench: 1.25,
 }
 const decorationRadius = (itemId: string) => DECORATION_RADIUS[itemId] ?? 0.6
 
