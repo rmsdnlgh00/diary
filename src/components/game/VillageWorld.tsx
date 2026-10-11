@@ -36,6 +36,10 @@ export function VillageWorld({ onLegacy }: { onLegacy: () => void }) {
   // Placed decorations are blocked squares, so characters walk around them.
   const world = useMemo(() => villageWorld(getWorld(worldId), decorations), [worldId, decorations])
   const { agents, commandWalk } = useVillagers(world, monthly)
+  // What each character wears, for the 3D clothes.
+  const outfits = useMemo(() => new Map(monthly.map((c) => [c.id,
+    Object.values(c.equippedItems).filter((id): id is string => !!id)])), [monthly])
+  const dressed = useMemo(() => agents.map((a) => ({ ...a, outfit: outfits.get(a.id) })), [agents, outfits])
 
   const canPlace = (itemId: string, point: { x: number; y: number }, movingId?: string) =>
     canPlaceInVillage(itemId, point, decorations, agents, movingId)
@@ -66,7 +70,7 @@ export function VillageWorld({ onLegacy }: { onLegacy: () => void }) {
   }
   const showPreview = preview && !editing
   return <div className="game-world game-world--village">
-    <VillageStage characters={showPreview ? PREVIEW : agents} decorations={decorations} decorating={decorating}
+    <VillageStage characters={showPreview ? PREVIEW : dressed} decorations={decorations} decorating={decorating}
       view={view} cameraResetKey={cameraResetKey} focusId={focusId} onGround={onGround} onSelect={(id) => {
         setFocusId(id)
         if (!showPreview) selectCharacter(id)

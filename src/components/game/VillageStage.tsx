@@ -8,6 +8,7 @@ import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js'
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import type { StageCharacter } from './ThreeStage'
+import { ITEMS } from '@/data/items'
 import { MALE_WALK_STRIDE } from '@/systems/walkSystem'
 import { DECORATION_RADIUS, VILLAGE_CAMERA, VILLAGE_CENTER, VILLAGE_CHARACTER_HEIGHT, VILLAGE_POND, VILLAGE_VIEW_DISTANCE,
   VILLAGE_DEPTH, VILLAGE_WALKABLE_AREAS, VILLAGE_WIDTH, FLOOR_TILE_SIZE, isFloorDecoration, snapDecoration, villageGround,
@@ -48,6 +49,71 @@ interface Instance {
   blend: number
   angle: number
   lastDistance: number
+  /** Item ids currently worn, joined, and the clothing objects added for them. */
+  outfitKey: string
+  outfit: THREE.Object3D[]
+}
+
+/**
+ * Clothes from clothes-v1.glb (scripts/export-clothes.py), by item id. Tops and bottoms are
+ * skinned to the same armature as the character, so they are re-bound to each character's
+ * own bones; hats, hoods and buttons hang from a bone and are cloned onto that bone.
+ */
+type ClothingPart = { skinned: THREE.SkinnedMesh } | { rigid: THREE.Object3D; bone: string }
+const ITEM_IDS = ITEMS.map((item) => item.id).sort((a, b) => b.length - a.length)
+
+function collectClothes(root: THREE.Object3D): Map<string, ClothingPart[]> {
+  const clothes = new Map<string, ClothingPart[]>()
+  root.traverse((object) => {
+    // Node names arrive sanitised: "Cloth hoodie_gray hood" → "Cloth_hoodie_gray_hood".
+    if (!object.name.startsWith('Cloth_') || object.parent?.name.startsWith('Cloth_')) return
+    const rest = object.name.slice('Cloth_'.length)
+    const id = ITEM_IDS.find((itemId) => rest === itemId || rest.startsWith(`${itemId}_`))
+    if (!id) return
+    const parts = clothes.get(id) ?? []
+    const skinned: THREE.SkinnedMesh[] = []
+    object.traverse((o) => { if ((o as THREE.SkinnedMesh).isSkinnedMesh) skinned.push(o as THREE.SkinnedMesh) })
+    if (skinned.length) parts.push(...skinned.map((mesh) => ({ skinned: mesh })))
+    else if (object.parent) parts.push({ rigid: object, bone: object.parent.name })
+    clothes.set(id, parts)
+  })
+  return clothes
+}
+
+/** Swap what a character wears: remove the old clothing objects, bind the new ones to its bones. */
+function dress(instance: Instance, ids: readonly string[], clothes: Map<string, ClothingPart[]>) {
+  for (const object of instance.outfit) object.removeFromParent()
+  instance.outfit = []
+  let body: THREE.SkinnedMesh | null = null
+  instance.object.traverse((o) => { if (!body && (o as THREE.SkinnedMesh).isSkinnedMesh) body = o as THREE.SkinnedMesh })
+  const skinnedBody = body as THREE.SkinnedMesh | null
+  if (!skinnedBody?.parent) return
+  const bones = new Map(skinnedBody.skeleton.bones.map((bone) => [bone.name, bone]))
+  for (const id of ids) {
+    for (const part of clothes.get(id) ?? []) {
+      if ('skinned' in part) {
+        const source = part.skinned
+        const mapped = source.skeleton.bones.map((bone) => bones.get(bone.name))
+        if (mapped.some((bone) => !bone)) continue
+        const mesh = new THREE.SkinnedMesh(source.geometry, source.material)
+        mesh.name = source.name
+        source.updateMatrix()
+        mesh.matrix.copy(source.matrix).decompose(mesh.position, mesh.quaternion, mesh.scale)
+        skinnedBody.parent.add(mesh)
+        mesh.bind(new THREE.Skeleton(mapped as THREE.Bone[], source.skeleton.boneInverses), source.bindMatrix)
+        mesh.castShadow = true
+        mesh.frustumCulled = false
+        instance.outfit.push(mesh)
+      } else {
+        const bone = bones.get(part.bone)
+        if (!bone) continue
+        const object = part.rigid.clone()
+        object.traverse((o) => { if ((o as THREE.Mesh).isMesh) o.castShadow = true })
+        bone.add(object)
+        instance.outfit.push(object)
+      }
+    }
+  }
 }
 
 /** Flat village parts that only receive shadows. */
@@ -109,7 +175,8 @@ function makeWater(base: THREE.MeshStandardMaterial, hasDepth: boolean, time: { 
 
 /**
  * Falling fountain water. Blender gives the curtains a UV whose v is metres along the flow
- * (copied to `flowUv`), so streaks scrolling along v pour from the bowl down into the basin.
+ * (copied to `flowUv`; glTF stores it flipped), so streaks scrolling along it pour from the
+ * bowl down into the basin.
  * Clear aqua with brighter threads; thinner where it leaves the rim and where it lands.
  */
 function makeFall(time: { value: number }) {
@@ -134,13 +201,15 @@ function makeFall(time: { value: number }) {
             mix(fallHash(i + vec2(0.0, 1.0)), fallHash(i + vec2(1.0, 1.0)), u.x), u.y);
         }`)
       .replace('#include <color_fragment>', `#include <color_fragment>
+        // glTF flips Blender's v (v' = 1 − v), so turn it back into metres travelled downstream.
+        float along = 1.0 - vFlow.y;
         // Long thin threads across the flow, short pulses along it, all moving downstream.
-        vec2 flow = vec2(vFlow.x * 14.0, vFlow.y * 1.6 - uTime * 2.2);
+        vec2 flow = vec2(vFlow.x * 14.0, along * 1.6 - uTime * 2.2);
         float threads = fallNoise(flow) * 0.6 + fallNoise(flow * vec2(2.1, 2.6) + 5.1) * 0.4;
-        float pulse = fallNoise(vec2(vFlow.x * 3.0, vFlow.y * 5.0 - uTime * 6.0));
+        float pulse = fallNoise(vec2(vFlow.x * 3.0, along * 5.0 - uTime * 6.0));
         float bright = smoothstep(0.5, 0.8, threads) * (0.6 + 0.4 * pulse);
         diffuseColor.rgb = mix(diffuseColor.rgb, vec3(1.0), bright * 0.75);
-        float ends = smoothstep(0.0, 0.06, vFlow.y);
+        float ends = smoothstep(0.0, 0.06, along);
         diffuseColor.a = (0.1 + 0.7 * bright) * ends;`)
       .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += vec3(bright * 0.22);')
   }
@@ -380,6 +449,8 @@ export function VillageStage(props: Props) {
     let walkClip: THREE.AnimationClip | null = null
     let idleClip: THREE.AnimationClip | null = null
     let decorationAsset: THREE.Object3D | null = null
+    let clothesAsset: THREE.Object3D | null = null
+    let clothes = new Map<string, ClothingPart[]>()
     let duck: THREE.Object3D | null = null
     let duckBaseY = 0
     let duckHeading = 0
@@ -420,17 +491,27 @@ export function VillageStage(props: Props) {
     const placed = new Map<string, { itemId: string; object: THREE.Object3D }>()
     const load = async () => {
       try {
-        const [village, walk, idle, decorationsFile] = await Promise.all([
+        const [village, walk, idle, decorationsFile, clothesFile] = await Promise.all([
           loader.loadAsync('/assets/village/diary-village-v4.glb'),
           // Light copies made in Blender: 9.4k instead of 31k triangles, JPEG texture, and
           // an idle file that only carries the animation. Bones and tracks match the originals.
           loader.loadAsync('/assets/characters/male/character-walk-light.glb'),
           loader.loadAsync('/assets/characters/male/character-idle-anim.glb'),
           loader.loadAsync('/assets/village/decorations-v1.glb'),
+          // Without clothes the village still works; characters just wear their painted outfit.
+          loader.loadAsync('/assets/characters/male/clothes-v1.glb').catch((error) => {
+            console.warn('[VillageStage] 옷을 불러오지 못했어요', error)
+            return null
+          }),
         ])
         if (disposed) {
-          for (const asset of [village, walk, idle, decorationsFile]) disposeObject(asset.scene)
+          for (const asset of [village, walk, idle, decorationsFile, clothesFile]) if (asset) disposeObject(asset.scene)
           return
+        }
+        if (clothesFile) {
+          clothesAsset = clothesFile.scene
+          clothesAsset.updateMatrixWorld(true)
+          clothes = collectClothes(clothesAsset)
         }
         decorationAsset = decorationsFile.scene
         for (const model of [...decorationAsset.children]) {
@@ -499,7 +580,7 @@ export function VillageStage(props: Props) {
         template.add(raw)
         disposeObject(idle.scene)
         setStatus('')
-        if (import.meta.env.DEV) Object.assign(window, { __village: { scene, camera, renderer, instances, lowPower } })
+        if (import.meta.env.DEV) Object.assign(window, { __village: { scene, camera, renderer, instances, lowPower, clothes: () => clothes } })
       } catch (error) {
         if (!disposed) {
           console.error('[VillageStage] 마을 로드 실패', error)
@@ -820,8 +901,13 @@ export function VillageStage(props: Props) {
             const mixer = new THREE.AnimationMixer(object)
             const walk = mixer.clipAction(walkClip).setEffectiveWeight(0).play()
             const idle = mixer.clipAction(idleClip).setEffectiveWeight(1).play()
-            inst = { object, mixer, walk, idle, blend: 0, angle: 0, lastDistance: c.walkDistance }
+            inst = { object, mixer, walk, idle, blend: 0, angle: 0, lastDistance: c.walkDistance, outfitKey: '', outfit: [] }
             instances.set(c.id, inst)
+          }
+          const outfitKey = c.outfit?.join('|') ?? ''
+          if (outfitKey !== inst.outfitKey) {
+            inst.outfitKey = outfitKey
+            dress(inst, c.outfit ?? [], clothes)
           }
           const p = villageGround(c.x, c.y)
           inst.object.position.copy(p)
@@ -884,6 +970,7 @@ export function VillageStage(props: Props) {
       if (terrain) disposeObject(terrain)
       // Placed decorations are clones that share these geometries and materials.
       if (decorationAsset) disposeObject(decorationAsset)
+      if (clothesAsset) disposeObject(clothesAsset)
       // The duck left the terrain group, so it is disposed on its own.
       if (duck) disposeObject(duck)
       for (const { ring } of wakeRings) {

@@ -108,6 +108,8 @@ export interface StageCharacter {
   phase: 'IDLE' | 'WALK' | 'TALK'
   /** 걷기 시작 후 실제로 나아간 거리. 걸음 속도를 여기에 맞춘다. */
   walkDistance: number
+  /** 입고 있는 옷의 아이템 id. 3D 마을만 사용한다. */
+  outfit?: readonly string[]
 }
 
 /** 캐릭터 하나에 딸린 3D 상태 */

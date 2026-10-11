@@ -63,13 +63,18 @@ try {
   let s = await state()
   assert.deepEqual(s.diaries, legacy.diaries)
   assert.deepEqual(s.characters.map(({ equippedItems, ...c }) => c), legacy.characters)
-  assert.equal(s.coins, 100)
+  assert.equal(s.coins, 1000)
   assert.deepEqual(s.inventory, { clothes: [], decorations: [] })
   assert.equal(Object.values(s.characters[0].equippedItems).filter(Boolean).length, 0)
   const month = s.characters[0].diaryDate.slice(0, 7)
   await action('setWorld', month)
   report('기존 v1 일기·캐릭터 보존 및 저장 필드 마이그레이션')
 
+  // The purchase checks below count from 100 coins.
+  await page.evaluate(async () => {
+    const { useGameStore } = await import('/src/store/gameStore.ts')
+    useGameStore.setState({ coins: 100 })
+  })
   await click('.menu-button:nth-child(2)')
   await click('[data-item-id="winter_coat"] button')
   assert.equal((await state()).feedback, '코인이 부족해요')
@@ -243,8 +248,8 @@ try {
       return { broken, normalized }
     } finally { restore() }
   }, saved)
-  assert.equal(migration.broken.coins, 100)
-  assert.equal(migration.normalized.coins, 100)
+  assert.equal(migration.broken.coins, 1000)
+  assert.equal(migration.normalized.coins, 1000)
   assert.deepEqual(migration.normalized.inventory.clothes, ['hoodie_gray'])
   assert.deepEqual(migration.normalized.worldDecorations['2026-09'], [])
   assert.equal(migration.normalized.worldId, today.slice(0, 7))

@@ -99,6 +99,22 @@ Run `scripts/export-village.py` inside Blender to update the public GLB. Point
   another tile. Tiles are not blocked areas (characters walk over them), other
   decorations ignore them (a chair can stand on one), and the place tool stays active
   after each tile. They receive shadows but do not cast them.
+- Clothes: `public/assets/characters/male/clothes-v1.glb` (≈0.55 MB, Draco) comes from
+  `/Users/geun-wiho/male_master_3d/diary_character_clothes.blend` (a copy of the character
+  file; `char1.001` itself is untouched) via `scripts/export-clothes.py`. It holds the
+  armature plus five hats, five tops and five bottoms, named `Cloth <item id>` (extra parts
+  `Cloth <item id> <part>`). Tops and bottoms are shells copied from the body (welded,
+  pushed out along smoothed normals, openings cut with planes), so they keep the body's
+  bone weights; patterns are small tiling textures. Hats, hoods, pockets and buttons are
+  parented to a bone. The blend's `clothes_tools.py` text holds the helpers used to build
+  them. In the game `collectClothes` reads the file once and `dress` re-binds the skinned
+  parts to each character's own skeleton and clones the rigid parts onto its bones; the
+  equipped item ids reach `VillageStage` as `StageCharacter.outfit`. Shoes, bag and scarf
+  have no 3D model yet.
+- Shop icons: `scripts/render-item-icons.py` renders every item with a 3D model (clothes and
+  decorations) on a transparent background into `public/assets/items/<item id>.webp`
+  (256 px), which `items.ts` uses as `assetPath`. It opens an empty file, so reopen your
+  blend afterwards.
 - The duck is its own object (`V4 Duck`) so the game can animate it: it swims a slow,
   wobbly loop around the pond centre (`DUCK_POND`, about a minute per lap), faces where
   it goes, bobs, and leaves ripple rings. The game lifts it out of the cm-scaled village

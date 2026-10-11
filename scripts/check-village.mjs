@@ -126,7 +126,9 @@ try {
     useGameStore.getState().saveDiary(useGameStore.getState().today, '행복하고 감사한 마을 테스트')
   })
   await page.waitForFunction(() => window.__village.instances.size >= 1)
-  await button('마을 전체')
+  // Today's spawn point depends on the date and may lie outside the phone's view; follow it.
+  await button('따라가기')
+  await new Promise((resolve) => setTimeout(resolve, 1200))
   const clicked = await page.evaluate(async () => {
     const THREE = await import('/node_modules/.vite/deps/three.js')
     const { useGameStore } = await import('/src/store/gameStore.ts')
@@ -142,6 +144,7 @@ try {
   await page.waitForSelector('.modal__text')
   assert.equal((await state()).selectedCharacterId, clicked.id)
   await button('닫기')
+  await button('마을 전체')
   const movement = await page.evaluate(async () => {
     const { villageGround, villagePoint } = await import('/src/systems/villageLayout.ts')
     const { camera, renderer, instances } = window.__village
@@ -419,6 +422,50 @@ try {
     useGameStore.setState({ inventory: saved.inventory, worldDecorations: saved.worldDecorations })
   }, beforeDecorating)
 
+  // Saves keep every floor tile of a month (other items stay one per kind).
+  const tilesReloaded = await page.evaluate(async () => {
+    const { loadSave } = await import('/src/systems/saveSystem.ts')
+    const key = 'haru-village:v1'
+    const before = localStorage.getItem(key)
+    try {
+      const month = '2026-10'
+      localStorage.setItem(key, JSON.stringify({ version: 2, diaries: [], characters: [], coins: 5,
+        inventory: { clothes: [], decorations: ['floor_tile', 'chair'] }, calendarMonth: month, worldId: month,
+        worldDecorations: { [month]: [1, 2, 3].map((i) => ({ id: `t${i}`, itemId: 'floor_tile', x: 0.5, y: 0.5 + i * 0.05 }))
+          .concat([{ id: 'c1', itemId: 'chair', x: 0.4, y: 0.5 }, { id: 'c2', itemId: 'chair', x: 0.6, y: 0.5 }]) } }))
+      return loadSave().worldDecorations['2026-10'].map((d) => d.itemId)
+    } finally { if (before) localStorage.setItem(key, before); else localStorage.removeItem(key) }
+  })
+  assert.deepEqual(tilesReloaded, ['floor_tile', 'floor_tile', 'floor_tile', 'chair'], 'tiles survive a reload, chairs stay one per month')
+
+  // 3D clothes: equipped hats, tops and bottoms are bound to each character's own bones.
+  const dressed = await page.evaluate(async () => {
+    const { useGameStore } = await import('/src/store/gameStore.ts')
+    const { emptyEquipment } = await import('/src/data/items.ts')
+    const s = useGameStore.getState()
+    const saved = { characters: s.characters, inventory: s.inventory }
+    const outfit = { ...emptyEquipment(), hat: 'bear_hat', top: 'hoodie_gray', bottom: 'jogger_pants' }
+    useGameStore.setState({ inventory: { ...s.inventory, clothes: ['bear_hat', 'hoodie_gray', 'jogger_pants'] },
+      characters: [{ id: 'dressed', diaryDate: `${s.worldId}-01`, diaryText: '', emotion: 'HAPPY', emotionConfidence: 1,
+        body: '', hair: '', outfit: '', accessories: [], x: 0.5, y: 0.6, scale: 1, createdAt: 0, equippedItems: outfit }] })
+    await new Promise((resolve) => setTimeout(resolve, 600))
+    const inst = window.__village.instances.get('dressed')
+    const bones = new Set()
+    inst.object.traverse((o) => { if (o.isBone) bones.add(o) })
+    const skinned = inst.outfit.filter((o) => o.isSkinnedMesh)
+    const result = { parts: inst.outfit.length, skinned: skinned.length,
+      ownBones: skinned.every((m) => m.skeleton.bones.every((b) => bones.has(b))),
+      hatOnHead: inst.outfit.some((o) => !o.isSkinnedMesh && o.parent?.name === 'mixamorigHead') }
+    useGameStore.setState({ characters: [{ ...useGameStore.getState().characters[0], equippedItems: emptyEquipment() }] })
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    result.undressed = window.__village.instances.get('dressed').outfit.length
+    useGameStore.setState(saved)
+    return result
+  })
+  assert.ok(dressed.skinned >= 3 && dressed.ownBones, 'tops and bottoms follow the character\'s own skeleton')
+  assert.ok(dressed.hatOnHead, 'the hat hangs from the head bone')
+  assert.equal(dressed.undressed, 0, 'unequipping removes the 3D clothes')
+
   // Pathfinding walks around a decoration that blocks the straight line, on clear ground only.
   const pathCheck = await page.evaluate(async () => {
     const layout = await import('/src/systems/villageLayout.ts')
@@ -482,7 +529,7 @@ try {
   await page.waitForFunction(() => !!window.__village)
   assert.equal((await state()).characters.filter((c) => c.diaryDate === before.today).length, 1)
   assert.deepEqual(errors, [])
-  console.log('PASS GLB load, fullscreen portrait/landscape layout, 2x phone resolution, touch targets, 30-person preview on lawn areas, 3D decorations, 3D decorating, floor tiles, pathfinding, roaming spread, save preservation, diary picking, ground movement, responsive editor, legacy switch')
+  console.log('PASS GLB load, fullscreen portrait/landscape layout, 2x phone resolution, touch targets, 30-person preview on lawn areas, 3D decorations, 3D decorating, floor tiles, 3D clothes, pathfinding, roaming spread, save preservation, diary picking, ground movement, responsive editor, legacy switch')
   console.log(`Screenshots: ${artifacts}`)
 } catch (error) {
   await page?.screenshot({ path: join(artifacts, 'failure.png') }).catch(() => {})

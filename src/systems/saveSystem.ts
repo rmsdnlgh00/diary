@@ -3,6 +3,9 @@ import type { DiaryCharacterData, DiaryEntry, Inventory, WorldDecorations } from
 import { toDateKey, toMonthKey } from '@/utils/date'
 
 const STORAGE_KEY = 'haru-village:v1'
+export const STARTING_COINS = 1000
+/** One-time top-up: existing saves get their coins set to STARTING_COINS once. */
+const COIN_TOPUP_KEY = 'haru-village:coins-1000'
 export const isMonthKey = (value: unknown): value is string =>
   typeof value === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(value)
 
@@ -20,7 +23,7 @@ export interface SaveData {
 function emptySave(): SaveData {
   const month = toMonthKey(toDateKey(new Date()))
   return {
-    version: 2, diaries: [], characters: [], coins: 100,
+    version: 2, diaries: [], characters: [], coins: STARTING_COINS,
     inventory: { clothes: [], decorations: [] }, worldDecorations: {},
     worldId: month, calendarMonth: month,
   }
@@ -62,7 +65,9 @@ export function loadSave(): SaveData {
       const placedIds = new Set<string>()
       worldDecorations[month] = entries.filter((entry) => {
         if (!entry || typeof entry.id !== 'string' || typeof entry.itemId !== 'string' ||
-          !inventory.decorations.includes(entry.itemId) || itemIds.has(entry.itemId) || placedIds.has(entry.id) ||
+          !inventory.decorations.includes(entry.itemId) || placedIds.has(entry.id) ||
+          // One of each kind per month, except stackable items such as floor tiles.
+          (itemIds.has(entry.itemId) && !getItem(entry.itemId)?.stackable) ||
           !Number.isFinite(entry.x) || !Number.isFinite(entry.y) ||
           entry.x < 0 || entry.x > 1 || entry.y < 0 || entry.y > 1) return false
         itemIds.add(entry.itemId)
@@ -74,14 +79,26 @@ export function loadSave(): SaveData {
       ...empty,
       diaries: Array.isArray(parsed.diaries) ? parsed.diaries : [],
       characters, inventory, worldDecorations,
-      coins: typeof parsed.coins === 'number' && Number.isSafeInteger(parsed.coins) && parsed.coins >= 0
-        ? parsed.coins : empty.coins,
+      coins: topUpCoins() ? STARTING_COINS
+        : typeof parsed.coins === 'number' && Number.isSafeInteger(parsed.coins) && parsed.coins >= 0
+          ? parsed.coins : empty.coins,
       // 달이 바뀌면 새로운 마을로, 같은 달의 새로고침은 보고 있던 마을로 돌아간다.
       worldId: parsed.calendarMonth === empty.calendarMonth && isMonthKey(parsed.worldId)
         ? parsed.worldId : empty.worldId,
     }
   } catch {
     return empty
+  }
+}
+
+/** True only the first time: marks the top-up as done so later loads keep the saved coins. */
+function topUpCoins(): boolean {
+  try {
+    if (localStorage.getItem(COIN_TOPUP_KEY)) return false
+    localStorage.setItem(COIN_TOPUP_KEY, '1')
+    return true
+  } catch {
+    return false
   }
 }
 

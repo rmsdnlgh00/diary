@@ -19,8 +19,9 @@ export function PanelSheet() {
   if (activePanel === 'DIARY') return <DiaryEditor date={today} />
 
   return (
-    <section className={`sheet commerce-sheet${activePanel === 'DECORATE' ? ' commerce-sheet--decorate' : ''}`}
-      aria-label={TITLES[activePanel]}>
+    <section className={`sheet commerce-sheet${activePanel === 'DECORATE' ? ' commerce-sheet--decorate' : ''}${
+      activePanel === 'SHOP' ? ' commerce-sheet--shop' : ''}`} aria-label={TITLES[activePanel]}>
+      {activePanel === 'SHOP' && <div className="shop-awning" aria-hidden="true" />}
       <div className="sheet__header">
         <h2>{TITLES[activePanel]}</h2>
         <button type="button" className="icon-button" onClick={closePanel} aria-label="닫기">
