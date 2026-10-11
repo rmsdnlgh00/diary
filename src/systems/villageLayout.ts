@@ -87,6 +87,23 @@ export function nearestLawnPoint(point: Point): Point {
   return best
 }
 
+const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value))
+
+/**
+ * Saves keep the legacy painted-village coordinates. This maps them onto the 3D lawn
+ * (characters and decorations use the same mapping); `toLegacyPoint` is its inverse.
+ */
+export function fromLegacyPoint(point: Point): Point {
+  return nearestLawnPoint({
+    x: clamp(0.1 + (point.x - 0.3) / 0.5 * 0.8, 0.1, 0.9),
+    y: clamp(0.08 + (point.y - 0.36) / 0.42 * 0.84, 0.08, 0.92),
+  })
+}
+
+export function toLegacyPoint(point: Point): Point {
+  return { x: 0.3 + (point.x - 0.1) * 0.5 / 0.8, y: 0.36 + (point.y - 0.08) * 0.42 / 0.84 }
+}
+
 /** `count` evenly spread spots on the lawn, as far apart as the lawn allows. */
 export function lawnSpots(count: number): Point[] {
   for (let spacing = 3; spacing > 0.6; spacing -= 0.1) {

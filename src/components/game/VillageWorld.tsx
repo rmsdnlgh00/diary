@@ -3,8 +3,8 @@ import { getWorld } from '@/data/worlds'
 import { useVillagers } from '@/hooks/useVillagers'
 import { useGameStore } from '@/store/gameStore'
 import { toMonthKey } from '@/utils/date'
-import { lawnSpots, nearestLawnPoint, villageWorld } from '@/systems/villageLayout'
-import { VillageStage, type VillageView } from './VillageStage'
+import { fromLegacyPoint, lawnSpots, villageWorld } from '@/systems/villageLayout'
+import { VillageStage, type StageDecoration, type VillageView } from './VillageStage'
 import type { StageCharacter } from './ThreeStage'
 
 const PREVIEW: StageCharacter[] = lawnSpots(30).map(({ x, y }, i) => ({
@@ -16,18 +16,16 @@ export function VillageWorld({ onLegacy }: { onLegacy: () => void }) {
   const characters = useGameStore((s) => s.characters)
   const today = useGameStore((s) => s.today)
   const selectCharacter = useGameStore((s) => s.selectCharacter)
+  const worldDecorations = useGameStore((s) => s.worldDecorations)
   const [view, setView] = useState<VillageView>('whole')
   const [preview, setPreview] = useState(false)
   const [focusId, setFocusId] = useState<string | null>(null)
   const world = useMemo(() => villageWorld(getWorld(worldId)), [worldId])
   // Existing save coordinates belong to the old background. Remap only the live view.
-  const monthly = useMemo(() => characters.filter((c) => toMonthKey(c.diaryDate) === worldId).map((c) => ({
-    ...c,
-    ...nearestLawnPoint({
-      x: Math.max(0.1, Math.min(0.9, 0.1 + (c.x - 0.3) / 0.5 * 0.8)),
-      y: Math.max(0.08, Math.min(0.92, 0.08 + (c.y - 0.36) / 0.42 * 0.84)),
-    }),
-  })), [characters, worldId])
+  const monthly = useMemo(() => characters.filter((c) => toMonthKey(c.diaryDate) === worldId)
+    .map((c) => ({ ...c, ...fromLegacyPoint(c) })), [characters, worldId])
+  const decorations = useMemo<StageDecoration[]>(() => (worldDecorations[worldId] ?? [])
+    .map((d) => ({ id: d.id, itemId: d.itemId, ...fromLegacyPoint(d) })), [worldDecorations, worldId])
   const { agents, commandWalk } = useVillagers(world, monthly)
   const onGround = (point: { x: number; y: number }) => {
     if (preview) return
@@ -38,7 +36,7 @@ export function VillageWorld({ onLegacy }: { onLegacy: () => void }) {
     }
   }
   return <div className="game-world game-world--village">
-    <VillageStage characters={preview ? PREVIEW : agents} view={view} focusId={focusId}
+    <VillageStage characters={preview ? PREVIEW : agents} decorations={decorations} view={view} focusId={focusId}
       onGround={onGround} onSelect={(id) => {
         setFocusId(id)
         if (!preview) selectCharacter(id)

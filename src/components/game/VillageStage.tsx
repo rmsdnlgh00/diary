@@ -13,8 +13,16 @@ import { VILLAGE_CAMERA, VILLAGE_CHARACTER_HEIGHT, VILLAGE_VIEW_DISTANCE,
   VILLAGE_WIDTH, villageGround, villagePoint } from '@/systems/villageLayout'
 
 export type VillageView = 'whole' | 'basic' | 'follow'
+/** A placed decoration in village coordinates (0–1 over the lawn). */
+export interface StageDecoration {
+  id: string
+  itemId: string
+  x: number
+  y: number
+}
 interface Props {
   characters: readonly StageCharacter[]
+  decorations: readonly StageDecoration[]
   view: VillageView
   focusId: string | null
   onSelect: (id: string) => void
@@ -162,18 +170,29 @@ export function VillageStage(props: Props) {
     let template: THREE.Group | null = null
     let walkClip: THREE.AnimationClip | null = null
     let idleClip: THREE.AnimationClip | null = null
+    let decorationAsset: THREE.Object3D | null = null
+    /** One model per shop item, keyed by item id ("Deco flower_pot" → "flower_pot"). */
+    const decorationModels = new Map<string, THREE.Object3D>()
+    const placed = new Map<string, { itemId: string; object: THREE.Object3D }>()
     const load = async () => {
       try {
-        const [village, walk, idle] = await Promise.all([
+        const [village, walk, idle, decorationsFile] = await Promise.all([
           loader.loadAsync('/assets/village/diary-village-v4.glb'),
           // Light copies made in Blender: 9.4k instead of 31k triangles, JPEG texture, and
           // an idle file that only carries the animation. Bones and tracks match the originals.
           loader.loadAsync('/assets/characters/male/character-walk-light.glb'),
           loader.loadAsync('/assets/characters/male/character-idle-anim.glb'),
+          loader.loadAsync('/assets/village/decorations-v1.glb'),
         ])
         if (disposed) {
-          for (const asset of [village, walk, idle]) disposeObject(asset.scene)
+          for (const asset of [village, walk, idle, decorationsFile]) disposeObject(asset.scene)
           return
+        }
+        decorationAsset = decorationsFile.scene
+        for (const model of [...decorationAsset.children]) {
+          model.position.set(0, 0, 0)
+          model.traverse((o) => { if ((o as THREE.Mesh).isMesh) o.castShadow = o.receiveShadow = true })
+          decorationModels.set(model.name.replace(/^Deco_/, ''), model)
         }
         terrain = village.scene
         terrain.traverse((o) => {
@@ -250,6 +269,30 @@ export function VillageStage(props: Props) {
       if (point) dataRef.current.onGround(villagePoint(point))
     }
     renderer.domElement.addEventListener('pointerup', click)
+    /** Adds, moves and removes decoration models to match the placed list. */
+    const syncDecorations = (decorations: readonly StageDecoration[]) => {
+      const ids = new Set(decorations.map((d) => d.id))
+      for (const [id, entry] of placed) if (!ids.has(id)) {
+        scene.remove(entry.object)
+        placed.delete(id)
+      }
+      for (const d of decorations) {
+        let entry = placed.get(d.id)
+        if (entry && entry.itemId !== d.itemId) {
+          scene.remove(entry.object)
+          entry = undefined
+        }
+        if (!entry) {
+          const model = decorationModels.get(d.itemId)
+          if (!model) continue
+          entry = { itemId: d.itemId, object: model.clone() }
+          entry.object.userData.decorationId = d.id
+          scene.add(entry.object)
+          placed.set(d.id, entry)
+        }
+        entry.object.position.copy(villageGround(d.x, d.y))
+      }
+    }
     const focus = VILLAGE_CAMERA.target.clone()
     let distance = 1
     let raf = 0
@@ -260,7 +303,8 @@ export function VillageStage(props: Props) {
       waterTime.value = now / 1000
       const delta = Math.min(0.05, (now - previous) / 1000)
       previous = now
-      const { characters, view, focusId } = dataRef.current
+      const { characters, decorations, view, focusId } = dataRef.current
+      if (decorationModels.size) syncDecorations(decorations)
       if (template && walkClip && idleClip) {
         const ids = new Set(characters.map((c) => c.id))
         for (const [id, instance] of instances) if (!ids.has(id)) {
@@ -326,6 +370,8 @@ export function VillageStage(props: Props) {
       }
       if (template) disposeObject(template)
       if (terrain) disposeObject(terrain)
+      // Placed decorations are clones that share these geometries and materials.
+      if (decorationAsset) disposeObject(decorationAsset)
       key.shadow.map?.dispose()
       ambientOcclusion?.dispose()
       composer?.dispose()

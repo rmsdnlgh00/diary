@@ -102,7 +102,27 @@ try {
   await page.keyboard.press('Escape')
   await page.setViewport({ width: 1440, height: 900 })
   await button('마을 전체')
+  // Saved decorations (legacy coordinates) appear as 3D models on the lawn. Not persisted.
+  const decorationIds = await page.evaluate(async () => {
+    const { useGameStore } = await import('/src/store/gameStore.ts')
+    const { ITEMS } = await import('/src/data/items.ts')
+    const s = useGameStore.getState()
+    const ids = ITEMS.filter((item) => item.category === 'decoration').map((item) => item.id)
+    useGameStore.setState({ worldDecorations: { ...s.worldDecorations, [s.worldId]: ids.map((itemId, i) =>
+      ({ id: `check-${itemId}`, itemId, x: 0.4 + (i % 4) * 0.1, y: 0.48 + Math.floor(i / 4) * 0.15 })) } })
+    return ids
+  })
+  await page.waitForFunction((count) => {
+    let found = 0
+    window.__village.scene.traverse((o) => { if (o.userData.decorationId) found += 1 })
+    return found === count
+  }, { timeout: 10000 }, decorationIds.length)
   await page.screenshot({ path: join(artifacts, 'desktop-overview.png') })
+  await page.evaluate(async () => {
+    const { useGameStore } = await import('/src/store/gameStore.ts')
+    const s = useGameStore.getState()
+    useGameStore.setState({ worldDecorations: { ...s.worldDecorations, [s.worldId]: [] } })
+  })
   await button('기존 마을')
   await page.waitForSelector('.three-stage')
   assert.equal(await page.$('.village-stage'), null)
@@ -110,7 +130,7 @@ try {
   await page.waitForFunction(() => !!window.__village)
   assert.equal((await state()).characters.filter((c) => c.diaryDate === before.today).length, 1)
   assert.deepEqual(errors, [])
-  console.log('PASS GLB load, 16:9 legacy-view layout, 30-person preview on lawn areas, save preservation, diary picking, ground movement, responsive editor, legacy switch')
+  console.log('PASS GLB load, 16:9 legacy-view layout, 30-person preview on lawn areas, 3D decorations, save preservation, diary picking, ground movement, responsive editor, legacy switch')
   console.log(`Screenshots: ${artifacts}`)
 } catch (error) {
   await page?.screenshot({ path: join(artifacts, 'failure.png') }).catch(() => {})

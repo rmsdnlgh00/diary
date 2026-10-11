@@ -55,6 +55,12 @@ Run `scripts/export-village.py` inside Blender to update the public GLB. Point
   instead of 7.8 MB) and `character-idle-anim.glb` (only the idle animation is used,
   1.1 MB instead of 9.5 MB). Bone names, animation tracks and durations match the
   originals, which the legacy village still uses.
+- Decorations: `public/assets/village/decorations-v1.glb` (79 KB, Draco) holds one model
+  per shop decoration, named `Deco <item id>` (flower pot, picnic mat, small lamp, flower
+  bed, chair, sign, plant). They come from the `Diary V4 | Decorations` collection in the
+  `Diary Decorations V4` scene, scaled 1.3–1.5× to match the village props. Saved
+  decorations keep their legacy coordinates; `fromLegacyPoint` maps them onto the lawn
+  (`toLegacyPoint` is the inverse) and `VillageStage` shows them as 3D clones.
 - V4 uses flat base colours only, so glTF matches Blender's material colours.
   The web lighting is recreated in Three.js. Flat parts (ground, sea, river, paths,
   pond, stepping stones, lawn flowers) receive shadows but do not cast them.
