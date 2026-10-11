@@ -32,11 +32,6 @@ export default function App() {
         <DiaryDetail />
         {storageError && <p className="save-warning" role="alert">기기에 저장하지 못했어요. 저장 공간과 브라우저 설정을 확인해 주세요.</p>}
       </div>
-      <div className="rotate-notice" role="status">
-        <span aria-hidden="true">↻</span>
-        <strong>휴대폰을 가로로 돌려 주세요</strong>
-        <p>하루마을은 가로 화면에서 즐길 수 있어요.</p>
-      </div>
     </div>
   )
 }

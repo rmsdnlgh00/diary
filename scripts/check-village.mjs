@@ -24,17 +24,22 @@ try {
   page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()) })
   await page.goto(server.resolvedUrls.local[0], { waitUntil: 'networkidle0' })
   await page.waitForFunction(() => !!window.__village?.scene.getObjectByName('V4_Ground'), { timeout: 30000 })
-  // Touch phones show a rotation notice in portrait and fill the landscape viewport.
+  // Phones fill the viewport in both orientations, without an outer frame.
   await page.setViewport({ width: 390, height: 844, deviceScaleFactor: 3, isMobile: true, hasTouch: true })
   await page.reload({ waitUntil: 'networkidle0' })
   await page.waitForFunction(() => !!window.__village?.scene.getObjectByName('V4_Ground'), { timeout: 30000 })
-  assert.equal(await page.$eval('.rotate-notice', (el) => getComputedStyle(el).display), 'flex')
-  assert.equal(await page.$eval('.stage', (el) => getComputedStyle(el).visibility), 'hidden')
+  assert.equal(await page.$('.rotate-notice'), null)
+  assert.deepEqual(await page.$eval('.stage', (el) => ({ width: el.clientWidth, height: el.clientHeight })), { width: 390, height: 844 })
+  assert.equal(await page.$eval('.stage', (el) => getComputedStyle(el).visibility), 'visible')
+  assert.ok(await page.$$eval('.menu-button', (buttons) => buttons.every((el) => {
+    const box = el.getBoundingClientRect()
+    return box.left >= 0 && box.right <= innerWidth && box.height >= 44
+  })), 'portrait menus fit inside the screen')
+  await page.screenshot({ path: join(artifacts, 'phone-portrait.png') })
   await page.setViewport({ width: 844, height: 390, deviceScaleFactor: 3, isMobile: true, hasTouch: true })
   await page.waitForFunction(() => document.querySelector('.stage').clientWidth === 844 &&
     window.__village.renderer.getPixelRatio() === 2)
   assert.equal(await page.$eval('.stage', (el) => el.clientHeight), 390)
-  assert.equal(await page.$eval('.rotate-notice', (el) => getComputedStyle(el).display), 'none')
   assert.equal(await page.$eval('.stage', (el) => getComputedStyle(el).touchAction), 'pan-x pan-y')
   const touchTargets = await page.$$eval('.menu-button, .village-controls button, .month-arrow',
     (buttons) => buttons.every((el) => el.getBoundingClientRect().width >= 44 && el.getBoundingClientRect().height >= 44))
@@ -67,7 +72,7 @@ try {
   assert.equal(offLawn, 0, '30-person preview must stand on the lawn areas')
   await page.screenshot({ path: join(artifacts, 'mobile-overview.png') })
   const layout = await page.$eval('.stage', (el) => ({ width: el.clientWidth, height: el.clientHeight }))
-  assert.ok(Math.abs(layout.width / layout.height - 16 / 9) < 0.01)
+  assert.deepEqual(layout, { width: 390, height: 844 })
   await button('기본 시점')
   await page.screenshot({ path: join(artifacts, 'mobile-basic.png') })
   await button('따라가기')
@@ -252,7 +257,7 @@ try {
   await page.waitForFunction(() => !!window.__village)
   assert.equal((await state()).characters.filter((c) => c.diaryDate === before.today).length, 1)
   assert.deepEqual(errors, [])
-  console.log('PASS GLB load, 16:9 legacy-view layout, 30-person preview on lawn areas, 3D decorations, 3D decorating, pathfinding, save preservation, diary picking, ground movement, responsive editor, legacy switch')
+  console.log('PASS GLB load, fullscreen portrait/landscape layout, 2x phone resolution, touch targets, 30-person preview on lawn areas, 3D decorations, 3D decorating, pathfinding, save preservation, diary picking, ground movement, responsive editor, legacy switch')
   console.log(`Screenshots: ${artifacts}`)
 } catch (error) {
   await page?.screenshot({ path: join(artifacts, 'failure.png') }).catch(() => {})

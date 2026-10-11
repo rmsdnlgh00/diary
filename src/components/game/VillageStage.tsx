@@ -349,6 +349,10 @@ export function VillageStage(props: Props) {
       if (!host.clientWidth || !host.clientHeight) return
       renderer.setPixelRatio(pixelRatio())
       camera.aspect = host.clientWidth / host.clientHeight
+      // Cover the original village frame rather than expose edges on wide screens.
+      camera.fov = THREE.MathUtils.radToDeg(2 * Math.atan(
+        Math.tan(THREE.MathUtils.degToRad(VILLAGE_CAMERA.fov / 2)) * Math.min(1, (16 / 9) / camera.aspect),
+      ))
       camera.updateProjectionMatrix()
       renderer.setSize(host.clientWidth, host.clientHeight, false)
       if (composer) {

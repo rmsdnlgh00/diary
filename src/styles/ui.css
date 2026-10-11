@@ -404,8 +404,8 @@
 .month-arrow:focus-visible { outline: 0.2cqw solid #ab662d; outline-offset: 0.15cqw; }
 
 
-/* Phone landscape: physical touch sizes and scrollable panels. */
-@media (any-pointer: coarse) and (max-width: 1024px) {
+/* Phone controls: physical touch sizes and scrollable panels. */
+@media (max-width: 600px), (any-pointer: coarse) and (max-width: 1024px) {
   .stage button { min-width: 44px; min-height: 44px; font-size: 14px; }
   .topbar { padding: 4px 8px; gap: 8px; }
   .pill { padding: 0 8px; min-height: 44px; font-size: 14px; }
@@ -443,4 +443,40 @@
   .decoration-choice small, .equipment-summary > span { font-size: 12px; }
   .modal { width: min(440px, calc(100% - 16px)); max-height: calc(100% - 16px); overflow-y: auto; padding: 16px; }
   .modal__text { font-size: 16px; }
+}
+
+/* Paint the background under the notch and home indicator, keep controls clear. */
+.topbar { top: var(--safe-top); left: var(--safe-left); right: var(--safe-right); }
+.bottombar { bottom: calc(1.8cqw + var(--safe-bottom)); }
+.village-controls, .village-return { top: calc(6cqw + var(--safe-top)); left: calc(2cqw + var(--safe-left)); }
+.modal-backdrop { padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left); }
+
+@media (max-width: 600px), (any-pointer: coarse) and (max-width: 1024px) {
+  .bottombar { bottom: calc(4px + var(--safe-bottom)); }
+  .village-controls, .village-return { top: calc(56px + var(--safe-top)); left: calc(8px + var(--safe-left)); }
+  .village-controls { right: calc(8px + var(--safe-right)); }
+  .village-hint { bottom: calc(64px + var(--safe-bottom)); }
+  .sheet, .editor { bottom: calc(64px + var(--safe-bottom)); max-height: calc(100% - 72px - var(--safe-top) - var(--safe-bottom)); }
+  .commerce-sheet, .commerce-sheet--decorate { top: calc(56px + var(--safe-top)); right: calc(8px + var(--safe-right)); bottom: calc(64px + var(--safe-bottom)); }
+}
+
+@media (max-width: 600px) and (orientation: portrait) {
+  .topbar { flex-wrap: wrap; justify-content: space-between; }
+  .pill--month { flex: 1; justify-content: space-between; }
+  .pill--status { order: 3; min-height: 32px; font-size: 12px; }
+  .village-controls { top: calc(92px + var(--safe-top)); }
+  .village-return { top: calc(92px + var(--safe-top)); }
+  .bottombar { width: calc(100% - 16px - var(--safe-left) - var(--safe-right)); gap: 4px; border-radius: 20px; }
+  .menu-button { flex: 1; min-width: 0; flex-direction: column; gap: 4px; padding: 8px 2px; }
+  .stage .menu-button { font-size: 11px; min-height: 60px; }
+  .menu-button__icon { font-size: 22px; }
+  .village-hint { bottom: calc(84px + var(--safe-bottom)); font-size: 13px; }
+  .sheet, .editor { bottom: calc(84px + var(--safe-bottom)); max-height: calc(100% - 100px - var(--safe-top) - var(--safe-bottom)); }
+  .commerce-sheet, .commerce-sheet--decorate {
+    top: auto; bottom: calc(84px + var(--safe-bottom));
+    left: calc(8px + var(--safe-left)); right: calc(8px + var(--safe-right));
+    width: auto; height: min(48%, 400px);
+  }
+  .item-artwork { width: 44px; height: 44px; font-size: 30px; }
+  .decoration-choice .item-artwork { width: 36px; height: 36px; font-size: 26px; }
 }
