@@ -1,30 +1,34 @@
 # Blender village → web game
 
-The default game view loads `public/assets/village/diary-village-v3.glb` in Three.js.
-The asset contains only the `Diary V3 | Full Frame Village` collection from the
-`Diary Test | Spread` scene. It fills the whole overview frame (about 34 × 92 units)
-in the style of `assets/references/village_reference.png`: a clear lawn for 30
-characters with stepping stones, a pond, a shop stall, a river with an arch bridge,
-a house, fences, benches, 95 independent trees, flower bushes, rocks and the sea.
-In that scene the old `Diary V2 | Terrain Trees Water` collection is only excluded
-from the view layer; other scenes still use it. `diary-village-v2.glb` is kept but
-no longer loaded. Test characters and Blender lights/cameras are not exported.
+The default game view loads `public/assets/village/diary-village-v4.glb` in Three.js.
+It is a 3D remake of the legacy painted village
+(`public/assets/worlds/2026-09/background.webp`, also `assets/references/village_reference.png`):
+every object was placed by casting rays from the legacy camera through the painting,
+and the materials use colours measured from it (lawn ≈ #C8D078). The asset contains only
+the `Diary V4 | Legacy View Village` collection of the `Diary Village V4 | Legacy View`
+scene: lawn, stepping stones, pond with duck and lilies, shop stall, house, river,
+arch bridge, fences, bench, lamp, notice board, signpost, 29 trees, bushes and rocks.
+Preview characters, Blender lights and cameras are not exported.
+`diary-village-v2.glb` and `diary-village-v3.glb` are kept but no longer loaded.
 
 The source files remain on the author's Mac:
 
+- `/Users/geun-wiho/male_master_3d/diary_village_v4_legacy_view.blend` (V4)
+- `/Users/geun-wiho/male_master_3d/diary_village_v3_space_test.blend` (V2/V3 tests)
 - `/Users/geun-wiho/male_master_3d/diary_village_v2.blend`
-- `/Users/geun-wiho/male_master_3d/diary_village_v3_space_test.blend`
 
 Run `scripts/export-village.py` inside Blender to update the public GLB. Point
 `DIARY_REPO_ROOT` at another checkout if needed. The script does not save the blend.
 
 ## Runtime behaviour
 
-- Portrait stage: 9:19.5. Orthographic cameras use a 74-unit overview and a
-  15.05-unit basic/follow view. The animated character is normalized to 1.7 units.
+- Same 16:9 stage and view as the legacy village: a perspective camera with a 28°
+  pitch and 20° vertical FOV, where the 1.7-unit character is about 8% of the frame
+  height. "마을 전체" is exactly the legacy view; "기본 시점" and "따라가기" keep the same
+  angle at 0.62× and 0.45× of the distance (`VILLAGE_VIEW_DISTANCE`).
 - Blender coordinates `(x, y, z)` become glTF `(x, z, -y)`.
-- Movement stays in a clear rectangle within the perimeter trees and pond.
-  Ground clicks use camera raycasting, not screen percentages.
+- Movement stays in an 11 × 13 unit rectangle on the lawn (`VILLAGE_CENTER`), clear of
+  the pond, bench, bushes and trees. Ground clicks use camera raycasting.
 - Existing monthly diary positions are remapped only in memory. Saved diaries,
   equipment, coins and decorations retain their original format and coordinates.
 - Picking a real character opens its existing diary. Click the lawn to move the
@@ -32,7 +36,7 @@ Run `scripts/export-village.py` inside Blender to update the public GLB. Point
 - The 30-person preview is a static size/layout reference, independent of saves.
 - Existing space decoration opens the legacy background. Placed decoration
   assets and clothing overlays have not been converted to 3D.
-- V3 uses flat base colours only, so glTF matches Blender's material colours.
+- V4 uses flat base colours only, so glTF matches Blender's material colours.
   The web lighting is recreated in Three.js. Flat parts (ground, sea, river, paths,
   pond, stepping stones, lawn flowers) receive shadows but do not cast them.
 

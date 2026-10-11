@@ -23,7 +23,7 @@ try {
   page.on('pageerror', (e) => errors.push(e.message))
   page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()) })
   await page.goto(server.resolvedUrls.local[0], { waitUntil: 'networkidle0' })
-  await page.waitForFunction(() => window.__village?.scene.children.some((o) => o.children.some((c) => c.name.includes('V3_Ground'))), { timeout: 30000 })
+  await page.waitForFunction(() => !!window.__village?.scene.getObjectByName('V4_Ground'), { timeout: 30000 })
   const button = async (label) => {
     assert.ok(await page.evaluate((label) => {
       const b = [...document.querySelectorAll('button')].find((el) => el.textContent.trim() === label || el.querySelector('.menu-button__label')?.textContent.trim() === label)
@@ -41,7 +41,7 @@ try {
   await page.waitForFunction(() => window.__village.instances.size === 30)
   await page.screenshot({ path: join(artifacts, 'mobile-overview.png') })
   const layout = await page.$eval('.stage', (el) => ({ width: el.clientWidth, height: el.clientHeight }))
-  assert.ok(Math.abs(layout.width / layout.height - 9 / 19.5) < 0.005)
+  assert.ok(Math.abs(layout.width / layout.height - 16 / 9) < 0.01)
   await button('기본 시점')
   await page.screenshot({ path: join(artifacts, 'mobile-basic.png') })
   await button('따라가기')
@@ -72,11 +72,12 @@ try {
   assert.equal((await state()).selectedCharacterId, clicked.id)
   await button('닫기')
   const movement = await page.evaluate(async () => {
-    const { villageGround } = await import('/src/systems/villageLayout.ts')
+    const { villageGround, villagePoint } = await import('/src/systems/villageLayout.ts')
     const { camera, renderer, instances } = window.__village
     const object = [...instances.values()][0].object
-    const x = Math.max(.15, Math.min(.85, object.position.x / 18 + .5 + .12))
-    const y = Math.max(.12, Math.min(.88, object.position.z / 36 + .5 + .05))
+    const start = villagePoint(object.position)
+    const x = Math.max(.15, Math.min(.85, start.x + .12))
+    const y = Math.max(.12, Math.min(.88, start.y + .05))
     const p = villageGround(x, y).project(camera)
     const rect = renderer.domElement.getBoundingClientRect()
     return { initial: [object.position.x, object.position.z], id: object.userData.characterId,
@@ -102,7 +103,7 @@ try {
   await page.waitForFunction(() => !!window.__village)
   assert.equal((await state()).characters.filter((c) => c.diaryDate === before.today).length, 1)
   assert.deepEqual(errors, [])
-  console.log('PASS GLB load, portrait layout, 30-person preview, save preservation, diary picking, ground movement, responsive editor, legacy switch')
+  console.log('PASS GLB load, 16:9 legacy-view layout, 30-person preview, save preservation, diary picking, ground movement, responsive editor, legacy switch')
   console.log(`Screenshots: ${artifacts}`)
 } catch (error) {
   await page?.screenshot({ path: join(artifacts, 'failure.png') }).catch(() => {})

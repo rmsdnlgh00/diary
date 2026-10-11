@@ -4,15 +4,15 @@ from pathlib import Path
 import bpy
 
 repo = Path(os.environ.get("DIARY_REPO_ROOT", "/Users/geun-wiho/github/diary"))
-output = repo / "public/assets/village/diary-village-v3.glb"
+output = repo / "public/assets/village/diary-village-v4.glb"
 output.parent.mkdir(parents=True, exist_ok=True)
 original_scene = bpy.context.window.scene
-bpy.context.window.scene = bpy.data.scenes["Diary Test | Spread"]
+bpy.context.window.scene = bpy.data.scenes["Diary Village V4 | Legacy View"]
 selected = list(bpy.context.selected_objects)
 active = bpy.context.view_layer.objects.active
 try:
     bpy.ops.object.select_all(action="DESELECT")
-    for obj in bpy.data.collections["Diary V3 | Full Frame Village"].objects:
+    for obj in bpy.data.collections["Diary V4 | Legacy View Village"].objects:
         obj.select_set(True)
     bpy.ops.export_scene.gltf(
         filepath=str(output), export_format="GLB", use_selection=True,

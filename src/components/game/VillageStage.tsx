@@ -4,7 +4,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import type { StageCharacter } from './ThreeStage'
 import { MALE_WALK_STRIDE } from '@/systems/walkSystem'
-import { VILLAGE_BASIC_HEIGHT, VILLAGE_CHARACTER_HEIGHT, VILLAGE_OVERVIEW_HEIGHT,
+import { VILLAGE_CAMERA, VILLAGE_CHARACTER_HEIGHT, VILLAGE_VIEW_DISTANCE,
   VILLAGE_WIDTH, villageGround, villagePoint } from '@/systems/villageLayout'
 
 export type VillageView = 'whole' | 'basic' | 'follow'
@@ -25,8 +25,12 @@ interface Instance {
   lastDistance: number
 }
 
-/** Flat V3 village parts that only receive shadows. */
-const FLAT_PARTS = /Ground|Sea|River|Path|Pond(?!_Dock)|Stepping|Lawn_Flowers/
+/** Flat village parts that only receive shadows. */
+const FLAT_PARTS = /Ground|Sea|River|Path|Pond|Stepping|Lawn_Flowers/
+/** Pastel lighting tuned so the lawn renders close to the painting's #C8D078. */
+const SUN_INTENSITY = 2.2
+const SKY_INTENSITY = 1.6
+const CAMERA_OFFSET = VILLAGE_CAMERA.position.clone().sub(VILLAGE_CAMERA.target)
 
 function disposeObject(root: THREE.Object3D) {
   const geometries = new Set<THREE.BufferGeometry>()
@@ -69,18 +73,20 @@ export function VillageStage(props: Props) {
     renderer.shadowMap.type = THREE.PCFSoftShadowMap
     host.appendChild(renderer.domElement)
     const scene = new THREE.Scene()
-    scene.background = new THREE.Color('#45a6e6')
-    const camera = new THREE.OrthographicCamera(-17, 17, 37, -37, 0.1, 200)
-    const key = new THREE.DirectionalLight(0xfff5df, 2.3)
-    key.position.set(-20, 45, 25)
+    scene.background = new THREE.Color('#9fd0e6')
+    const camera = new THREE.PerspectiveCamera(VILLAGE_CAMERA.fov, 16 / 9, 0.5, 600)
+    // Soft warm sun from the upper left, matching Blender's "V4 Soft Sun" direction.
+    const key = new THREE.DirectionalLight(new THREE.Color(1, 0.95, 0.86), SUN_INTENSITY)
+    key.position.set(-0.551, 0.636, 0.54).multiplyScalar(80).add(VILLAGE_CAMERA.target)
+    key.target.position.copy(VILLAGE_CAMERA.target)
     key.castShadow = true
     key.shadow.mapSize.set(4096, 4096)
-    // The V3 village fills the whole overview frame (about 34 × 92 units), so the shadow box covers it all.
-    Object.assign(key.shadow.camera, { left: -30, right: 30, top: 55, bottom: -55, near: 1, far: 140 })
+    // Covers everything the legacy view can see (about 50 × 46 units of ground).
+    Object.assign(key.shadow.camera, { left: -45, right: 45, top: 45, bottom: -45, near: 1, far: 200 })
     key.shadow.bias = -0.0003
     key.shadow.normalBias = 0.035
-    key.shadow.radius = 3
-    scene.add(key, key.target, new THREE.HemisphereLight(0xe9f2ff, 0xb5bd85, 1.1))
+    key.shadow.radius = 4
+    scene.add(key, key.target, new THREE.HemisphereLight(new THREE.Color(0.78, 0.86, 0.95), 0xd9d3a8, SKY_INTENSITY))
     const instances = new Map<string, Instance>()
     const loader = new GLTFLoader()
     let disposed = false
@@ -91,7 +97,7 @@ export function VillageStage(props: Props) {
     const load = async () => {
       try {
         const [village, walk, idle] = await Promise.all([
-          loader.loadAsync('/assets/village/diary-village-v3.glb'),
+          loader.loadAsync('/assets/village/diary-village-v4.glb'),
           loader.loadAsync('/assets/characters/male/character-walk.glb'),
           loader.loadAsync('/assets/characters/male/character-idle.glb'),
         ])
@@ -133,10 +139,10 @@ export function VillageStage(props: Props) {
       }
     }
     void load()
-    let aspect = 9 / 19.5
     const resize = () => {
       if (!host.clientWidth || !host.clientHeight) return
-      aspect = host.clientWidth / host.clientHeight
+      camera.aspect = host.clientWidth / host.clientHeight
+      camera.updateProjectionMatrix()
       renderer.setSize(host.clientWidth, host.clientHeight, false)
     }
     const observer = new ResizeObserver(resize)
@@ -161,7 +167,8 @@ export function VillageStage(props: Props) {
       if (point) dataRef.current.onGround(villagePoint(point))
     }
     renderer.domElement.addEventListener('pointerup', click)
-    const focus = new THREE.Vector3()
+    const focus = VILLAGE_CAMERA.target.clone()
+    let distance = 1
     let raf = 0
     let previous = performance.now()
     const tick = () => {
@@ -211,16 +218,14 @@ export function VillageStage(props: Props) {
         }
       }
       const tracked = characters.find((c) => c.id === focusId) ?? characters[0]
-      const target = view === 'follow' && tracked ? villageGround(tracked.x, tracked.y) : new THREE.Vector3()
-      focus.lerp(target, Math.min(1, delta * 6))
-      const height = view === 'whole' ? VILLAGE_OVERVIEW_HEIGHT : VILLAGE_BASIC_HEIGHT
-      camera.left = -height * aspect / 2
-      camera.right = height * aspect / 2
-      camera.top = height / 2
-      camera.bottom = -height / 2
-      camera.position.copy(focus).add(new THREE.Vector3(0, 52, 38))
+      // Every view keeps the legacy angle; only the look-at point and distance change.
+      const target = view === 'whole' ? VILLAGE_CAMERA.target
+        : view === 'follow' && tracked ? villageGround(tracked.x, tracked.y) : villageGround(0.5, 0.5)
+      const ease = Math.min(1, delta * 6)
+      focus.lerp(target, ease)
+      distance += (VILLAGE_VIEW_DISTANCE[view] - distance) * ease
+      camera.position.copy(focus).addScaledVector(CAMERA_OFFSET, distance)
       camera.lookAt(focus)
-      camera.updateProjectionMatrix()
       camera.updateMatrixWorld()
       renderer.render(scene, camera)
     }

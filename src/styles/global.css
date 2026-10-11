@@ -58,16 +58,3 @@ button {
   border-radius: 1.5rem;
   box-shadow: 0 1.5rem 3rem rgba(80, 58, 42, 0.28);
 }
-
-.stage:has(.game-world--village) {
-  width: min(100%, calc((100dvh - 2rem) * 9 / 19.5));
-  aspect-ratio: 9 / 19.5;
-}
-
-@media (max-width: 600px) {
-  .app:has(.game-world--village) { padding: 0; }
-  .stage:has(.game-world--village) {
-    width: min(100%, calc(100dvh * 9 / 19.5));
-    border-radius: 0;
-  }
-}
