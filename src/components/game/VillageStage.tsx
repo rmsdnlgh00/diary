@@ -56,7 +56,7 @@ const SUN_INTENSITY = 2.2
 const SKY_INTENSITY = 1.6
 const CAMERA_OFFSET = VILLAGE_CAMERA.position.clone().sub(VILLAGE_CAMERA.target)
 /** Light aerial haze: only the far trees and sea fade a little, like the painting. */
-const HAZE = { color: '#dcebf2', near: 70, far: 260 }
+const HAZE = { color: '#dcebf2', near: 90, far: 340 }
 
 const WATER_MATERIALS = new Set(['V4 water', 'V4 sea'])
 
@@ -140,7 +140,7 @@ function makeLawn(base: THREE.MeshStandardMaterial) {
  * at 0.45 of the pond radii (±12 %) it stays ≥ 0.9 units from the shore and ≥ 1.3 from
  * the three lily pads. One lap takes about a minute.
  */
-const DUCK_POND = { x: -11.6, z: -4.29, rx: 5.44 * 0.45, rz: 5.6 * 0.45, lapSpeed: 0.11 }
+const DUCK_POND = { x: -15.57, z: -4.17, rx: 5.44 * 0.45, rz: 5.6 * 0.45, lapSpeed: 0.11 }
 const WAKE_PERIOD = 2.4
 
 function duckPosition(t: number, out: THREE.Vector3): THREE.Vector3 {
@@ -217,12 +217,12 @@ export function VillageStage(props: Props) {
     updateCamera()
     // Soft warm sun from the upper left, matching Blender's "V4 Soft Sun" direction.
     const key = new THREE.DirectionalLight(new THREE.Color(1, 0.95, 0.86), SUN_INTENSITY)
-    key.position.set(-0.551, 0.636, 0.54).multiplyScalar(80).add(VILLAGE_CAMERA.target)
+    key.position.set(-0.551, 0.636, 0.54).multiplyScalar(110).add(VILLAGE_CAMERA.target)
     key.target.position.copy(VILLAGE_CAMERA.target)
     key.castShadow = true
     key.shadow.mapSize.setScalar(lowPower ? 2048 : 4096)
-    // Covers everything the legacy view can see (about 50 × 46 units of ground).
-    Object.assign(key.shadow.camera, { left: -45, right: 45, top: 45, bottom: -45, near: 1, far: 200 })
+    // Covers everything the widened whole-village view can see (about 65 × 60 units of ground).
+    Object.assign(key.shadow.camera, { left: -60, right: 60, top: 60, bottom: -60, near: 1, far: 260 })
     key.shadow.bias = -0.0003
     key.shadow.normalBias = 0.035
     key.shadow.radius = 4

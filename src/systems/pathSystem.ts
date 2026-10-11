@@ -1,5 +1,5 @@
 import type { WorldDefinition } from '@/types'
-import { furthestWalkablePoint, isWalkable, type Point } from './worldSystem'
+import { isWalkable, type Point } from './worldSystem'
 
 /**
  * 장애물을 돌아가는 길찾기.
@@ -69,10 +69,18 @@ function nearestWalkableCell(grid: Grid, point: Point): number {
   return best
 }
 
+/** 경로 직선 검사 간격 (월드 가로 대비). 모서리를 스치며 빠져나가지 않도록 촘촘히 본다. */
+const LINE_STEP = 0.002
+
 /** 직선 a→b 가 끝까지 걸을 수 있는지. */
 const clearLine = (world: WorldDefinition, a: Point, b: Point) => {
-  const reached = furthestWalkablePoint(world, a, b)
-  return !!reached && reached.x === b.x && reached.y === b.y
+  const ratio = world.groundDepthRatio ?? Y_TO_X
+  const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, (b.y - a.y) * ratio) / LINE_STEP))
+  for (let i = 1; i <= steps; i += 1) {
+    const t = i / steps
+    if (!isWalkable(world, { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t })) return false
+  }
+  return true
 }
 
 const NEIGHBOURS = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]] as const

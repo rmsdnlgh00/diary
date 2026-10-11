@@ -180,6 +180,10 @@ export interface WorldPalette {
 export interface WorldDefinition {
   /** Ground depth divided by width; legacy screen-space worlds use 9/16. */
   groundDepthRatio?: number
+  /** How far characters wander around their home (world width units). Defaults to the agent setting. */
+  wanderRadius?: number
+  /** Chance that an idle character takes a long walk to anywhere on the walkable ground. */
+  roamChance?: number
   /** YYYY-MM */
   id: string
   year: number

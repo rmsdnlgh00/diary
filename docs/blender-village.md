@@ -23,17 +23,25 @@ Run `scripts/export-village.py` inside Blender to update the public GLB. Point
 
 ## Runtime behaviour
 
-- Same 16:9 stage and view as the legacy village: a perspective camera with a 28°
-  pitch and 20° vertical FOV, where the 1.7-unit character is about 8% of the frame
-  height. "마을 전체" is exactly the legacy view; "기본 시점" and "따라가기" keep the same
-  angle at 0.62× and 0.45× of the distance (`VILLAGE_VIEW_DISTANCE`).
+- Same angle as the legacy village: a perspective camera with a 28° pitch and 20°
+  vertical FOV. The map was widened 1.35× around the lawn in Blender (surroundings
+  pushed out, river/paths/island scaled), and the whole-village camera sits 1.3× further
+  back, so the 1.7-unit character is about 6% of the frame height there. "기본 시점" and
+  "따라가기" keep their earlier close-ups at 0.48× and 0.35× (`VILLAGE_VIEW_DISTANCE`).
 - Blender coordinates `(x, y, z)` become glTF `(x, z, -y)`.
-- World coordinates 0–1 span the painted lawn (18 × 22.5 units around `VILLAGE_CENTER`).
-  Movement follows the lawn's shape through twelve touching rectangles
-  (`VILLAGE_WALKABLE_AREAS`, ≈ 285 m²) measured in Blender: 0.6 units clear of the pond,
-  bench, bushes, fences and trees, and kept above the bottom menu. Walks stop at the
-  furthest reachable point, and saved positions that land off the lawn are moved to
-  the nearest lawn point in memory only. Ground clicks use camera raycasting.
+- World coordinates 0–1 span the lawn (25.5 × 32 units around `VILLAGE_CENTER`). Two
+  pink blossom trees, a yellow tree and three round flower islands (stone ring, tulips,
+  small bushes) decorate it and leave an open gathering space in the middle.
+  Movement follows the lawn's shape through twenty touching rectangles
+  (`VILLAGE_WALKABLE_AREAS`, ≈ 475 m²) measured in Blender: 0.6 units clear of
+  ground-level obstacles (pond, reeds, bushes, fences, trunks, flower islands) and on
+  screen in the whole-village view.
+- Characters spread over the wide lawn: they wander up to `wanderRadius` (0.2 of the
+  width, ≈ 5 units) from home, and with `roamChance` (30 %) an idle character walks
+  anywhere on the lawn via pathfinding and makes that spot its new home. Every step is
+  checked; if separation nudged someone off the path, they re-plan from where they are. Saved positions that land off the
+  lawn are moved to the nearest lawn point in memory only. Ground clicks use camera
+  raycasting.
 - Pathfinding (`src/systems/pathSystem.ts`, both villages): when the straight line to a
   clicked point is blocked, A* on a grid of ~0.2-unit cells (built once per world, so
   again only after decorations change) finds a way around ponds, fences and decorations,

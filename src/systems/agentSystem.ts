@@ -1,5 +1,6 @@
 import type { EmotionId, Facing, WorldDefinition } from '@/types'
 import { WALK_CONFIG, pickFacing, speedRatio, worldDistance } from './walkSystem'
+import { findPath } from './pathSystem'
 import { furthestWalkablePoint, isWalkable } from './worldSystem'
 
 export type AgentPhase = 'IDLE' | 'WALK' | 'TALK'
@@ -88,6 +89,26 @@ export function createAgent(
   }
 }
 
+/**
+ * 잔디밭 아무 곳으로 길게 산책 갈 경유지. 넓은 마을에서 캐릭터가 한곳에 몰리지 않게 한다.
+ * 구역 넓이에 비례해 고르므로 넓은 잔디일수록 자주 간다. 못 찾으면 null.
+ */
+function pickRoamPath(world: WorldDefinition, agent: Agent, random: () => number): { x: number; y: number }[] | null {
+  const ratio = world.groundDepthRatio ?? 9 / 16
+  const areas = world.walkableAreas
+  const weights = areas.map((a) => (a.x[1] - a.x[0]) * (a.y[1] - a.y[0]) * ratio)
+  const total = weights.reduce((sum, w) => sum + w, 0)
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    let pick = random() * total
+    const area = areas.find((_, i) => (pick -= weights[i]) <= 0) ?? areas[0]
+    const target = { x: area.x[0] + (area.x[1] - area.x[0]) * random(), y: area.y[0] + (area.y[1] - area.y[0]) * random() }
+    if (!isWalkable(world, target)) continue
+    const path = findPath(world, { x: agent.x, y: agent.y }, target)
+    if (path?.length) return path
+  }
+  return null
+}
+
 /** 집 주변에서 갈 수 있는 자리를 하나 고른다. 못 찾으면 null. */
 function pickWanderTarget(
   world: WorldDefinition,
@@ -96,7 +117,7 @@ function pickWanderTarget(
 ): { x: number; y: number } | null {
   for (let attempt = 0; attempt < 10; attempt += 1) {
     const angle = random() * Math.PI * 2
-    const radius = AGENT_CONFIG.wanderRadius * (0.35 + 0.65 * random())
+    const radius = (world.wanderRadius ?? AGENT_CONFIG.wanderRadius) * (0.35 + 0.65 * random())
     const candidate = {
       x: agent.homeX + Math.cos(angle) * radius,
       // y 는 화면 세로라 같은 실제 거리를 만들려면 늘려줘야 한다
@@ -173,8 +194,25 @@ export function stepAgents(
         }
         const step = Math.min(distance, speed * speedRatio(agent.walkTime, remaining) * delta)
         const ratio = step / distance
-        agent.x += dx * ratio
-        agent.y += dy * ratio
+        const next = { x: agent.x + dx * ratio, y: agent.y + dy * ratio }
+        if (!isWalkable(world, next)) {
+          // 서로 밀어내다 길에서 살짝 벗어났다. 지금 자리에서 길을 다시 찾고, 없으면 멈춘다.
+          const goal = agent.path.at(-1) ?? { x: agent.targetX, y: agent.targetY }
+          const detour = findPath(world, { x: agent.x, y: agent.y }, goal)
+          if (detour?.length) {
+            agent.targetX = detour[0].x
+            agent.targetY = detour[0].y
+            agent.path = detour.slice(1)
+          } else {
+            agent.phase = 'IDLE'
+            agent.commanded = false
+            agent.path = []
+            agent.timer = randomBetween(AGENT_CONFIG.idleMin, AGENT_CONFIG.idleMax, random)
+          }
+          continue
+        }
+        agent.x = next.x
+        agent.y = next.y
         agent.facing = pickFacing(dx, dy, agent.facing, world.groundDepthRatio)
         agent.walkTime += delta
         agent.walkDistance += step
@@ -186,6 +224,19 @@ export function stepAgents(
     agent.walkTime = 0
     agent.timer -= delta
     if (agent.timer <= 0) {
+      const roam = world.roamChance && random() < world.roamChance ? pickRoamPath(world, agent, random) : null
+      if (roam) {
+        // 먼 곳으로 산책을 가면 거기를 새 집으로 삼아 그 주변을 돌아다닌다.
+        const [first, ...rest] = roam
+        const end = roam[roam.length - 1]
+        agent.targetX = first.x
+        agent.targetY = first.y
+        agent.path = rest
+        agent.homeX = end.x
+        agent.homeY = end.y
+        agent.phase = 'WALK'
+        continue
+      }
       const target = pickWanderTarget(world, agent, random)
       if (target) {
         agent.targetX = target.x

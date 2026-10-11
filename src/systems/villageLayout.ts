@@ -7,44 +7,60 @@ import { isInsideAnyArea, type Point } from './worldSystem'
  * (Blender scene "Diary Village V4 | Legacy View"). Blender Z-up → glTF Y-up,
  * so Blender (x, y, z) becomes (x, z, -y).
  *
- * World coordinates 0–1 span the painted lawn (18 × 22.5 units). The lawn's
- * irregular shape is covered by touching rectangles, measured in Blender on a
- * 0.5-unit grid: inside the lawn, 0.6 units clear of the pond, trees, reeds,
- * fences and bushes, and on screen above the bottom menu (≈ 285 m²).
+ * The map was widened 1.35× around the lawn in Blender (trees, shop, house, pond and
+ * fences pushed outwards; river, paths and island scaled), so characters have about
+ * twice the room. Three landmark trees and three flower islands decorate the lawn,
+ * leaving an open gathering space in the middle. World coordinates 0–1 span the lawn
+ * (25.5 × 32 units). Its irregular shape is covered by touching rectangles, measured
+ * in Blender on a 0.5-unit grid:
+ * inside the lawn, 0.6 units clear of ground-level obstacles (pond, reeds, bushes,
+ * fences, trunks, the lawn trees and flower islands) and on screen in the whole-village
+ * view (≈ 475 m² in twenty rectangles).
  */
-export const VILLAGE_WIDTH = 18
-export const VILLAGE_DEPTH = 22.5
-export const VILLAGE_CENTER = { x: 0, z: -4.25 }
+export const VILLAGE_WIDTH = 25.5
+export const VILLAGE_DEPTH = 32
+export const VILLAGE_CENTER = { x: 0.25, z: -3 }
 export const VILLAGE_CHARACTER_HEIGHT = 1.7
 
 export const VILLAGE_WALKABLE_AREAS: AreaRect[] = [
-  { id: 'lawn-centre', x: [0.25, 0.9444], y: [0.3778, 0.9556] },
-  { id: 'lawn-back', x: [0.1389, 0.5833], y: [0.0444, 0.3778] },
-  { id: 'lawn-front-strip', x: [0, 0.8889], y: [0.9556, 1] },
-  { id: 'lawn-front-left', x: [0, 0.25], y: [0.8444, 0.9556] },
-  { id: 'lawn-right-edge', x: [0.9444, 1], y: [0.4222, 0.8667] },
-  { id: 'lawn-back-right', x: [0.5833, 0.6667], y: [0.0667, 0.2444] },
-  { id: 'lawn-by-bench', x: [0.5833, 0.8333], y: [0.3333, 0.3778] },
-  { id: 'lawn-by-pond', x: [0.1944, 0.25], y: [0.6889, 0.8444] },
-  { id: 'lawn-stone-path', x: [0.3056, 0.5], y: [0, 0.0444] },
-  // Freed when the painted bench became the "긴 벤치" decoration.
-  { id: 'lawn-old-bench', x: [0.7222, 0.8056], y: [0.2222, 0.3333] },
-  { id: 'lawn-old-bench-back', x: [0.6667, 0.7222], y: [0.1333, 0.2444] },
-  { id: 'lawn-pond-corner', x: [0.1667, 0.25], y: [0.3778, 0.4444] },
+  { id: 'lawn-01', x: [0.1765, 0.5294], y: [0.0312, 0.4219] },
+  { id: 'lawn-02', x: [0.4314, 0.6078], y: [0.4688, 1] },
+  { id: 'lawn-03', x: [0.0784, 0.3725], y: [0.7656, 1] },
+  { id: 'lawn-04', x: [0.8235, 0.9608], y: [0.375, 0.8125] },
+  { id: 'lawn-05', x: [0.7059, 0.8235], y: [0.2344, 0.5312] },
+  { id: 'lawn-06', x: [0.6078, 0.8235], y: [0.5938, 0.7188] },
+  { id: 'lawn-07', x: [0.6078, 0.8627], y: [0.8438, 0.9375] },
+  { id: 'lawn-08', x: [0.3137, 0.4314], y: [0.4219, 0.5938] },
+  { id: 'lawn-09', x: [0.5294, 0.6667], y: [0.0781, 0.2188] },
+  { id: 'lawn-10', x: [0.1569, 0.4314], y: [0.7188, 0.7656] },
+  { id: 'lawn-11', x: [0.6078, 0.7059], y: [0.4688, 0.5938] },
+  { id: 'lawn-12', x: [0.9608, 1], y: [0.5156, 0.7656] },
+  { id: 'lawn-13', x: [0.1176, 0.1765], y: [0.0469, 0.2031] },
+  { id: 'lawn-14', x: [0.2745, 0.549], y: [0, 0.0312] },
+  { id: 'lawn-15', x: [0, 0.0784], y: [0.7969, 0.9062] },
+  { id: 'lawn-16', x: [0.5294, 0.5882], y: [0.2188, 0.3438] },
+  { id: 'lawn-17', x: [0.2353, 0.3137], y: [0.5, 0.5938] },
+  { id: 'lawn-18', x: [0.6078, 0.7255], y: [0.9375, 1] },
+  { id: 'lawn-19', x: [0.3725, 0.4314], y: [0.8906, 1] },
+  { id: 'lawn-20', x: [0.6667, 0.7451], y: [0.1562, 0.2344] },
 ]
 
 /**
- * Same view as the legacy village: 28° pitch, 20° vertical FOV, 16:9, and the
- * character is about 8% of the frame height. Values come from the Blender camera
+ * Same angle as the legacy village: 28° pitch, 20° vertical FOV, 16:9. After widening
+ * the map the camera sits 1.3× further back so the whole village still fits; the
+ * character is about 6% of the frame height. Values come from the Blender camera
  * "V4 Camera | Legacy View".
  */
 export const VILLAGE_CAMERA = {
   fov: 20,
-  position: new THREE.Vector3(-0.953, 25.353, 43.877),
+  position: new THREE.Vector3(-0.953, 32.958, 58.181),
   target: new THREE.Vector3(-0.953, 0, -3.804),
 }
-/** Camera distance per view, as a fraction of the legacy-view distance. Same angle for all. */
-export const VILLAGE_VIEW_DISTANCE = { whole: 1, basic: 0.62, follow: 0.45 } as const
+/**
+ * Camera distance per view, as a fraction of the whole-village distance. Same angle
+ * for all; basic and follow keep the close-ups they had before the map was widened.
+ */
+export const VILLAGE_VIEW_DISTANCE = { whole: 1, basic: 0.48, follow: 0.35 } as const
 
 export function villageGround(x: number, y: number): THREE.Vector3 {
   return new THREE.Vector3(
@@ -69,8 +85,8 @@ const decorationRadius = (itemId: string) => DECORATION_RADIUS[itemId] ?? 0.6
 
 /** Stepping stones on the lawn (three.js x, z, radius), measured in Blender. Walkable, but not for decorations. */
 export const VILLAGE_STEPPING_STONES: readonly [number, number, number][] = [
-  [-6.6, -12.55, 0.53], [-4.87, -9.84, 0.53], [-3.61, -7.48, 0.54],
-  [-2.59, -5.37, 0.58], [0.28, 3.27, 0.63], [1.72, 5.56, 0.58],
+  [-8.91, -15.46, 0.53], [-6.57, -11.8, 0.53], [-4.88, -8.61, 0.54],
+  [-3.5, -5.77, 0.58], [0.38, 5.9, 0.63], [2.33, 8.99, 0.58],
 ]
 
 export interface VillageDecoration extends Point {
@@ -117,6 +133,9 @@ export function villageWorld(world: WorldDefinition, decorations: readonly Villa
     ...world,
     horizonY: 0,
     groundDepthRatio: VILLAGE_DEPTH / VILLAGE_WIDTH,
+    // The lawn is wide: wander about 5 units from home, and now and then stroll anywhere.
+    wanderRadius: 0.2,
+    roamChance: 0.3,
     walkableAreas: VILLAGE_WALKABLE_AREAS,
     blockedAreas: decorations.map((d) => {
       const r = decorationRadius(d.itemId)

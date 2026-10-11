@@ -379,6 +379,35 @@ try {
   assert.ok(pathCheck.allWalkable && pathCheck.legsClear, 'every leg of the path is on walkable ground')
   assert.ok(pathCheck.endsAtTarget, 'the path ends at the clicked point')
   console.log(`path around bench: ${pathCheck.waypoints} waypoints in ${pathCheck.ms.toFixed(1)} ms`)
+
+  // Thirty characters that start bunched in the middle spread over the wide lawn on their own.
+  const spread = await page.evaluate(async () => {
+    const layout = await import('/src/systems/villageLayout.ts')
+    const { createAgent, stepAgents } = await import('/src/systems/agentSystem.ts')
+    const { isWalkable } = await import('/src/systems/worldSystem.ts')
+    const { WALK_CONFIG } = await import('/src/systems/walkSystem.ts')
+    const { getWorld } = await import('/src/data/worlds.ts')
+    const { useGameStore } = await import('/src/store/gameStore.ts')
+    const world = layout.villageWorld(getWorld(useGameStore.getState().worldId))
+    let seed = 7
+    const random = () => (seed = (seed * 16807) % 2147483647) / 2147483647
+    const agents = Array.from({ length: 30 }, (_, i) => createAgent(`a${i}`, 'calm', 0.5 + (i % 6 - 2.5) * 0.012, 0.55 + (Math.floor(i / 6) - 2) * 0.01, random))
+    const box = () => {
+      const xs = agents.map((a) => a.x * layout.VILLAGE_WIDTH)
+      const ys = agents.map((a) => a.y * layout.VILLAGE_DEPTH)
+      return Math.round((Math.max(...xs) - Math.min(...xs)) * (Math.max(...ys) - Math.min(...ys)))
+    }
+    const before = box()
+    let offGround = 0
+    for (let t = 0; t < 180; t += 1 / 30) {
+      stepAgents(agents, world, 1 / 30, WALK_CONFIG.speed, random)
+      offGround += agents.filter((a) => !isWalkable(world, a)).length
+    }
+    return { before, after: box(), offGround }
+  })
+  assert.equal(spread.offGround, 0, 'characters stay on walkable ground while roaming')
+  assert.ok(spread.after > spread.before * 5, `characters spread out (${spread.before} → ${spread.after} m²)`)
+  console.log(`30 characters spread over ${spread.before} → ${spread.after} m² in 3 minutes`)
   await button('기존 마을')
   await page.waitForSelector('.three-stage')
   assert.equal(await page.$('.village-stage'), null)
@@ -386,7 +415,7 @@ try {
   await page.waitForFunction(() => !!window.__village)
   assert.equal((await state()).characters.filter((c) => c.diaryDate === before.today).length, 1)
   assert.deepEqual(errors, [])
-  console.log('PASS GLB load, fullscreen portrait/landscape layout, 2x phone resolution, touch targets, 30-person preview on lawn areas, 3D decorations, 3D decorating, pathfinding, save preservation, diary picking, ground movement, responsive editor, legacy switch')
+  console.log('PASS GLB load, fullscreen portrait/landscape layout, 2x phone resolution, touch targets, 30-person preview on lawn areas, 3D decorations, 3D decorating, pathfinding, roaming spread, save preservation, diary picking, ground movement, responsive editor, legacy switch')
   console.log(`Screenshots: ${artifacts}`)
 } catch (error) {
   await page?.screenshot({ path: join(artifacts, 'failure.png') }).catch(() => {})
