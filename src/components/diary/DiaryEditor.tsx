@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { DIARY_PROMPTS, promptIndexFor } from '@/data/diaryPrompts'
 import { EMOTIONS, EMOTION_IDS } from '@/data/emotions'
-import { expressionFor } from '@/data/expressions'
+import { portraitFor } from '@/data/expressions'
 import { diaryForDate, useGameStore } from '@/store/gameStore'
 import { DIARY_REWARD, diaryReward } from '@/systems/diarySystem'
 import { analyzeDiary } from '@/systems/emotionAnalyzer'
@@ -94,7 +94,7 @@ export function DiaryEditor({ date }: Props) {
   if (saved && emotion) {
     return (
       <div className="editor editor--done" role="status">
-        <img className="editor__done-face" src={expressionFor(emotion.id)} alt="" />
+        <img className="editor__done-face" src={portraitFor(emotion.id)} alt="" />
         <h2>{saved === 'created' ? '오늘의 캐릭터가 마을에 도착했어요!' : '오늘의 캐릭터 표정이 바뀌었어요.'}</h2>
         <p className="editor__done-mood">
           <span className="dot" style={{ background: emotion.color }} />
@@ -149,7 +149,7 @@ export function DiaryEditor({ date }: Props) {
 
       <div className="editor__mood">
         <div className="editor__face" style={{ ['--mood' as string]: emotion?.color ?? '#e9e1d2' }}>
-          <img src={expressionFor(mood ?? 'NORMAL')} alt="" />
+          <img src={portraitFor(mood ?? 'NORMAL')} alt="" />
         </div>
         <div className="editor__mood-body">
           <p className="editor__emotion">

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { CharacterEquipment } from '@/components/game/CharacterEquipment'
 import { CLOTHING_CATEGORIES, ITEMS } from '@/data/items'
-import { expressionFor } from '@/data/expressions'
+import { portraitFor } from '@/data/expressions'
 import { useGameStore } from '@/store/gameStore'
 import type { ClothingCategory } from '@/types'
 import { formatKoreanDate, toMonthKey } from '@/utils/date'
@@ -55,7 +55,7 @@ export function CharacterPanel() {
       </select>
     </label>
     <div className="wardrobe-preview">
-      <CharacterPreview3D key={character.id} fallback={expressionFor(character.emotion)}
+      <CharacterPreview3D key={character.id} emotion={character.emotion} fallback={portraitFor(character.emotion)}
         label={`${formatKoreanDate(character.diaryDate)} 캐릭터`} outfit={outfit} />
       <div><span className="panel-hint">이 캐릭터의 장착 아이템</span>
         <CharacterEquipment equippedItems={character.equippedItems} />

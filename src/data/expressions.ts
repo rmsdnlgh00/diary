@@ -30,3 +30,11 @@ export const EXPRESSION_HEAD_BOX = { x: 0.075, y: 0.0939, w: 0.8353 }
 
 export const expressionFor = (emotion: EmotionId): string =>
   EXPRESSIONS[EMOTION_EXPRESSION[emotion]]
+
+/**
+ * Portraits of the 3D village character, one per mood, for the UI (diary editor, journal,
+ * diary detail). Rendered in Blender (scripts/render-portrait-base.py) and given their faces
+ * by scripts/make-portraits.py. The legacy 2D village keeps using EXPRESSIONS above.
+ */
+export const portraitFor = (emotion: EmotionId): string =>
+  `/assets/character/portraits/${emotion.toLowerCase()}.webp`

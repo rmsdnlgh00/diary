@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { EMOTIONS, EMOTION_IDS } from '@/data/emotions'
-import { expressionFor } from '@/data/expressions'
+import { portraitFor } from '@/data/expressions'
 import { useGameStore } from '@/store/gameStore'
 import type { DiaryEntry } from '@/types'
 import { formatKoreanDate, koreanWeekday, toDateKey, toMonthKey } from '@/utils/date'
@@ -98,7 +98,7 @@ export function JournalPanel() {
       <header>
         <strong>{formatKoreanDate(selected)} <small>{koreanWeekday(selected)}</small></strong>
         {entry && <span className="journal-entry__mood" style={{ ['--mood' as string]: EMOTIONS[entry.emotion].color }}>
-          <img src={expressionFor(entry.emotion)} alt="" />{EMOTIONS[entry.emotion].label}
+          <span className="journal-entry__face" aria-hidden="true" style={{ backgroundImage: `url(${portraitFor(entry.emotion)})` }} />{EMOTIONS[entry.emotion].label}
         </span>}
       </header>
       {entry

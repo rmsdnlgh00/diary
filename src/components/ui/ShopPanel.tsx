@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { ITEMS, ownsItem, priceOf } from '@/data/items'
-import { expressionFor } from '@/data/expressions'
+import { portraitFor } from '@/data/expressions'
 import { useGameStore } from '@/store/gameStore'
 import type { ClothingCategory, GameItem } from '@/types'
 import { formatKoreanDate, toMonthKey } from '@/utils/date'
@@ -57,7 +57,7 @@ export function ShopPanel() {
       <span className="shop-coins" aria-label={`보유 코인 ${coins}`}><span aria-hidden="true">🪙</span>{coins}</span>
     </div>
     {category === 'clothes' && Object.keys(trying).length > 0 && <section className="fitting-room" aria-label="탈의실">
-      <CharacterPreview3D fallback={expressionFor(model?.emotion ?? 'HAPPY')}
+      <CharacterPreview3D emotion={model?.emotion} fallback={portraitFor(model?.emotion ?? 'HAPPY')}
         label={model ? `${formatKoreanDate(model.diaryDate)} 캐릭터가 입어보는 중` : '입어보는 중'}
         outfit={outfitWith(model?.equippedItems ?? {}, trying)} />
       <div className="fitting-room__side">

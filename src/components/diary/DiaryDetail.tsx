@@ -1,4 +1,4 @@
-import { expressionFor } from '@/data/expressions'
+import { portraitFor } from '@/data/expressions'
 import { EMOTIONS } from '@/data/emotions'
 import { useGameStore } from '@/store/gameStore'
 import { formatKoreanDate } from '@/utils/date'
@@ -18,7 +18,7 @@ export function DiaryDetail() {
       <div className="modal" onClick={(event) => event.stopPropagation()}>
         <h2 className="modal__date">{formatKoreanDate(character.diaryDate)}</h2>
 
-        <img className="modal__portrait" src={expressionFor(character.emotion)} alt="" />
+        <img className="modal__portrait" src={portraitFor(character.emotion)} alt="" />
 
         <p className="modal__text">{character.diaryText}</p>
 

@@ -2,20 +2,26 @@ import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { dressCharacter, loadCharacterKit } from '@/systems/characterClothes'
+import { bodyOf } from '@/systems/characterFaces'
+import type { EmotionId } from '@/types'
 
 /**
  * The wardrobe's 3D preview: the village character in its idle pose, wearing `outfit`,
  * turning slowly on a little lawn stand. Drag to turn it yourself. Until the model is
  * ready (or without WebGL) the 2D `fallback` picture stays.
  */
-export function CharacterPreview3D({ outfit, fallback, label }: {
+export function CharacterPreview3D({ outfit, emotion, fallback, label }: {
   outfit: readonly string[]
+  /** The face to show; the painted smile without it. */
+  emotion?: EmotionId
   fallback: string
   label: string
 }) {
   const hostRef = useRef<HTMLDivElement>(null)
   const outfitRef = useRef(outfit)
   outfitRef.current = outfit
+  const emotionRef = useRef(emotion)
+  emotionRef.current = emotion
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
@@ -54,6 +60,8 @@ export function CharacterPreview3D({ outfit, fallback, label }: {
     let dragging: { x: number; angle: number } | null = null
     let idleSince = 0
     let clothes: Awaited<ReturnType<typeof loadCharacterKit>>['clothes'] | null = null
+    let faces: Awaited<ReturnType<typeof loadCharacterKit>>['faces'] = null
+    let face: EmotionId | undefined
 
     loadCharacterKit().then((kit) => {
       if (disposed) return
@@ -62,6 +70,7 @@ export function CharacterPreview3D({ outfit, fallback, label }: {
       mixer = new THREE.AnimationMixer(character)
       mixer.clipAction(kit.idle).play()
       clothes = kit.clothes
+      faces = kit.faces
       setReady(true)
     }).catch((error) => console.warn('[CharacterPreview3D] 캐릭터를 불러오지 못했어요', error))
 
@@ -98,6 +107,11 @@ export function CharacterPreview3D({ outfit, fallback, label }: {
       previous = now
       if (!character || !mixer || !clothes) return
       const key = outfitRef.current.join('|')
+      if (faces && emotionRef.current !== face) {
+        face = emotionRef.current
+        const body = bodyOf(character)
+        if (body) body.material = faces.material(face)
+      }
       if (key !== wornKey) {
         wornKey = key
         worn = dressCharacter(character, worn, outfitRef.current, clothes)

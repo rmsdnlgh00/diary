@@ -124,6 +124,28 @@ Run `scripts/export-village.py` inside Blender to update the public GLB. Point
   shop grows by itself when the fitting room opens (`useSheet().expand()`).
 - The shop is free for now: `SHOP.free` in `items.ts` makes `priceOf` return 0 while the
   price list stays; set it to false to charge again.
+- Mood portraits: the UI (diary editor, arrival card, journal, diary detail) shows the 3D
+  character's head per mood (`portraitFor` in `src/data/expressions.ts`,
+  `public/assets/character/portraits/<emotion>.webp`). `scripts/render-portrait-base.py`
+  renders the head once in Blender (`assets/portraits/base.png`); its painted face always
+  smiles, so `scripts/make-portraits.py` paints the eyes, brows and mouth over with skin
+  and draws the six faces in the same style. The legacy 2D village keeps its own
+  expression pictures.
+- Village faces: characters in the 3D village show their day's mood. The face is painted
+  into the character texture, so each mood gets its own copy of that texture:
+  1. `scripts/render-portrait-base.py` also renders `assets/portraits/base-flat.png` (lighting
+     off, plain texture colours), and
+     `make-portraits.py --flat` draws the six faces on it (`assets/portraits/flat/`).
+  2. `scripts/bake-face-textures.py` (Blender) projects those front images back onto the
+     texture: for every visible face triangle it maps texels to image pixels, and writes
+     full mood textures plus a mask of changed texels to `assets/portraits/baked/`.
+  3. `scripts/pack-face-atlas.py` cuts the changed 32 px tiles (263) into
+     `public/assets/characters/male/faces.webp` (≈290 KB) and `faces.json`.
+  In the game `FaceMaterials` (`src/systems/characterFaces.ts`) copies a mood's tiles over
+  the texture on a canvas, once per mood, and swaps both `map` and `emissiveMap` (the glTF
+  material glows with the same texture, which carries most of its colour). `StageCharacter`
+  carries `emotion`; the wardrobe and fitting-room previews use the same faces.
+  `flat/` and `baked/` are intermediates and ignored by git.
 - Shop icons: `scripts/render-item-icons.py` renders every item with a 3D model (clothes and
   decorations) on a transparent background into `public/assets/items/<item id>.webp`
   (256 px), which `items.ts` uses as `assetPath`. It opens an empty file, so reopen your

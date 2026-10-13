@@ -39,7 +39,7 @@ export function VillageWorld({ onLegacy }: { onLegacy: () => void }) {
   // What each character wears, for the 3D clothes.
   const outfits = useMemo(() => new Map(monthly.map((c) => [c.id,
     Object.values(c.equippedItems).filter((id): id is string => !!id)])), [monthly])
-  const dressed = useMemo(() => agents.map((a) => ({ ...a, outfit: outfits.get(a.id) })), [agents, outfits])
+  const dressed = useMemo(() => agents.map((a) => ({ ...a, outfit: outfits.get(a.id), emotion: a.emotion })), [agents, outfits])
 
   const canPlace = (itemId: string, point: { x: number; y: number }, movingId?: string) =>
     canPlaceInVillage(itemId, point, decorations, agents, movingId)

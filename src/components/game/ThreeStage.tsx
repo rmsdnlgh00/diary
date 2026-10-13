@@ -4,6 +4,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { DEFAULT_DEPTH_CONFIG, type DepthConfig } from '@/systems/depthSystem'
 import { MALE_WALK_STRIDE } from '@/systems/walkSystem'
+import type { EmotionId } from '@/types'
 
 /**
  * 3D 캐릭터를 2D 배경 위에 올리는 레이어.
@@ -110,6 +111,8 @@ export interface StageCharacter {
   walkDistance: number
   /** 입고 있는 옷의 아이템 id. 3D 마을만 사용한다. */
   outfit?: readonly string[]
+  /** 그날의 기분. 3D 마을에서 얼굴 표정을 바꾼다. */
+  emotion?: EmotionId
 }
 
 /** 캐릭터 하나에 딸린 3D 상태 */

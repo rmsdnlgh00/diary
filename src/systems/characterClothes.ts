@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { ITEMS } from '@/data/items'
+import { FaceMaterials, bodyOf } from './characterFaces'
 
 /**
  * Clothes from clothes-v1.glb (scripts/export-clothes.py), by item id. Tops and bottoms are
@@ -78,6 +79,8 @@ export interface CharacterKit {
   template: THREE.Object3D
   idle: THREE.AnimationClip
   clothes: Map<string, ClothingPart[]>
+  /** Mood faces for the template's body (already loaded). */
+  faces: FaceMaterials | null
 }
 
 let kit: Promise<CharacterKit> | null = null
@@ -102,7 +105,10 @@ export function loadCharacterKit(height = 1.7): Promise<CharacterKit> {
     raw.position.y = -box.min.y * factor
     const template = new THREE.Group()
     template.add(raw)
-    return { template, idle: clip, clothes: clothesFile ? collectClothes(clothesFile.scene) : new Map() }
+    const body = bodyOf(raw)
+    const faces = body ? new FaceMaterials(body.material as THREE.MeshStandardMaterial) : null
+    await faces?.load()
+    return { template, idle: clip, clothes: clothesFile ? collectClothes(clothesFile.scene) : new Map(), faces }
   })()
   kit.catch(() => { kit = null })
   return kit

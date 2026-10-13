@@ -9,6 +9,7 @@ import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import type { StageCharacter } from './ThreeStage'
 import { collectClothes, dressCharacter, type ClothingPart } from '@/systems/characterClothes'
+import { FaceMaterials, bodyOf } from '@/systems/characterFaces'
 import { MALE_WALK_STRIDE } from '@/systems/walkSystem'
 import { DECORATION_RADIUS, VILLAGE_CAMERA, VILLAGE_CENTER, VILLAGE_CHARACTER_HEIGHT, VILLAGE_POND, VILLAGE_VIEW_DISTANCE,
   VILLAGE_DEPTH, VILLAGE_WALKABLE_AREAS, VILLAGE_WIDTH, FLOOR_TILE_SIZE, isFloorDecoration, snapDecoration, villageGround,
@@ -52,6 +53,8 @@ interface Instance {
   /** Item ids currently worn, joined, and the clothing objects added for them. */
   outfitKey: string
   outfit: THREE.Object3D[]
+  /** The mood the face shows (null until the face atlas is in). */
+  face: string | null
 }
 
 /** Flat village parts that only receive shadows. */
@@ -389,6 +392,8 @@ export function VillageStage(props: Props) {
     let decorationAsset: THREE.Object3D | null = null
     let clothesAsset: THREE.Object3D | null = null
     let clothes = new Map<string, ClothingPart[]>()
+    let faces: FaceMaterials | null = null
+    let facesReady = false
     let duck: THREE.Object3D | null = null
     let duckBaseY = 0
     let duckHeading = 0
@@ -516,6 +521,11 @@ export function VillageStage(props: Props) {
         raw.traverse((o) => { if ((o as THREE.Mesh).isMesh) o.castShadow = true })
         template = new THREE.Group()
         template.add(raw)
+        const body = bodyOf(raw)
+        if (body) {
+          faces = new FaceMaterials(body.material as THREE.MeshStandardMaterial)
+          faces.load().then(() => { facesReady = true })
+        }
         disposeObject(idle.scene)
         setStatus('')
         if (import.meta.env.DEV) Object.assign(window, { __village: { scene, camera, renderer, instances, lowPower, clothes: () => clothes } })
@@ -839,8 +849,13 @@ export function VillageStage(props: Props) {
             const mixer = new THREE.AnimationMixer(object)
             const walk = mixer.clipAction(walkClip).setEffectiveWeight(0).play()
             const idle = mixer.clipAction(idleClip).setEffectiveWeight(1).play()
-            inst = { object, mixer, walk, idle, blend: 0, angle: 0, lastDistance: c.walkDistance, outfitKey: '', outfit: [] }
+            inst = { object, mixer, walk, idle, blend: 0, angle: 0, lastDistance: c.walkDistance, outfitKey: '', outfit: [], face: null }
             instances.set(c.id, inst)
+          }
+          if (facesReady && faces && inst.face !== (c.emotion ?? 'NORMAL')) {
+            inst.face = c.emotion ?? 'NORMAL'
+            const body = bodyOf(inst.object)
+            if (body) body.material = faces.material(c.emotion ?? 'NORMAL')
           }
           const outfitKey = c.outfit?.join('|') ?? ''
           if (outfitKey !== inst.outfitKey) {
@@ -909,6 +924,7 @@ export function VillageStage(props: Props) {
       // Placed decorations are clones that share these geometries and materials.
       if (decorationAsset) disposeObject(decorationAsset)
       if (clothesAsset) disposeObject(clothesAsset)
+      faces?.dispose()
       // The duck left the terrain group, so it is disposed on its own.
       if (duck) disposeObject(duck)
       for (const { ring } of wakeRings) {

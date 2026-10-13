@@ -163,7 +163,7 @@
 
 .modal__portrait {
   display: block;
-  width: 9cqw;
+  width: 11cqw;
   height: auto;
   margin: 0.4cqw auto 0.2cqw;
 }
@@ -265,7 +265,8 @@
   display: grid; place-items: center; overflow: hidden;
   transition: box-shadow 0.25s;
 }
-.editor__face img { width: 92%; height: 92%; object-fit: contain; }
+/* Portraits show head and shoulders; the round face slots zoom in on the face. */
+.editor__face img { width: 100%; height: 100%; object-fit: contain; transform: scale(1.75); transform-origin: 50% 66%; }
 .editor__mood-body { flex: 1; min-width: 0; display: grid; gap: 0.45cqw; }
 .editor__emotion { margin: 0; font-size: 1.15cqw; }
 .editor__emotion strong { font-weight: 400; color: var(--accent-deep); }
@@ -305,7 +306,7 @@
 }
 /* After saving: the character's arrival card. */
 .editor--done { justify-items: center; text-align: center; gap: 0.6cqw; }
-.editor__done-face { width: 8cqw; height: 8cqw; object-fit: contain; animation: arrive 0.6s ease-out; }
+.editor__done-face { width: 10cqw; height: 10cqw; object-fit: contain; animation: arrive 0.6s ease-out; }
 .editor--done h2 { margin: 0; font-size: 1.6cqw; font-weight: 400; }
 .editor__done-mood { margin: 0; display: inline-flex; align-items: center; gap: 0.4cqw; font-size: 1.1cqw; color: var(--ink-soft); }
 .editor__done-text {
@@ -547,7 +548,9 @@
   padding: 0.1cqw 0.7cqw 0.1cqw 0.15cqw; border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--mood) 35%, #fffaf2); font-size: 0.95cqw;
 }
-.journal-entry__mood img { width: 1.8cqw; height: 1.8cqw; object-fit: contain; }
+.journal-entry__face {
+  width: 1.9cqw; height: 1.9cqw; border-radius: 50%; background: #fffdf8 no-repeat 50% 72% / 175%;
+}
 .journal-entry__text {
   margin: 0.5cqw 0; font-family: 'Gowun Dodum', sans-serif; font-size: 1.1cqw; line-height: 1.9cqw;
   white-space: pre-wrap; max-height: 11.4cqw; overflow-y: auto;
@@ -709,7 +712,7 @@
   .editor__moods button { font-size: 12px; padding: 2px 8px; min-height: 30px !important; min-width: 0 !important; }
   .editor__moods button[style]::before { width: 7px; height: 7px; }
   .editor__save { font-size: 15px; padding: 10px; }
-  .editor__done-face { width: 96px; height: 96px; }
+  .editor__done-face { width: 120px; height: 120px; }
   .editor--done h2 { font-size: 17px; }
   .editor__done-mood { font-size: 13px; }
   .editor__done-text { font-size: 14px; max-height: 96px; padding: 8px 12px; border-radius: 12px; }
@@ -738,7 +741,7 @@
   .journal-entry { padding: 10px 12px; border-radius: 12px; }
   .journal-entry header { font-size: 15px; }
   .journal-entry header small, .journal-entry__mood { font-size: 12px; }
-  .journal-entry__mood img { width: 22px; height: 22px; }
+  .journal-entry__face { width: 24px; height: 24px; }
   .journal-entry__text { font-size: 14px; line-height: 26px; max-height: 156px; }
   .journal-entry__write { font-size: 15px; padding: 10px; }
   .try-on__row { font-size: 13px; padding: 6px 8px; gap: 6px; border-radius: 12px; }
