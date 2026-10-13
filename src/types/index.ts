@@ -53,6 +53,8 @@ export interface DiaryEntry {
   text: string
   emotion: EmotionId
   emotionConfidence: number
+  /** True when the player chose the mood instead of letting the text decide. */
+  emotionPicked?: boolean
   characterId: string
   createdAt: number
   updatedAt: number
@@ -206,7 +208,7 @@ export interface WorldDefinition {
   blockedAreas: AreaRect[]
 }
 
-export type PanelId = 'DIARY' | 'SHOP' | 'CHARACTER' | 'DECORATE'
+export type PanelId = 'DIARY' | 'SHOP' | 'CHARACTER' | 'DECORATE' | 'JOURNAL'
 
 /** 방향마다 별도의 그림이 있다. 좌우 반전으로 만들어 쓰지 않는다. */
 export type WalkDirection = 'front' | 'back' | 'left' | 'right'

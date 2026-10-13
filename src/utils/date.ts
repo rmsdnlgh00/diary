@@ -4,6 +4,12 @@ export function formatKoreanDate(date: string): string {
   return `${Number(month)}월 ${Number(day)}일`
 }
 
+/** YYYY-MM-DD → "월요일" */
+export function koreanWeekday(date: string): string {
+  const [year, month, day] = date.split('-').map(Number)
+  return `${'일월화수목금토'[new Date(year, month - 1, day).getDay()]}요일`
+}
+
 /** Date → YYYY-MM-DD (로컬 기준) */
 export function toDateKey(date: Date): string {
   const year = date.getFullYear()

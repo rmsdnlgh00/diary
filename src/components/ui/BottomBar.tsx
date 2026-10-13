@@ -6,6 +6,7 @@ const MENUS: Array<{ id: PanelId; label: string; icon: string }> = [
   { id: 'SHOP', label: '상점', icon: '🏪' },
   { id: 'CHARACTER', label: '캐릭터 꾸미기', icon: '👕' },
   { id: 'DECORATE', label: '공간 꾸미기', icon: '🌷' },
+  { id: 'JOURNAL', label: '일기장', icon: '📖' },
 ]
 
 export function BottomBar() {

@@ -102,15 +102,28 @@ Run `scripts/export-village.py` inside Blender to update the public GLB. Point
 - Clothes: `public/assets/characters/male/clothes-v1.glb` (≈0.55 MB, Draco) comes from
   `/Users/geun-wiho/male_master_3d/diary_character_clothes.blend` (a copy of the character
   file; `char1.001` itself is untouched) via `scripts/export-clothes.py`. It holds the
-  armature plus five hats, five tops and five bottoms, named `Cloth <item id>` (extra parts
+  armature plus five hats, five tops, five bottoms, walking shoes, a backpack and a scarf, named `Cloth <item id>` (extra parts
   `Cloth <item id> <part>`). Tops and bottoms are shells copied from the body (welded,
   pushed out along smoothed normals, openings cut with planes), so they keep the body's
   bone weights; patterns are small tiling textures. Hats, hoods, pockets and buttons are
   parented to a bone. The blend's `clothes_tools.py` text holds the helpers used to build
   them. In the game `collectClothes` reads the file once and `dress` re-binds the skinned
   parts to each character's own skeleton and clones the rigid parts onto its bones; the
-  equipped item ids reach `VillageStage` as `StageCharacter.outfit`. Shoes, bag and scarf
-  have no 3D model yet.
+  equipped item ids reach `VillageStage` as `StageCharacter.outfit`. Shoes are a skinned
+  shell of the feet (sole and upper cut apart) with laces on the foot bones; the backpack
+  hangs from Spine1 and the scarf from Spine2. `collectClothes`, `dressCharacter` and `loadCharacterKit` live in
+  `src/systems/characterClothes.ts`; the wardrobe panel's `CharacterPreview3D` uses the
+  same kit to show the chosen character turning on a little lawn stand (drag to turn).
+  The wardrobe lists every piece of a slot: owned ones equip with a tap, the others are
+  "입어보기" — they dress only the preview until "받고 입기" (get and equip) or "벗기".
+  The shop has the same try-on: tapping a clothing stand opens a sticky fitting room with
+  this month's character (today's, else the latest); `TryOnBar` is shared by both panels.
+- Phones in portrait: the shop, wardrobe and decorating sheets have a handle at the top.
+  Drag it up to enlarge the sheet (everything between the top bar and the menu), down to
+  shrink it, or tap it. Decorating starts smaller (36 %) so the lawn stays visible; the
+  shop grows by itself when the fitting room opens (`useSheet().expand()`).
+- The shop is free for now: `SHOP.free` in `items.ts` makes `priceOf` return 0 while the
+  price list stays; set it to false to charge again.
 - Shop icons: `scripts/render-item-icons.py` renders every item with a 3D model (clothes and
   decorations) on a transparent background into `public/assets/items/<item id>.webp`
   (256 px), which `items.ts` uses as `assetPath`. It opens an empty file, so reopen your

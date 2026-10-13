@@ -1,8 +1,13 @@
 import { DEFAULT_APPEARANCE } from '@/data/characterParts'
 import { emptyEquipment } from '@/data/items'
-import type { DiaryCharacterData, DiaryEntry, WorldDefinition } from '@/types'
+import type { DiaryCharacterData, DiaryEntry, EmotionId, WorldDefinition } from '@/types'
 import { CHARACTER_RADIUS, characterIdForDate, pickSpawnPoint } from './characterSystem'
 import { analyzeDiary, type DiaryAnalyzer } from './emotionAnalyzer'
+
+/** Coins for a new day's entry: a base reward, and a little more for a longer one. */
+export const DIARY_REWARD = { base: 10, bonus: 5, bonusLength: 100 }
+export const diaryReward = (text: string): number =>
+  DIARY_REWARD.base + (text.trim().length >= DIARY_REWARD.bonusLength ? DIARY_REWARD.bonus : 0)
 
 export interface DiaryWriteResult {
   diaries: DiaryEntry[]
@@ -28,8 +33,10 @@ export function writeDiary(
   date: string,
   text: string,
   analyze: DiaryAnalyzer = analyzeDiary,
+  /** A mood the player chose themselves; it wins over the analysis. */
+  picked?: EmotionId,
 ): DiaryWriteResult {
-  const { emotion, confidence } = analyze(text)
+  const { emotion, confidence } = picked ? { emotion: picked, confidence: 1 } : analyze(text)
   const now = Date.now()
   const characterId = characterIdForDate(date)
 
@@ -42,6 +49,7 @@ export function writeDiary(
     text,
     emotion,
     emotionConfidence: confidence,
+    ...(picked ? { emotionPicked: true } : {}),
     characterId,
     createdAt: existingEntry?.createdAt ?? now,
     updatedAt: now,

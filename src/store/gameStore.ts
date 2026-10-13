@@ -1,12 +1,12 @@
 import { create } from 'zustand'
 import { SEED_DIARIES } from '@/data/seedDiaries'
-import { getItem, ownsItem } from '@/data/items'
+import { getItem, ownsItem, priceOf } from '@/data/items'
 import { getWorld } from '@/data/worlds'
 import { canPlaceDecoration } from '@/systems/decorationSystem'
-import { writeDiary } from '@/systems/diarySystem'
+import { diaryReward, writeDiary } from '@/systems/diarySystem'
 import { isMonthKey, loadSave, persistSave } from '@/systems/saveSystem'
 import type { Point } from '@/systems/worldSystem'
-import type { ClothingCategory, DecorationData, DiaryCharacterData, DiaryEntry, GameItem, Inventory, PanelId,
+import type { ClothingCategory, DecorationData, DiaryCharacterData, DiaryEntry, EmotionId, GameItem, Inventory, PanelId,
   PlacedDecoration, WorldDecorations } from '@/types'
 import { TODAY, toDateKey, toMonthKey } from '@/utils/date'
 
@@ -34,7 +34,11 @@ interface GameState {
   selectCharacter: (id: string | null) => void
   togglePanel: (panel: PanelId) => void
   closePanel: () => void
-  saveDiary: (date: string, text: string) => void
+  /**
+   * `picked`: a mood the player chose; otherwise the text decides. Returns the coins earned:
+   * the first entry of a date pays `diaryReward`, later edits pay nothing.
+   */
+  saveDiary: (date: string, text: string, picked?: EmotionId) => number
   clearLastWritten: () => void
   buyItem: (itemId: string) => void
   equipItem: (characterId: string, category: ClothingCategory, itemId: string | null) => void
@@ -105,17 +109,20 @@ export const useGameStore = create<GameState>((set, get) => {
     closePanel: () => set({ activePanel: null, selectedDecorationId: null, placementTool: null, feedback: '' }),
     clearLastWritten: () => set({ lastWrittenDate: null }),
 
-    saveDiary: (date, text) => {
-      const { diaries, characters } = get()
+    saveDiary: (date, text, picked) => {
+      const { diaries, characters, coins } = get()
       const month = toMonthKey(date)
-      const result = writeDiary(getWorld(month), diaries, characters, date, text)
+      const result = writeDiary(getWorld(month), diaries, characters, date, text, undefined, picked)
+      const reward = result.created ? diaryReward(text) : 0
       commit({
         diaries: result.diaries,
         characters: result.characters,
+        coins: coins + reward,
         lastWrittenDate: date,
         worldId: month,
         decorations: getWorld(month).decorations,
       })
+      return reward
     },
 
     buyItem: (itemId) => {
@@ -123,9 +130,10 @@ export const useGameStore = create<GameState>((set, get) => {
       const item = getItem(itemId)
       if (!item) return
       if (ownsItem(inventory, item)) { set({ feedback: '보유 중' }); return }
-      if (coins < item.price) { set({ feedback: '코인이 부족해요' }); return }
+      const price = priceOf(item)
+      if (coins < price) { set({ feedback: '코인이 부족해요' }); return }
       const group = item.category === 'decoration' ? 'decorations' : 'clothes'
-      commit({ coins: coins - item.price,
+      commit({ coins: coins - price,
         inventory: { ...inventory, [group]: [...inventory[group], item.id] }, feedback: '구매했어요!' })
     },
 

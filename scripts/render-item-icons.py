@@ -30,7 +30,8 @@ def append(blend, collections):
     return dst.collections
 
 
-append(source / "diary_character_clothes.blend", ["Clothes | hat", "Clothes | top", "Clothes | bottom"])
+append(source / "diary_character_clothes.blend",
+       [f"Clothes | {slot}" for slot in ("hat", "top", "bottom", "shoes", "bag", "accessory")])
 append(source / "diary_village_v4_legacy_view.blend", ["Diary V4 | Decorations"])
 armature = next((o for o in bpy.data.objects if o.type == "ARMATURE"), None)
 if armature:
@@ -71,6 +72,8 @@ scene.camera = cam
 VIEW = Vector((0.35, -1.0, 0.62)).normalized()   # game camera: front (-Y) and from above
 # Clothes read better from the front, a little above (like a shop window).
 CLOTH_VIEW = Vector((0.35, -1.0, 0.22)).normalized()
+# Worn on the back: show it from behind.
+BACK_VIEW = {"backpack"}
 
 meshes = [o for o in bpy.data.objects if o.type == "MESH"]
 
@@ -101,6 +104,8 @@ for item in items:
     centre = (lo + hi) / 2
     radius = (hi - lo).length / 2
     view = CLOTH_VIEW if parts[0].name.startswith("Cloth ") else VIEW
+    if item in BACK_VIEW:
+        view = Vector((-view.x, -view.y, view.z))
     cam.location = centre + view * radius * 4
     cam.rotation_euler = (-view).to_track_quat("-Z", "Y").to_euler()
     cam.data.clip_end = radius * 10

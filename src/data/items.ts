@@ -26,9 +26,9 @@ export const ITEMS: GameItem[] = [
   { id: 'jogger_pants', name: '조거 팬츠', category: 'bottom', price: 15, assetPath: '/assets/items/jogger_pants.webp', placeholder: '👖' },
   { id: 'pajama_pants', name: '구름 잠옷 바지', category: 'bottom', price: 15, assetPath: '/assets/items/pajama_pants.webp', placeholder: '👖' },
   { id: 'check_shorts', name: '체크 반바지', category: 'bottom', price: 20, assetPath: '/assets/items/check_shorts.webp', placeholder: '🩳' },
-  { id: 'walking_shoes', name: '산책 운동화', category: 'shoes', price: 10, assetPath: '', placeholder: '👟' },
-  { id: 'backpack', name: '작은 배낭', category: 'bag', price: 15, assetPath: '', placeholder: '🎒' },
-  { id: 'scarf', name: '따뜻한 목도리', category: 'accessory', price: 10, assetPath: '', placeholder: '🧣' },
+  { id: 'walking_shoes', name: '산책 운동화', category: 'shoes', price: 10, assetPath: '/assets/items/walking_shoes.webp', placeholder: '👟' },
+  { id: 'backpack', name: '작은 배낭', category: 'bag', price: 15, assetPath: '/assets/items/backpack.webp', placeholder: '🎒' },
+  { id: 'scarf', name: '따뜻한 목도리', category: 'accessory', price: 10, assetPath: '/assets/items/scarf.webp', placeholder: '🧣' },
   { id: 'flower_pot', name: '꽃 화분', category: 'decoration', price: 10, assetPath: '/assets/items/flower_pot.webp', placeholder: '🪴', worldWidth: 0.035 },
   { id: 'picnic_mat', name: '피크닉 매트', category: 'decoration', price: 20, assetPath: '/assets/items/picnic_mat.webp', placeholder: '🧺', worldWidth: 0.07 },
   { id: 'small_lamp', name: '작은 가로등', category: 'decoration', price: 15, assetPath: '/assets/items/small_lamp.webp', placeholder: '🏮', worldWidth: 0.035 },
@@ -42,6 +42,13 @@ export const ITEMS: GameItem[] = [
   { id: 'floor_tile', name: '돌바닥 타일', category: 'decoration', price: 5, assetPath: '/assets/items/floor_tile.webp', placeholder: '🟫', worldWidth: 0.06,
     description: '한 번 사면 여러 장을 이어 깔 수 있어요.', stackable: true, floor: true },
 ]
+
+/**
+ * For now everything in the shop is free. The price list stays as it is; set `free` to
+ * false to charge the prices again.
+ */
+export const SHOP = { free: true }
+export const priceOf = (item: GameItem): number => SHOP.free ? 0 : item.price
 
 export const getItem = (id: string): GameItem | undefined => ITEMS.find((item) => item.id === id)
 export const ownsItem = (inventory: Inventory, item: GameItem): boolean =>

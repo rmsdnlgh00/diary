@@ -8,7 +8,7 @@ import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js'
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import type { StageCharacter } from './ThreeStage'
-import { ITEMS } from '@/data/items'
+import { collectClothes, dressCharacter, type ClothingPart } from '@/systems/characterClothes'
 import { MALE_WALK_STRIDE } from '@/systems/walkSystem'
 import { DECORATION_RADIUS, VILLAGE_CAMERA, VILLAGE_CENTER, VILLAGE_CHARACTER_HEIGHT, VILLAGE_POND, VILLAGE_VIEW_DISTANCE,
   VILLAGE_DEPTH, VILLAGE_WALKABLE_AREAS, VILLAGE_WIDTH, FLOOR_TILE_SIZE, isFloorDecoration, snapDecoration, villageGround,
@@ -52,68 +52,6 @@ interface Instance {
   /** Item ids currently worn, joined, and the clothing objects added for them. */
   outfitKey: string
   outfit: THREE.Object3D[]
-}
-
-/**
- * Clothes from clothes-v1.glb (scripts/export-clothes.py), by item id. Tops and bottoms are
- * skinned to the same armature as the character, so they are re-bound to each character's
- * own bones; hats, hoods and buttons hang from a bone and are cloned onto that bone.
- */
-type ClothingPart = { skinned: THREE.SkinnedMesh } | { rigid: THREE.Object3D; bone: string }
-const ITEM_IDS = ITEMS.map((item) => item.id).sort((a, b) => b.length - a.length)
-
-function collectClothes(root: THREE.Object3D): Map<string, ClothingPart[]> {
-  const clothes = new Map<string, ClothingPart[]>()
-  root.traverse((object) => {
-    // Node names arrive sanitised: "Cloth hoodie_gray hood" → "Cloth_hoodie_gray_hood".
-    if (!object.name.startsWith('Cloth_') || object.parent?.name.startsWith('Cloth_')) return
-    const rest = object.name.slice('Cloth_'.length)
-    const id = ITEM_IDS.find((itemId) => rest === itemId || rest.startsWith(`${itemId}_`))
-    if (!id) return
-    const parts = clothes.get(id) ?? []
-    const skinned: THREE.SkinnedMesh[] = []
-    object.traverse((o) => { if ((o as THREE.SkinnedMesh).isSkinnedMesh) skinned.push(o as THREE.SkinnedMesh) })
-    if (skinned.length) parts.push(...skinned.map((mesh) => ({ skinned: mesh })))
-    else if (object.parent) parts.push({ rigid: object, bone: object.parent.name })
-    clothes.set(id, parts)
-  })
-  return clothes
-}
-
-/** Swap what a character wears: remove the old clothing objects, bind the new ones to its bones. */
-function dress(instance: Instance, ids: readonly string[], clothes: Map<string, ClothingPart[]>) {
-  for (const object of instance.outfit) object.removeFromParent()
-  instance.outfit = []
-  let body: THREE.SkinnedMesh | null = null
-  instance.object.traverse((o) => { if (!body && (o as THREE.SkinnedMesh).isSkinnedMesh) body = o as THREE.SkinnedMesh })
-  const skinnedBody = body as THREE.SkinnedMesh | null
-  if (!skinnedBody?.parent) return
-  const bones = new Map(skinnedBody.skeleton.bones.map((bone) => [bone.name, bone]))
-  for (const id of ids) {
-    for (const part of clothes.get(id) ?? []) {
-      if ('skinned' in part) {
-        const source = part.skinned
-        const mapped = source.skeleton.bones.map((bone) => bones.get(bone.name))
-        if (mapped.some((bone) => !bone)) continue
-        const mesh = new THREE.SkinnedMesh(source.geometry, source.material)
-        mesh.name = source.name
-        source.updateMatrix()
-        mesh.matrix.copy(source.matrix).decompose(mesh.position, mesh.quaternion, mesh.scale)
-        skinnedBody.parent.add(mesh)
-        mesh.bind(new THREE.Skeleton(mapped as THREE.Bone[], source.skeleton.boneInverses), source.bindMatrix)
-        mesh.castShadow = true
-        mesh.frustumCulled = false
-        instance.outfit.push(mesh)
-      } else {
-        const bone = bones.get(part.bone)
-        if (!bone) continue
-        const object = part.rigid.clone()
-        object.traverse((o) => { if ((o as THREE.Mesh).isMesh) o.castShadow = true })
-        bone.add(object)
-        instance.outfit.push(object)
-      }
-    }
-  }
 }
 
 /** Flat village parts that only receive shadows. */
@@ -907,7 +845,7 @@ export function VillageStage(props: Props) {
           const outfitKey = c.outfit?.join('|') ?? ''
           if (outfitKey !== inst.outfitKey) {
             inst.outfitKey = outfitKey
-            dress(inst, c.outfit ?? [], clothes)
+            inst.outfit = dressCharacter(inst.object, inst.outfit, c.outfit ?? [], clothes)
           }
           const p = villageGround(c.x, c.y)
           inst.object.position.copy(p)

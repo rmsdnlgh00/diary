@@ -1,8 +1,9 @@
 """Run in Blender with diary_character_clothes.blend open; export the clothes without saving.
 
-The GLB holds the character armature plus every object in the "Clothes | hat/top/bottom"
-collections, named `Cloth <item id>` (extra parts: `Cloth <item id> <part>`). Tops and
-bottoms are skinned to the armature; hats, hoods and buttons are parented to a bone.
+The GLB holds the character armature plus every object in the "Clothes | <slot>"
+collections (hat, top, bottom, shoes, bag, accessory), named `Cloth <item id>` (extra
+parts: `Cloth <item id> <part>`). Tops, bottoms and shoes are skinned to the armature;
+hats, hoods, buttons, laces, the backpack and the scarf are parented to a bone.
 The body mesh (char1.001) is not exported: the game binds the clothes to the bones of
 the character it already loads.
 """
@@ -14,8 +15,8 @@ repo = Path(os.environ.get("DIARY_REPO_ROOT", "/Users/geun-wiho/github/diary"))
 output = repo / "public/assets/characters/male/clothes-v1.glb"
 output.parent.mkdir(parents=True, exist_ok=True)
 armature = bpy.data.objects["Armature.002"]
-clothes = [o for name in ("Clothes | hat", "Clothes | top", "Clothes | bottom")
-           for o in bpy.data.collections[name].objects]
+SLOTS = ("hat", "top", "bottom", "shoes", "bag", "accessory")
+clothes = [o for slot in SLOTS for o in bpy.data.collections[f"Clothes | {slot}"].objects]
 selected = list(bpy.context.selected_objects)
 active = bpy.context.view_layer.objects.active
 hidden = {o.name: o.hide_viewport for o in clothes}
