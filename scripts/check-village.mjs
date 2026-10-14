@@ -101,8 +101,13 @@ try {
     return JSON.parse(JSON.stringify(useGameStore.getState()))
   })
   const before = await state()
-  await button('30명 미리보기')
-  await page.waitForFunction(() => window.__village.instances.size === 30)
+  // The view buttons no longer offer the legacy village or the 30-person preview.
+  const viewButtons = await page.$$eval('.village-controls button', (els) => els.map((el) => el.textContent.trim()))
+  assert.deepEqual(viewButtons, ['마을 전체', '기본 시점', '따라가기'])
+  // The 30-person layout check stays reachable at ?preview=30.
+  const home = server.resolvedUrls.local[0]
+  await page.goto(`${home}?preview=30`, { waitUntil: 'networkidle0' })
+  await page.waitForFunction(() => window.__village?.instances.size === 30, { timeout: 30000 })
   const offLawn = await page.evaluate(async () => {
     const { VILLAGE_WALKABLE_AREAS, villagePoint } = await import('/src/systems/villageLayout.ts')
     const { isInsideAnyArea } = await import('/src/systems/worldSystem.ts')
@@ -120,7 +125,8 @@ try {
   const afterPreview = await state()
   assert.deepEqual(afterPreview.diaries, before.diaries)
   assert.deepEqual(afterPreview.characters, before.characters)
-  await button('30명 미리보기')
+  await page.goto(home, { waitUntil: 'networkidle0' })
+  await page.waitForFunction(() => !!window.__village?.scene.getObjectByName('V4_Ground'), { timeout: 30000 })
   await page.evaluate(async () => {
     const { useGameStore } = await import('/src/store/gameStore.ts')
     useGameStore.getState().saveDiary(useGameStore.getState().today, '행복하고 감사한 마을 테스트')
@@ -129,6 +135,11 @@ try {
   // Today's spawn point depends on the date and may lie outside the phone's view; follow it.
   await button('따라가기')
   await new Promise((resolve) => setTimeout(resolve, 1200))
+  // Following offers a day picker; today's character is chosen first.
+  const days = await page.$$eval('.village-days [role="option"]', (els) => els.map((el) => ({
+    label: el.getAttribute('aria-label'), selected: el.getAttribute('aria-selected') === 'true' })))
+  assert.ok(days.length >= 1 && days.at(-1).selected, 'the follow view starts on the latest day')
+  await page.screenshot({ path: join(artifacts, 'mobile-follow-days.png') })
   const clicked = await page.evaluate(async () => {
     const THREE = await import('/node_modules/.vite/deps/three.js')
     const { useGameStore } = await import('/src/store/gameStore.ts')
@@ -522,14 +533,9 @@ try {
   assert.equal(spread.offGround, 0, 'characters stay on walkable ground while roaming')
   assert.ok(spread.after > spread.before * 5, `characters spread out (${spread.before} → ${spread.after} m²)`)
   console.log(`30 characters spread over ${spread.before} → ${spread.after} m² in 3 minutes`)
-  await button('기존 마을')
-  await page.waitForSelector('.three-stage')
-  assert.equal(await page.$('.village-stage'), null)
-  await button('3D 마을')
-  await page.waitForFunction(() => !!window.__village)
   assert.equal((await state()).characters.filter((c) => c.diaryDate === before.today).length, 1)
   assert.deepEqual(errors, [])
-  console.log('PASS GLB load, fullscreen portrait/landscape layout, 2x phone resolution, touch targets, 30-person preview on lawn areas, 3D decorations, 3D decorating, floor tiles, 3D clothes, pathfinding, roaming spread, save preservation, diary picking, ground movement, responsive editor, legacy switch')
+  console.log('PASS GLB load, fullscreen portrait/landscape layout, 2x phone resolution, touch targets, 30-person preview (?preview=30) on lawn areas, 3D decorations, 3D decorating, floor tiles, 3D clothes, pathfinding, roaming spread, save preservation, diary picking, follow day picker, ground movement, responsive editor')
   console.log(`Screenshots: ${artifacts}`)
 } catch (error) {
   await page?.screenshot({ path: join(artifacts, 'failure.png') }).catch(() => {})

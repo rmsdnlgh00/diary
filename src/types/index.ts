@@ -100,6 +100,8 @@ export interface GameItem {
   stackable?: boolean
   /** Lies flat on the ground: characters walk over it and other decorations may sit on it. */
   floor?: boolean
+  /** Bottoms that reach the ankles (the body's lower legs are hidden under them). */
+  long?: boolean
 }
 
 export interface Inventory {

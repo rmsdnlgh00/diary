@@ -52,7 +52,12 @@ Run `scripts/export-village.py` inside Blender to update the public GLB. Point
   equipment, coins and decorations retain their original format and coordinates.
 - Picking a real character opens its existing diary. Click the lawn to move the
   last picked character, today's character, or the first available character.
-- The 30-person preview is a static size/layout reference, independent of saves.
+- Views: "마을 전체", "기본 시점" and "따라가기". Following shows a row of this month's days
+  (mood-coloured dots); picking one moves the camera to that day's character, today's (or
+  the latest) first.
+- The 30-person preview is a static size/layout reference at `?preview=30`, independent of
+  saves. The legacy painted village is still reachable at `?village=legacy`; neither has a
+  button any more.
 - Existing space decoration opens the legacy background. Placed decoration
   assets and clothing overlays have not been converted to 3D.
 - The GLB is Draco-compressed (about 1.4 MB instead of 10 MB). `GLTFLoader` decodes it
@@ -146,6 +151,22 @@ Run `scripts/export-village.py` inside Blender to update the public GLB. Point
   material glows with the same texture, which carries most of its colour). `StageCharacter`
   carries `emotion`; the wardrobe and fitting-room previews use the same faces.
   `flat/` and `baked/` are intermediates and ignored by git.
+- Close-up quality:
+  - `scripts/pad-character-texture.py` grows the character texture's UV islands outwards
+    (24 rounds) and writes it back into `character-walk-light.glb`, so seams no longer
+    show as thin white lines up close. The island coverage comes from char1.001's UVs
+    (`assets/portraits/uv-coverage.npy`, ignored by git); the face atlas is packed on the
+    padded texture.
+  - Clothing shells (`clothes_tools.py` → `make_shell`): the body's frayed hems are
+    stripped (faces with two open edges), the surface is relaxed, faces buried under
+    another layer facing the same way are dropped, and a shrinkwrap keeps the shell outside
+    the body. Pattern UVs are measured in the idle pose with one mapping around the whole
+    body, so stripes and checks wrap sleeves and legs without seams. Pattern images are
+    128 px, supersampled and linearly filtered.
+  - `body-mask.png` marks the body texture under clothes (red: every top, green: thighs
+    under every bottom, blue: lower legs under long bottoms — `long` in `items.ts`).
+    `FaceMaterials.material(emotion, outfit)` discards those fragments, so the body can't
+    poke through the clothes while walking.
 - Shop icons: `scripts/render-item-icons.py` renders every item with a 3D model (clothes and
   decorations) on a transparent background into `public/assets/items/<item id>.webp`
   (256 px), which `items.ts` uses as `assetPath`. It opens an empty file, so reopen your

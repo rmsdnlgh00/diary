@@ -27,8 +27,12 @@ tiles = [(int(x) * TILE, int(y) * TILE) for y, x in np.argwhere(grid)]  # image 
 cols = math.ceil(math.sqrt(len(tiles)))
 rows = math.ceil(len(tiles) / cols)
 atlas = Image.new("RGB", (cols * TILE, rows * TILE * len(EMOTIONS)))
+# Outside the face texels, tiles carry the padded texture (scripts/pad-character-texture.py),
+# so they blend into the game's texture without seams.
+padded = np.array(Image.open(ROOT / "assets/portraits/character-padded.png").convert("RGB"))
 for band, emotion in enumerate(EMOTIONS):
-    face = Image.open(BAKED / f"{emotion}.png").convert("RGB")
+    baked = np.array(Image.open(BAKED / f"{emotion}.png").convert("RGB"))
+    face = Image.fromarray(np.where(mask[..., None], baked, padded))
     for i, (x, y) in enumerate(tiles):
         tile = face.crop((x, y, x + TILE, y + TILE))
         atlas.paste(tile, ((i % cols) * TILE, (band * rows + i // cols) * TILE))

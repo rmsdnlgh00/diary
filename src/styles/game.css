@@ -17,6 +17,19 @@
 .village-controls [aria-pressed='true'] { background: #ffcf92; }
 .village-controls button:focus-visible { outline: 2px solid #ab662d; outline-offset: 2px; }
 .village-return { position: absolute; z-index: 5; top: 6cqw; left: 2cqw; }
+/* Follow view: pick the day whose character the camera follows. */
+.village-days {
+  position: absolute; z-index: 5; top: 10cqw; left: 2cqw; right: 2cqw;
+  display: flex; gap: .5cqw; overflow-x: auto; padding: .3cqw .1cqw; scrollbar-width: none;
+}
+.village-days::-webkit-scrollbar { display: none; }
+.village-days button {
+  flex: none; display: inline-flex; align-items: center; gap: .4cqw;
+  padding: .5cqw 1cqw; border-radius: 999px; background: rgba(255,250,242,.94);
+  font-size: max(11px, 1.15cqw); box-shadow: 0 2px 8px #4c3a3215; border: 2px solid transparent;
+}
+.village-days__dot { width: .8cqw; height: .8cqw; min-width: 8px; min-height: 8px; border-radius: 50%; background: var(--mood); }
+.village-days [aria-selected='true'] { border-color: var(--mood); background: #fff3df; }
 .village-hint {
   position: absolute; z-index: 4; left: 3cqw; right: 3cqw; bottom: 8.5cqw;
   margin: 0; text-align: center; font-size: max(10px, 1.2cqw); color: #526047;

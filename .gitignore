@@ -27,3 +27,4 @@ dist-ssr
 # Face bake intermediates (scripts/make-portraits.py --flat, scripts/bake-face-textures.py)
 assets/portraits/flat/
 assets/portraits/baked/
+assets/portraits/uv-coverage.npy

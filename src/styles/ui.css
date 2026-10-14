@@ -679,6 +679,8 @@
   .village-controls { top: 56px; left: 8px; right: 8px; gap: 4px; }
   .village-controls button, .village-return { padding: 6px 10px; }
   .village-return { top: 56px; left: 8px; }
+  .village-days { top: 104px; left: 8px; right: 8px; gap: 6px; }
+  .stage .village-days button { min-height: 36px; padding: 4px 12px; font-size: 13px; }
   .village-hint { bottom: 64px; font-size: 12px; }
   .sheet, .editor {
     width: min(480px, calc(100% - 16px));
@@ -794,6 +796,7 @@
   .pill--month { flex: 1; justify-content: space-between; }
   .pill--status { order: 3; min-height: 32px; font-size: 12px; }
   .village-controls { top: calc(92px + var(--safe-top)); }
+  .village-days { top: calc(140px + var(--safe-top)); }
   .village-return { top: calc(92px + var(--safe-top)); }
   .bottombar { width: calc(100% - 16px - var(--safe-left) - var(--safe-right)); gap: 4px; border-radius: 20px; }
   .menu-button { flex: 1; min-width: 0; flex-direction: column; gap: 4px; padding: 8px 2px; }

@@ -61,7 +61,7 @@ export function CharacterPreview3D({ outfit, emotion, fallback, label }: {
     let idleSince = 0
     let clothes: Awaited<ReturnType<typeof loadCharacterKit>>['clothes'] | null = null
     let faces: Awaited<ReturnType<typeof loadCharacterKit>>['faces'] = null
-    let face: EmotionId | undefined
+    let face = ''
 
     loadCharacterKit().then((kit) => {
       if (disposed) return
@@ -107,10 +107,10 @@ export function CharacterPreview3D({ outfit, emotion, fallback, label }: {
       previous = now
       if (!character || !mixer || !clothes) return
       const key = outfitRef.current.join('|')
-      if (faces && emotionRef.current !== face) {
-        face = emotionRef.current
+      if (faces && `${emotionRef.current}|${key}` !== face) {
+        face = `${emotionRef.current}|${key}`
         const body = bodyOf(character)
-        if (body) body.material = faces.material(face)
+        if (body) body.material = faces.material(emotionRef.current, outfitRef.current)
       }
       if (key !== wornKey) {
         wornKey = key

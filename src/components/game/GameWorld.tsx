@@ -22,7 +22,8 @@ export function GameWorld() {
   const [legacy, setLegacy] = useState(() => new URLSearchParams(window.location.search).get('village') === 'legacy')
   const editing = useGameStore((s) => s.activePanel === 'DECORATE')
   // The 3D village handles decorating itself; the legacy view keeps its own 2D editor.
-  if (!legacy) return <VillageWorld onLegacy={() => setLegacy(true)} />
+  // The legacy painted village stays reachable at ?village=legacy (no button any more).
+  if (!legacy) return <VillageWorld />
   return <>
     <LegacyGameWorld />
     {!editing && <button className="village-return" type="button" onClick={() => setLegacy(false)}>3D 마을</button>}

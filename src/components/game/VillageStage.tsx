@@ -53,7 +53,7 @@ interface Instance {
   /** Item ids currently worn, joined, and the clothing objects added for them. */
   outfitKey: string
   outfit: THREE.Object3D[]
-  /** The mood the face shows (null until the face atlas is in). */
+  /** The mood and outfit the body material was made for (null until the face atlas is in). */
   face: string | null
 }
 
@@ -852,12 +852,14 @@ export function VillageStage(props: Props) {
             inst = { object, mixer, walk, idle, blend: 0, angle: 0, lastDistance: c.walkDistance, outfitKey: '', outfit: [], face: null }
             instances.set(c.id, inst)
           }
-          if (facesReady && faces && inst.face !== (c.emotion ?? 'NORMAL')) {
-            inst.face = c.emotion ?? 'NORMAL'
-            const body = bodyOf(inst.object)
-            if (body) body.material = faces.material(c.emotion ?? 'NORMAL')
-          }
           const outfitKey = c.outfit?.join('|') ?? ''
+          // The body shows the day's mood and hides what the clothes cover.
+          const faceKey = `${c.emotion ?? 'NORMAL'}|${outfitKey}`
+          if (facesReady && faces && inst.face !== faceKey) {
+            inst.face = faceKey
+            const body = bodyOf(inst.object)
+            if (body) body.material = faces.material(c.emotion ?? 'NORMAL', c.outfit)
+          }
           if (outfitKey !== inst.outfitKey) {
             inst.outfitKey = outfitKey
             inst.outfit = dressCharacter(inst.object, inst.outfit, c.outfit ?? [], clothes)

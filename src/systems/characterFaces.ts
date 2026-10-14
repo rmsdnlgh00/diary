@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { getItem } from '@/data/items'
 import type { EmotionId } from '@/types'
 
 /**
@@ -44,9 +45,36 @@ function loadAtlas() {
   return atlas
 }
 
+/**
+ * body-mask.png marks the body texture under clothes: red = covered by every top (painted
+ * shirt and upper arms), green = covered by every bottom (thighs), blue = covered by long
+ * bottoms (lower legs). Those parts are not drawn while the character wears such clothes,
+ * so the body can't poke through.
+ */
+let bodyMask: THREE.Texture | null = null
+function loadBodyMask(): THREE.Texture {
+  if (!bodyMask) {
+    bodyMask = new THREE.TextureLoader().load('/assets/characters/male/body-mask.png')
+    bodyMask.flipY = false
+    bodyMask.colorSpace = THREE.NoColorSpace
+    bodyMask.magFilter = bodyMask.minFilter = THREE.NearestFilter
+    bodyMask.generateMipmaps = false
+  }
+  return bodyMask
+}
+
+/** Which body parts the outfit covers: [top, bottom, long bottom]. */
+function covered(outfit: readonly string[] | undefined): [number, number, number] {
+  const items = (outfit ?? []).map((id) => getItem(id))
+  const has = (test: (category: string | undefined, long: boolean) => boolean) =>
+    items.some((item) => test(item?.category, !!item?.long)) ? 1 : 0
+  return [has((c) => c === 'top'), has((c) => c === 'bottom'), has((c, long) => c === 'bottom' && long)]
+}
+
 /** Builds mood materials from one character's body material. */
 export class FaceMaterials {
-  private readonly made = new Map<EmotionId, THREE.Material>()
+  private readonly faces = new Map<EmotionId, THREE.CanvasTexture>()
+  private readonly made = new Map<string, THREE.Material>()
   private ready: Awaited<ReturnType<typeof loadAtlas>> = null
 
   constructor(private readonly base: THREE.MeshStandardMaterial) {}
@@ -56,20 +84,53 @@ export class FaceMaterials {
     return loadAtlas().then((loaded) => { this.ready = loaded })
   }
 
-  material(emotion: EmotionId | undefined): THREE.Material {
+  /** The body material for a mood, hiding what the outfit covers. */
+  material(emotion: EmotionId | undefined, outfit?: readonly string[]): THREE.Material {
+    const hide = covered(outfit)
+    const key = `${emotion ?? '-'}|${hide.join('')}`
+    const cached = this.made.get(key)
+    if (cached) return cached
+    const face = emotion ? this.face(emotion) : null
+    if (!face && !hide.some(Boolean)) return this.base
+    const material = this.base.clone()
+    if (face) {
+      material.map = face
+      // The character glows with its own texture (glTF emissiveTexture), which carries most of
+      // its colour: swap that one too, or the old face shows through.
+      if (this.base.emissiveMap) material.emissiveMap = face
+    }
+    if (hide.some(Boolean)) {
+      const mask = loadBodyMask()
+      material.onBeforeCompile = (shader) => {
+        shader.uniforms.uBodyMask = { value: mask }
+        shader.uniforms.uHide = { value: new THREE.Vector3(...hide) }
+        shader.fragmentShader = shader.fragmentShader
+          .replace('#include <common>', '#include <common>\nuniform sampler2D uBodyMask;\nuniform vec3 uHide;')
+          .replace('#include <map_fragment>', `#include <map_fragment>
+            if (dot(step(vec3(0.5), texture2D(uBodyMask, vMapUv).rgb), uHide) > 0.5) discard;`)
+      }
+      material.customProgramCacheKey = () => `body-hide-${hide.join('')}`
+    }
+    // Before the face atlas is in, don't keep the faceless copy around.
+    if (face || !emotion) this.made.set(key, material)
+    return material
+  }
+
+  /** The texture with a mood's face, built once per mood. */
+  private face(emotion: EmotionId): THREE.CanvasTexture | null {
     const map = this.base.map
-    if (!emotion || !this.ready || !map?.image) return this.base
-    const cached = this.made.get(emotion)
+    if (!this.ready || !map?.image) return null
+    const cached = this.faces.get(emotion)
     if (cached) return cached
     const { info, image } = this.ready
     const band = info.emotions.indexOf(emotion)
-    if (band < 0) return this.base
+    if (band < 0) return null
     const source = map.image as CanvasImageSource & { width: number; height: number }
     const canvas = document.createElement('canvas')
     canvas.width = source.width
     canvas.height = source.height
     const ctx = canvas.getContext('2d')
-    if (!ctx) return this.base
+    if (!ctx) return null
     ctx.drawImage(source, 0, 0)
     const scale = source.width / info.textureSize
     const t = info.tile
@@ -84,21 +145,15 @@ export class FaceMaterials {
     texture.wrapS = map.wrapS
     texture.wrapT = map.wrapT
     texture.anisotropy = map.anisotropy
-    const material = this.base.clone()
-    material.map = texture
-    // The character glows with its own texture (glTF emissiveTexture), which carries most of
-    // its colour: swap that one too, or the old face shows through.
-    if (this.base.emissiveMap) material.emissiveMap = texture
-    this.made.set(emotion, material)
-    return material
+    this.faces.set(emotion, texture)
+    return texture
   }
 
   dispose() {
-    for (const material of this.made.values()) {
-      (material as THREE.MeshStandardMaterial).map?.dispose()
-      material.dispose()
-    }
+    for (const material of this.made.values()) material.dispose()
+    for (const texture of this.faces.values()) texture.dispose()
     this.made.clear()
+    this.faces.clear()
   }
 }
 
