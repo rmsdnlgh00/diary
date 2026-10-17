@@ -4,6 +4,7 @@
  */
 
 export type EmotionId = 'HAPPY' | 'JOYFUL' | 'NORMAL' | 'SAD' | 'ANGRY' | 'ANNOYED'
+export type CharacterModel = 'male' | 'female'
 
 export interface EmotionDefinition {
   id: EmotionId
@@ -68,6 +69,8 @@ export interface CharacterAppearance {
 }
 
 export interface DiaryCharacterData extends CharacterAppearance {
+  /** Missing on older saves: use the original male model. */
+  model?: CharacterModel
   id: string
   /** YYYY-MM-DD */
   diaryDate: string

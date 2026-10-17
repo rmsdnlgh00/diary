@@ -99,6 +99,7 @@ function solveCameraDistance(depth: DepthConfig): number {
 }
 
 export interface StageCharacter {
+  model?: import('@/types').CharacterModel
   id: string
   /** 월드 좌표 0~1 */
   x: number

@@ -19,6 +19,7 @@ export function CharacterPanel() {
   const inventory = useGameStore((s) => s.inventory)
   const coins = useGameStore((s) => s.coins)
   const equipItem = useGameStore((s) => s.equipItem)
+  const setCharacterModel = useGameStore((s) => s.setCharacterModel)
   const buyItem = useGameStore((s) => s.buyItem)
   const [selectedId, setSelectedId] = useState('')
   const [category, setCategory] = useState<ClothingCategory>('hat')
@@ -54,14 +55,22 @@ export function CharacterPanel() {
         {candidates.map((c) => <option key={c.id} value={c.id}>{formatKoreanDate(c.diaryDate)}</option>)}
       </select>
     </label>
+    <label className="character-picker">캐릭터 외형
+      <select aria-label="캐릭터 외형" value={character.model === 'female' ? 'female' : 'male'}
+        onChange={(e) => { setTrying({}); setCharacterModel(character.id, e.target.value === 'female' ? 'female' : 'male') }}>
+        <option value="male">남자</option>
+        <option value="female">여자</option>
+      </select>
+    </label>
     <div className="wardrobe-preview">
-      <CharacterPreview3D key={character.id} emotion={character.emotion} fallback={portraitFor(character.emotion)}
+      <CharacterPreview3D key={`${character.id}-${character.model ?? 'male'}`} model={character.model} emotion={character.emotion} fallback={portraitFor(character.emotion)}
         label={`${formatKoreanDate(character.diaryDate)} 캐릭터`} outfit={outfit} />
       <div><span className="panel-hint">이 캐릭터의 장착 아이템</span>
         <CharacterEquipment equippedItems={character.equippedItems} />
         {!Object.values(character.equippedItems).some(Boolean) && <p className="panel-hint">아직 장착한 아이템이 없어요.</p>}
       </div>
     </div>
+    {character.model === 'female' && <p className="panel-hint">여자 캐릭터는 현재 기본 복장과 기본 표정으로 표시돼요. 장착 아이템은 보관되며 남자 외형으로 바꾸면 다시 표시돼요.</p>}
     <TryOnBar trying={trying} coins={coins} onGet={getAndWear} onTakeOff={(slot) => setTrying(without(slot))} />
     <div className="item-tabs item-tabs--clothes" aria-label="의상 분류">
       {(Object.entries(CLOTHING_CATEGORIES) as [ClothingCategory, string][]).map(([id, label]) =>

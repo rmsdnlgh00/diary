@@ -3,14 +3,16 @@ import * as THREE from 'three'
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { dressCharacter, loadCharacterKit } from '@/systems/characterClothes'
 import { bodyOf } from '@/systems/characterFaces'
-import type { EmotionId } from '@/types'
+import { disposeFemaleCharacter, loadFemaleCharacter } from '@/systems/femaleCharacter'
+import type { EmotionId, CharacterModel } from '@/types'
 
 /**
  * The wardrobe's 3D preview: the village character in its idle pose, wearing `outfit`,
  * turning slowly on a little lawn stand. Drag to turn it yourself. Until the model is
  * ready (or without WebGL) the 2D `fallback` picture stays.
  */
-export function CharacterPreview3D({ outfit, emotion, fallback, label }: {
+export function CharacterPreview3D({ outfit, emotion, fallback, label, model = 'male' }: {
+  model?: CharacterModel
   outfit: readonly string[]
   /** The face to show; the painted smile without it. */
   emotion?: EmotionId
@@ -52,6 +54,7 @@ export function CharacterPreview3D({ outfit, emotion, fallback, label }: {
     scene.add(stand, shadow)
 
     let disposed = false
+    let femaleAsset: THREE.Object3D | null = null
     let character: THREE.Object3D | null = null
     let mixer: THREE.AnimationMixer | null = null
     let worn: THREE.Object3D[] = []
@@ -63,8 +66,15 @@ export function CharacterPreview3D({ outfit, emotion, fallback, label }: {
     let faces: Awaited<ReturnType<typeof loadCharacterKit>>['faces'] = null
     let face = ''
 
-    loadCharacterKit().then((kit) => {
-      if (disposed) return
+    const kitPromise = model === 'female'
+      ? loadFemaleCharacter(1.7).then((kit) => ({ ...kit, clothes: new Map(), faces: null }))
+      : loadCharacterKit()
+    kitPromise.then((kit) => {
+      if (disposed) {
+        if (model === 'female') disposeFemaleCharacter(kit.template)
+        return
+      }
+      if (model === 'female') femaleAsset = kit.template
       character = cloneSkinned(kit.template)
       scene.add(character)
       mixer = new THREE.AnimationMixer(character)
@@ -129,6 +139,7 @@ export function CharacterPreview3D({ outfit, emotion, fallback, label }: {
       cancelAnimationFrame(raf)
       observer.disconnect()
       mixer?.stopAllAction()
+      if (femaleAsset) disposeFemaleCharacter(femaleAsset)
       for (const object of [stand, shadow]) {
         object.geometry.dispose()
         ;(object.material as THREE.Material).dispose()
@@ -136,7 +147,7 @@ export function CharacterPreview3D({ outfit, emotion, fallback, label }: {
       renderer.dispose()
       renderer.domElement.remove()
     }
-  }, [])
+  }, [model])
 
   return <div className="character-preview-3d" ref={hostRef} data-ready={ready || undefined} role="img" aria-label={label}>
     {!ready && <img src={fallback} alt="" />}

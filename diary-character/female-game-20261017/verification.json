@@ -1,0 +1,19 @@
+{
+  "source_triangles": 94881,
+  "game_triangles": 9799,
+  "vertices": 8714,
+  "max_bone_influences": 4,
+  "surface_error_median_p95_max": [
+    0.023519067093729973,
+    0.08807075768709183,
+    0.8253999352455139
+  ],
+  "checked_walk_frames": [
+    1,
+    9,
+    17,
+    25
+  ],
+  "checked_idle_frame": 150,
+  "master_preserved": true
+}

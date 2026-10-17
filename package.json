@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "check:game": "node scripts/check-game.mjs",
     "check:village": "node scripts/check-village.mjs",
+    "check:female": "node scripts/check-female.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

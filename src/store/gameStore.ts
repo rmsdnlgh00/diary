@@ -7,7 +7,7 @@ import { diaryReward, writeDiary } from '@/systems/diarySystem'
 import { isMonthKey, loadSave, persistSave } from '@/systems/saveSystem'
 import type { Point } from '@/systems/worldSystem'
 import type { ClothingCategory, DecorationData, DiaryCharacterData, DiaryEntry, EmotionId, GameItem, Inventory, PanelId,
-  PlacedDecoration, WorldDecorations } from '@/types'
+  PlacedDecoration, WorldDecorations, CharacterModel } from '@/types'
 import { TODAY, toDateKey, toMonthKey } from '@/utils/date'
 
 type PlacementTool = { kind: 'place'; itemId: string } | { kind: 'move'; placedId: string } | null
@@ -42,6 +42,7 @@ interface GameState {
   clearLastWritten: () => void
   buyItem: (itemId: string) => void
   equipItem: (characterId: string, category: ClothingCategory, itemId: string | null) => void
+  setCharacterModel: (characterId: string, model: CharacterModel) => void
   chooseDecoration: (itemId: string) => void
   selectDecoration: (placedId: string) => void
   startMovingDecoration: () => void
@@ -135,6 +136,11 @@ export const useGameStore = create<GameState>((set, get) => {
       const group = item.category === 'decoration' ? 'decorations' : 'clothes'
       commit({ coins: coins - price,
         inventory: { ...inventory, [group]: [...inventory[group], item.id] }, feedback: '구매했어요!' })
+    },
+
+    setCharacterModel: (characterId, model) => {
+      if (model !== 'male' && model !== 'female') return
+      commit({ characters: get().characters.map((c) => c.id === characterId ? { ...c, model } : c) })
     },
 
     equipItem: (characterId, category, itemId) => {

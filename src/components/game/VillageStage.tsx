@@ -10,6 +10,7 @@ import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js
 import type { StageCharacter } from './ThreeStage'
 import { collectClothes, dressCharacter, type ClothingPart } from '@/systems/characterClothes'
 import { FaceMaterials, bodyOf } from '@/systems/characterFaces'
+import { loadFemaleCharacter } from '@/systems/femaleCharacter'
 import { MALE_WALK_STRIDE } from '@/systems/walkSystem'
 import { DECORATION_RADIUS, VILLAGE_CAMERA, VILLAGE_CENTER, VILLAGE_CHARACTER_HEIGHT, VILLAGE_POND, VILLAGE_VIEW_DISTANCE,
   VILLAGE_DEPTH, VILLAGE_WALKABLE_AREAS, VILLAGE_WIDTH, FLOOR_TILE_SIZE, isFloorDecoration, snapDecoration, villageGround,
@@ -43,6 +44,7 @@ interface Props {
   onGround: (point: { x: number; y: number }) => void
 }
 interface Instance {
+  model: 'male' | 'female'
   object: THREE.Object3D
   mixer: THREE.AnimationMixer
   walk: THREE.AnimationAction
@@ -389,6 +391,21 @@ export function VillageStage(props: Props) {
     let template: THREE.Group | null = null
     let walkClip: THREE.AnimationClip | null = null
     let idleClip: THREE.AnimationClip | null = null
+    let female: Awaited<ReturnType<typeof loadFemaleCharacter>> | null = null
+    let femaleRequested = false
+    const requestFemale = () => {
+      if (femaleRequested) return
+      femaleRequested = true
+      loadFemaleCharacter(VILLAGE_CHARACTER_HEIGHT).then((asset) => {
+        if (disposed) { disposeObject(asset.template); return }
+        female = asset
+      }).catch((error) => {
+        if (!disposed) {
+          console.error('[VillageStage] 여자 캐릭터 로드 실패', error)
+          setStatus('여자 캐릭터를 불러오지 못했어요. 새로고침해 주세요.')
+        }
+      })
+    }
     let decorationAsset: THREE.Object3D | null = null
     let clothesAsset: THREE.Object3D | null = null
     let clothes = new Map<string, ClothingPart[]>()
@@ -841,26 +858,38 @@ export function VillageStage(props: Props) {
           instances.delete(id)
         }
         for (const c of characters) {
+          const model = c.model === 'female' ? 'female' : 'male'
+          if (model === 'female' && !female) { requestFemale(); continue }
+          const characterTemplate = model === 'female' ? female!.template : template
+          const characterWalk = model === 'female' ? female!.walk : walkClip
+          const characterIdle = model === 'female' ? female!.idle : idleClip
           let inst = instances.get(c.id)
+          if (inst && inst.model !== model) {
+            inst.mixer.stopAllAction()
+            inst.mixer.uncacheRoot(inst.object)
+            scene.remove(inst.object)
+            instances.delete(c.id)
+            inst = undefined
+          }
           if (!inst) {
-            const object = cloneSkinned(template)
+            const object = cloneSkinned(characterTemplate)
             object.userData.characterId = c.id
             scene.add(object)
             const mixer = new THREE.AnimationMixer(object)
-            const walk = mixer.clipAction(walkClip).setEffectiveWeight(0).play()
-            const idle = mixer.clipAction(idleClip).setEffectiveWeight(1).play()
-            inst = { object, mixer, walk, idle, blend: 0, angle: 0, lastDistance: c.walkDistance, outfitKey: '', outfit: [], face: null }
+            const walk = mixer.clipAction(characterWalk).setEffectiveWeight(0).play()
+            const idle = mixer.clipAction(characterIdle).setEffectiveWeight(1).play()
+            inst = { model, object, mixer, walk, idle, blend: 0, angle: 0, lastDistance: c.walkDistance, outfitKey: '', outfit: [], face: null }
             instances.set(c.id, inst)
           }
           const outfitKey = c.outfit?.join('|') ?? ''
           // The body shows the day's mood and hides what the clothes cover.
           const faceKey = `${c.emotion ?? 'NORMAL'}|${outfitKey}`
-          if (facesReady && faces && inst.face !== faceKey) {
+          if (model === 'male' && facesReady && faces && inst.face !== faceKey) {
             inst.face = faceKey
             const body = bodyOf(inst.object)
             if (body) body.material = faces.material(c.emotion ?? 'NORMAL', c.outfit)
           }
-          if (outfitKey !== inst.outfitKey) {
+          if (model === 'male' && outfitKey !== inst.outfitKey) {
             inst.outfitKey = outfitKey
             inst.outfit = dressCharacter(inst.object, inst.outfit, c.outfit ?? [], clothes)
           }
@@ -870,7 +899,7 @@ export function VillageStage(props: Props) {
           const moved = Math.max(0, c.walkDistance - inst.lastDistance)
           inst.lastDistance = c.walkDistance
           const speed = delta > 0 ? moved * VILLAGE_WIDTH / delta : 0
-          inst.walk.timeScale = Math.max(0.001, speed / (MALE_WALK_STRIDE * 2 * VILLAGE_WIDTH) * walkClip.duration)
+          inst.walk.timeScale = Math.max(0.001, speed / (MALE_WALK_STRIDE * 2 * VILLAGE_WIDTH) * characterWalk.duration)
           inst.blend += ((moving ? 1 : 0) - inst.blend) * Math.min(1, delta / 0.25)
           inst.walk.setEffectiveWeight(inst.blend)
           inst.idle.setEffectiveWeight(1 - inst.blend)
@@ -922,6 +951,7 @@ export function VillageStage(props: Props) {
         instance.mixer.uncacheRoot(instance.object)
       }
       if (template) disposeObject(template)
+      if (female) disposeObject(female.template)
       if (terrain) disposeObject(terrain)
       // Placed decorations are clones that share these geometries and materials.
       if (decorationAsset) disposeObject(decorationAsset)
