@@ -840,3 +840,24 @@
   visibility: hidden;
   pointer-events: none;
 }
+
+/* Phones in portrait: the menu's panels open as a page of their own above the menu instead of a card
+   floating over the village. Decorating stays a sheet: it needs the village in view. */
+@media (max-width: 600px) and (orientation: portrait) {
+  .stage .bottombar { z-index: 12; }
+  .stage .editor,
+  .stage .commerce-sheet:not(.commerce-sheet--decorate) {
+    inset: 0; width: auto; height: auto; max-height: none; transform: none;
+    border-radius: 0; box-shadow: none; transition: none;
+    padding: calc(12px + var(--safe-top)) calc(16px + var(--safe-right)) calc(96px + var(--safe-bottom)) calc(16px + var(--safe-left));
+    overflow-y: auto; overscroll-behavior: contain;
+  }
+  .stage .editor::before { display: none; }
+  .stage .commerce-sheet:not(.commerce-sheet--decorate) .sheet-handle { display: none; }
+  .stage .commerce-sheet--shop { padding-top: var(--safe-top); }
+  .stage .commerce-sheet--shop .shop-awning { margin: 0 calc(-16px - var(--safe-right)) 0 calc(-16px - var(--safe-left)); }
+  .stage .commerce-sheet:not(.commerce-sheet--decorate) .sheet__header {
+    position: sticky; top: calc(-12px - var(--safe-top)); z-index: 2; margin: 0 -4px; padding: 8px 4px;
+    background: var(--paper);
+  }
+}
