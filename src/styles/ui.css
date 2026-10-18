@@ -1,5 +1,4 @@
-.topbar,
-.bottombar {
+.topbar {
   position: absolute;
   z-index: 10;
   display: flex;
@@ -50,49 +49,6 @@
   box-shadow: inset 0 -0.15cqw 0.2cqw rgba(0, 0, 0, 0.12);
 }
 
-/* ---------- bottom ---------- */
-
-.bottombar {
-  bottom: 1.8cqw;
-  left: 50%;
-  transform: translateX(-50%);
-  gap: 0.8cqw;
-  padding: 0.8cqw;
-  /* Centred with left: 50%, so size to the menus instead of the remaining half width. */
-  width: max-content;
-  max-width: calc(100% - 4cqw);
-  border-radius: var(--radius-pill);
-  background: rgba(255, 250, 242, 0.82);
-  backdrop-filter: blur(0.4cqw);
-  box-shadow: var(--shadow-soft);
-}
-
-.menu-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.6cqw;
-  padding: 0.8cqw 1.4cqw;
-  border-radius: var(--radius-pill);
-  background: var(--paper-warm);
-  font-size: 1.5cqw;
-  white-space: nowrap;
-  line-height: 1.3;
-  transition: transform 140ms ease, background 140ms ease;
-}
-
-.menu-button:hover {
-  transform: translateY(-0.3cqw);
-}
-
-.menu-button--active {
-  background: var(--accent);
-  color: #fff;
-}
-
-.menu-button__icon {
-  font-size: 1.7cqw;
-}
-
 /* ---------- sheet ---------- */
 
 .sheet {
@@ -133,39 +89,6 @@
   border-radius: 50%;
   background: var(--paper-warm);
   font-size: 1.3cqw;
-}
-
-/* ---------- modal ---------- */
-
-.modal-backdrop {
-  position: absolute;
-  inset: 0;
-  z-index: 20;
-  display: grid;
-  place-items: center;
-  background: rgba(60, 44, 34, 0.32);
-}
-
-.modal {
-  width: 32cqw;
-  padding: 2.2cqw 2.4cqw 2cqw;
-  border-radius: 2cqw;
-  background: var(--paper);
-  text-align: center;
-  box-shadow: 0 1.5cqw 3cqw rgba(60, 44, 34, 0.3);
-}
-
-.modal__date {
-  margin: 0;
-  font-size: 2.1cqw;
-  font-weight: 400;
-}
-
-.modal__portrait {
-  display: block;
-  width: 11cqw;
-  height: auto;
-  margin: 0.4cqw auto 0.2cqw;
 }
 
 /* ---------- 일기 작성: a lined notebook page ---------- */
@@ -320,25 +243,6 @@
   0% { transform: translateY(1.5cqw) scale(0.7); opacity: 0; }
   70% { transform: translateY(-0.3cqw) scale(1.05); opacity: 1; }
   100% { transform: none; }
-}
-
-.modal__text {
-  margin: 0;
-  font-family: 'Gowun Dodum', sans-serif;
-  font-size: 1.4cqw;
-  line-height: 1.7;
-  color: var(--ink-soft);
-}
-
-.modal__emotion {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.6cqw;
-  margin-top: 1.2cqw;
-  padding: 0.6cqw 1.4cqw;
-  border-radius: var(--radius-pill);
-  background: var(--paper-warm);
-  font-size: 1.4cqw;
 }
 
 .primary-button {
@@ -673,14 +577,8 @@
   .pill { padding: 0 8px; min-height: 44px; font-size: 14px; }
   .pill__sub { display: none; }
   .month-arrow, .icon-button { flex-shrink: 0; }
-  .bottombar { bottom: 4px; padding: 4px; gap: 4px; max-width: calc(100% - 16px); }
-  .menu-button { padding: 6px 10px; white-space: nowrap; }
-  .menu-button__icon { font-size: 18px; }
-  .village-controls { top: 56px; left: 8px; right: 8px; gap: 4px; }
-  .village-controls button, .village-return { padding: 6px 10px; }
+  .village-return { padding: 6px 10px; }
   .village-return { top: 56px; left: 8px; }
-  .village-days { top: 104px; left: 8px; right: 8px; gap: 6px; }
-  .stage .village-days button { min-height: 36px; padding: 4px 12px; font-size: 13px; }
   .village-hint { bottom: 64px; font-size: 12px; }
   .sheet, .editor {
     width: min(480px, calc(100% - 16px));
@@ -772,20 +670,14 @@
   .fitting-room__side > small, .fitting-room__clear { font-size: 12px; }
   .fitting-room__clear { min-height: 32px !important; padding: 2px 10px; }
   .fitting-room .try-on { max-height: 84px; }
-  .modal { width: min(440px, calc(100% - 16px)); max-height: calc(100% - 16px); overflow-y: auto; padding: 16px; }
-  .modal__text { font-size: 16px; }
 }
 
 /* Paint the background under the notch and home indicator, keep controls clear. */
 .topbar { top: var(--safe-top); left: var(--safe-left); right: var(--safe-right); }
-.bottombar { bottom: calc(1.8cqw + var(--safe-bottom)); }
-.village-controls, .village-return { top: calc(6cqw + var(--safe-top)); left: calc(2cqw + var(--safe-left)); }
-.modal-backdrop { padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left); }
+.village-return { top: calc(6cqw + var(--safe-top)); left: calc(2cqw + var(--safe-left)); }
 
 @media (max-width: 600px), (any-pointer: coarse) and (max-width: 1024px) {
-  .bottombar { bottom: calc(4px + var(--safe-bottom)); }
-  .village-controls, .village-return { top: calc(56px + var(--safe-top)); left: calc(8px + var(--safe-left)); }
-  .village-controls { right: calc(8px + var(--safe-right)); }
+  .village-return { top: calc(56px + var(--safe-top)); left: calc(8px + var(--safe-left)); }
   .village-hint { bottom: calc(64px + var(--safe-bottom)); }
   .sheet, .editor { bottom: calc(64px + var(--safe-bottom)); max-height: calc(100% - 72px - var(--safe-top) - var(--safe-bottom)); }
   .commerce-sheet, .commerce-sheet--decorate { top: calc(56px + var(--safe-top)); right: calc(8px + var(--safe-right)); bottom: calc(64px + var(--safe-bottom)); }
@@ -795,13 +687,7 @@
   .topbar { flex-wrap: wrap; justify-content: space-between; }
   .pill--month { flex: 1; justify-content: space-between; }
   .pill--status { order: 3; min-height: 32px; font-size: 12px; }
-  .village-controls { top: calc(92px + var(--safe-top)); }
-  .village-days { top: calc(140px + var(--safe-top)); }
   .village-return { top: calc(92px + var(--safe-top)); }
-  .bottombar { width: calc(100% - 16px - var(--safe-left) - var(--safe-right)); gap: 4px; border-radius: 20px; }
-  .menu-button { flex: 1; min-width: 0; flex-direction: column; gap: 4px; padding: 8px 2px; }
-  .stage .menu-button { font-size: 11px; min-height: 60px; }
-  .menu-button__icon { font-size: 22px; }
   .village-hint { bottom: calc(84px + var(--safe-bottom)); font-size: 13px; }
   .sheet, .editor { bottom: calc(84px + var(--safe-bottom)); max-height: calc(100% - 100px - var(--safe-top) - var(--safe-bottom)); }
   .commerce-sheet, .commerce-sheet--decorate {
@@ -844,7 +730,6 @@
 /* Phones in portrait: the menu's panels open as a page of their own above the menu instead of a card
    floating over the village. Decorating stays a sheet: it needs the village in view. */
 @media (max-width: 600px) and (orientation: portrait) {
-  .stage .bottombar { z-index: 12; }
   .stage .editor,
   .stage .commerce-sheet:not(.commerce-sheet--decorate) {
     inset: 0; width: auto; height: auto; max-height: none; transform: none;
@@ -909,3 +794,153 @@
 @media (max-width: 600px) and (orientation: portrait) {
   .topbar { flex-wrap: nowrap; }
 }
+
+/* Today's diary, still unwritten: one apricot button just above the menu. */
+.today-prompt {
+  position: absolute; z-index: 10; left: 50%; bottom: calc(8.5cqw + var(--safe-bottom)); transform: translateX(-50%);
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 0.6cqw 1.6cqw; border: 0; border-radius: var(--radius-pill);
+  background: var(--accent); color: #fff; font: inherit; font-size: clamp(14px, 1.4cqw, 19px);
+  box-shadow: 0 4px 12px rgba(242, 147, 74, 0.35); cursor: pointer;
+  animation: today-prompt-in 0.25s ease-out;
+}
+.today-prompt svg { width: 1.2em; height: 1.2em; }
+.today-prompt:hover { background: var(--accent-deep); }
+@keyframes today-prompt-in { from { opacity: 0; transform: translate(-50%, 6px); } }
+@media (max-width: 600px), (any-pointer: coarse) and (max-width: 1024px) {
+  .stage .today-prompt { padding: 10px 20px; min-height: 44px; font-size: 15px; }
+}
+@media (max-width: 600px) and (orientation: portrait) {
+  .stage .editor,
+  .stage .commerce-sheet:not(.commerce-sheet--decorate) { padding-bottom: calc(24px + var(--safe-bottom)); }
+  .stage .commerce-sheet--decorate { bottom: calc(8px + var(--safe-bottom)); }
+}
+
+/* ---------- corners: the arrow menu (bottom left), the journal (bottom right), the shop (top right) ---------- */
+.icon { display: block; flex-shrink: 0; }
+.icon__tint { opacity: 0.16; }
+.today-prompt .icon { width: 1.25em; height: 1.25em; }
+.today-prompt .icon__tint { opacity: 0.3; }
+
+.corner-button {
+  position: absolute; z-index: 10;
+  display: grid; place-items: center; align-content: center; gap: 1px;
+  width: 56px; height: 56px; padding: 0;
+  border: 1px solid rgba(204, 168, 128, 0.35); border-radius: 50%;
+  background: rgba(255, 247, 235, 0.95); color: var(--ink-soft);
+  box-shadow: 0 3px 10px rgba(76, 58, 50, 0.14); backdrop-filter: blur(6px);
+  font: inherit; cursor: pointer; transition: color 0.15s, transform 0.15s;
+}
+.corner-button:active { transform: scale(0.95); }
+.corner-button[aria-pressed='true'] { color: var(--accent-deep); }
+.corner-button[aria-pressed='true'] .icon__tint { opacity: 0.32; }
+.corner-button__icon { width: 24px; height: 24px; }
+.stage .corner-button__label { font-size: 10px; line-height: 1.1; }
+.journal-button { right: calc(16px + var(--safe-right)); bottom: calc(16px + var(--safe-bottom)); }
+
+.more-menu {
+  position: absolute; z-index: 13; left: calc(16px + var(--safe-left)); bottom: calc(16px + var(--safe-bottom));
+  display: flex; align-items: center;
+}
+.more-menu .more-menu__toggle { position: relative; z-index: 1; }
+.more-menu__arrow { width: 18px; height: 18px; transition: transform 0.2s; }
+.more-menu--open .more-menu__toggle { color: var(--accent-deep); }
+.more-menu--open .more-menu__arrow { transform: rotate(180deg); }
+/* Opens left to right, out of the arrow. */
+.more-menu__list {
+  display: flex; gap: 4px; margin-left: -28px; padding: 4px 8px 4px 34px;
+  border: 1px solid rgba(204, 168, 128, 0.35); border-radius: 0 30px 30px 0;
+  background: rgba(255, 247, 235, 0.97); box-shadow: 0 3px 10px rgba(76, 58, 50, 0.14);
+  transform-origin: left center;
+  animation: more-open 0.22s cubic-bezier(.2, .9, .3, 1);
+}
+@keyframes more-open { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+.stage .more-menu__item {
+  display: grid; place-items: center; align-content: center; gap: 2px;
+  min-width: 64px; min-height: 48px; padding: 2px 8px;
+  border: 0; border-radius: 14px; background: transparent;
+  color: var(--ink-soft); font: inherit; font-size: 11px; white-space: nowrap; cursor: pointer;
+}
+.more-menu__icon { width: 24px; height: 24px; }
+.more-menu__item[aria-pressed='true'] { color: var(--accent-deep); }
+.more-menu__item:active { background: var(--paper-warm); }
+
+.today-prompt { z-index: 10; }
+.stage .today-prompt { bottom: calc(22px + var(--safe-bottom)); }
+.stage:has(.more-menu--open) .today-prompt { opacity: 0; pointer-events: none; }
+.stage .village-hint { bottom: calc(84px + var(--safe-bottom)); }
+
+/* Top right: the shop sits under the coins. */
+.stage .topbar { align-items: flex-start; }
+.top-right { display: flex; flex-direction: column; align-items: flex-end; pointer-events: auto; }
+.shop-button {
+  display: inline-flex; align-items: center; justify-content: flex-end;
+  min-height: 44px; padding: 0; border: 0; background: transparent; font: inherit; cursor: pointer;
+}
+.top-chip--shop { gap: 5px; padding-left: 8px; color: var(--ink-soft); }
+.top-chip--shop .icon { width: 18px; height: 18px; }
+.shop-button[aria-pressed='true'] .top-chip--shop { color: var(--accent-deep); }
+
+@media (max-width: 600px) and (orientation: portrait) {
+  /* An open page hides the village and its corner buttons until it is closed. */
+  .stage:has(.sheet, .editor) :is(.more-menu, .journal-button) { display: none; }
+}
+
+/* ---------- 일기 바텀시트: a tapped villager's diary slides up over the village ---------- */
+.diary-sheet-backdrop {
+  position: absolute; inset: 0; z-index: 40;
+  display: flex; align-items: flex-end; justify-content: center;
+  background: rgba(60, 44, 34, 0.18);
+  animation: diary-fade .2s ease-out;
+}
+.diary-sheet {
+  width: min(560px, 100%); max-height: 62%;
+  display: flex; flex-direction: column;
+  padding: 0 22px calc(20px + var(--safe-bottom));
+  border-radius: 22px 22px 0 0;
+  background: var(--paper);
+  box-shadow: 0 -8px 28px rgba(60, 44, 34, 0.18);
+  transition: transform .2s ease-out;
+  animation: diary-rise .28s cubic-bezier(.2, .9, .3, 1);
+}
+.diary-sheet__grab { flex: none; touch-action: none; cursor: grab; padding-top: 8px; }
+.diary-sheet__handle {
+  display: block; width: 38px; height: 4px; margin: 0 auto 10px;
+  border-radius: 99px; background: #e4d6c6;
+}
+.diary-sheet__head { display: flex; align-items: center; gap: 12px; padding-bottom: 12px; border-bottom: 1px dashed #ead9c4; }
+.diary-sheet__portrait {
+  width: 52px; height: 52px; flex: none; object-fit: contain;
+  border-radius: 16px; background: var(--paper-warm);
+}
+.diary-sheet__title { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.diary-sheet__date { margin: 0; font-size: 17px; font-weight: 400; }
+.diary-sheet__mood {
+  justify-self: start; display: inline-flex; align-items: center; gap: 6px;
+  padding: 2px 10px 2px 8px; border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--mood) 18%, var(--paper));
+  font-size: 13px; color: var(--ink-soft);
+}
+.diary-sheet__mood .dot { width: 9px; height: 9px; background: var(--mood); box-shadow: none; }
+.diary-sheet__close {
+  width: 44px; height: 44px; flex: none; margin-right: -10px;
+  display: grid; place-items: center; border-radius: 50%; color: var(--ink-soft);
+}
+.diary-sheet__close svg { width: 18px; height: 18px; }
+.diary-sheet__close:active { background: var(--paper-warm); }
+.diary-sheet__text {
+  margin: 0; padding-top: 14px; overflow-y: auto; white-space: pre-wrap; overscroll-behavior: contain;
+  font-family: 'Gowun Dodum', sans-serif; font-size: 16px; line-height: 1.8; color: var(--ink);
+  /* Lined notebook paper, matching the diary editor. */
+  background: repeating-linear-gradient(transparent 0 calc(1.8em - 1px), #f1e4d3 calc(1.8em - 1px) 1.8em);
+  background-origin: content-box; background-clip: content-box; background-attachment: local;
+}
+@keyframes diary-rise { from { transform: translateY(100%); } }
+@keyframes diary-fade { from { background: transparent; } }
+@media (prefers-reduced-motion: reduce) {
+  .diary-sheet, .diary-sheet-backdrop { animation: none; }
+}
+
+/* Future months and years stay closed. */
+.month-panel button:disabled { opacity: 0.3; cursor: default; }
+.month-panel__month:disabled { background: transparent; }

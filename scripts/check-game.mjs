@@ -40,9 +40,15 @@ try {
     await settle()
   }
   const click = async (selector) => { await page.click(selector); await settle() }
+  // The arrow menu slides open left to right; tap once it has finished opening.
+  const openMore = async (panel) => {
+    await click('.more-menu__toggle')
+    await page.waitForFunction(() => document.querySelector('.more-menu__list')?.getAnimations().every((a) => a.playState === 'finished'))
+    await click(`.more-menu__item[data-panel="${panel}"]`)
+  }
   const button = async (text) => {
     const found = await page.evaluate((text) => {
-      const target = [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === text)
+      const target = [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === text || b.getAttribute('aria-label') === text)
       if (!target) return false
       target.click()
       return true
@@ -77,7 +83,7 @@ try {
     SHOP.free = false
     useGameStore.setState({ coins: 100 })
   })
-  await click('.menu-button:nth-child(2)')
+  await click('.shop-button')
   await click('[data-item-id="winter_coat"] button')
   assert.equal((await state()).feedback, '코인이 부족해요')
   assert.equal((await state()).coins, 100)
@@ -91,11 +97,11 @@ try {
   assert.equal((await state()).inventory.clothes.length, 6)
   report('정확한 코인 차감·잔액 부족·중복 구매 차단')
 
-  await button('공간 꾸미기')
+  await button('마을 꾸미기')
   await click('[data-item-id="flower_pot"] button')
   await click('[data-item-id="small_lamp"] button')
   assert.equal((await state()).coins, 0)
-  await click('.menu-button:nth-child(3)')
+  await openMore('CHARACTER')
   const firstCharacter = await page.$eval('.character-picker select', (el) => el.value)
   const categoryItems = [
     ['모자', 'basic_hat'], ['상의', 'hoodie_gray'], ['하의', 'basic_pants'],
@@ -167,7 +173,7 @@ try {
   await action('closePanel')
   report('상점 탈의실: 입어보기·벗기·받고 입기')
 
-  await click('.menu-button:nth-child(4)')
+  await openMore('DECORATE')
   const ground = async (x, y) => {
     const box = await page.$eval('.game-world', (el) => {
       const r = el.getBoundingClientRect(); return { x: r.x, y: r.y, width: r.width, height: r.height }
@@ -235,7 +241,7 @@ try {
   const nextMonth = (await state()).worldId
   assert.notEqual(month, nextMonth)
   assert.equal(await page.$('.placed-item'), null)
-  await click('.menu-button:nth-child(4)')
+  await openMore('DECORATE')
   await click('[data-item-id="flower_pot"]')
   await ground(0.55, 0.55)
   s = await state()
@@ -250,7 +256,8 @@ try {
 
   // 오늘 일기를 새로 쓰고 고쳐도 구매/장착 정보와 다른 날짜는 보존된다.
   const beforeDiary = await state()
-  await click('.menu-button:nth-child(1)')
+  // Today is still unwritten: the prompt above the menu opens the editor.
+  await click('.today-prompt')
   await page.type('.editor__text', '행복하고 감사한 하루였다.')
   await click('.editor__save')
   s = await state()
@@ -266,10 +273,11 @@ try {
   assert.equal(s.coins, beforeDiary.coins + 10)
   // A draft survives closing the editor; a mood the player picks wins over the text.
   await action('closePanel')
-  await click('.menu-button:nth-child(1)')
+  assert.equal(await page.$('.today-prompt'), null, 'the prompt is gone once today is written')
+  await action('togglePanel', 'DIARY')
   await page.type('.editor__text', ' 그래도 저녁은 맛있었다.')
   await action('closePanel')
-  await click('.menu-button:nth-child(1)')
+  await action('togglePanel', 'DIARY')
   assert.ok((await page.$eval('.editor__text', (el) => el.value)).endsWith('그래도 저녁은 맛있었다.'), 'draft kept')
   await page.evaluate(() => [...document.querySelectorAll('.editor__moods button')].find((b) => b.textContent === '화남').click())
   await settle()
@@ -285,14 +293,14 @@ try {
   assert.equal((await state()).coins, beforeDiary.coins + 10, 'edits earn no extra coins')
 
   // Past diaries: the calendar shows today's mood; the entry opens the character's diary.
-  await click('.menu-button:nth-child(5)')
+  await click('.journal-button')
   assert.ok(await page.$(`.journal-day[data-date="${today}"][style]`), 'today is coloured by its mood')
   await click(`.journal-day[data-date="${today}"]`)
   assert.ok((await page.$eval('.journal-entry__text', (el) => el.textContent)).includes('그래도 저녁은 맛있었다.'))
   await page.screenshot({ path: join(artifacts, 'journal.png') })
   await button('마을에서 만나기')
   assert.equal((await state()).activePanel, null)
-  assert.ok(await page.$('.modal__text'), "the day's diary opens in the village")
+  assert.ok(await page.$('.diary-sheet__text'), "the day's diary opens in the village")
   await button('닫기')
   report('지난 일기: 달력 기분 색·일기 보기·마을에서 만나기, 일기 코인 보상')
   const walkerPositions = () => page.evaluate(() => window.__three
@@ -305,7 +313,7 @@ try {
     { timeout: 20_000 }, positionBefore)
   // The 3D village test covers mesh picking; verify diary detail persistence here.
   await action('selectCharacter', (await state()).characters.find((c) => c.diaryDate.startsWith(month)).id)
-  assert.ok(await page.$('.modal__text'))
+  assert.ok(await page.$('.diary-sheet__text'))
   await button('닫기')
   report('기존 일기 작성·감정 수정·날짜 중복 방지·랜덤 이동·일기 상세 유지')
 
@@ -378,6 +386,16 @@ try {
   await action('setWorld', realCalendar)
   assert.equal(await page.$('[role="alert"]'), null)
   assert.deepEqual(errors, [])
+  // On the current month the picker cannot step into the future.
+  await click('.top-hit')
+  const locked = await page.evaluate(() => ({
+    nextMonth: document.querySelector('[aria-label="다음 달"]').disabled,
+    nextYear: document.querySelector('[aria-label="다음 해"]').disabled,
+    future: [...document.querySelectorAll('.month-panel__month')].filter((b) => b.disabled).length,
+  }))
+  assert.ok(locked.nextMonth && locked.nextYear, 'no future month or year')
+  assert.equal(locked.future, 12 - Number(realCalendar.slice(5, 7)))
+  await click('.top-hit')
   report('저장 실패 피드백·복구 및 브라우저 런타임 오류 없음')
   console.log(`\n${checks.length}개 시나리오 통과. 스크린샷: ${artifacts}`)
 } catch (error) {

@@ -8,7 +8,7 @@ import { DecoratePanel } from './DecoratePanel'
 import { JournalPanel } from './JournalPanel'
 
 const TITLES: Record<Exclude<PanelId, 'DIARY'>, string> = {
-  SHOP: '상점', CHARACTER: '캐릭터 꾸미기', DECORATE: '공간 꾸미기', JOURNAL: '지난 일기',
+  SHOP: '상점', CHARACTER: '옷장', DECORATE: '마을 꾸미기', JOURNAL: '지난 일기',
 }
 
 type SheetSize = 'compact' | 'expanded'

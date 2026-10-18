@@ -31,7 +31,7 @@ try {
   assert.equal(await page.$('.rotate-notice'), null)
   assert.deepEqual(await page.$eval('.stage', (el) => ({ width: el.clientWidth, height: el.clientHeight })), { width: 390, height: 844 })
   assert.equal(await page.$eval('.stage', (el) => getComputedStyle(el).visibility), 'visible')
-  assert.ok(await page.$$eval('.menu-button', (buttons) => buttons.every((el) => {
+  assert.ok(await page.$$eval('.corner-button, .shop-button', (buttons) => buttons.every((el) => {
     const box = el.getBoundingClientRect()
     return box.left >= 0 && box.right <= innerWidth && box.height >= 44
   })), 'portrait menus fit inside the screen')
@@ -68,11 +68,6 @@ try {
   await touch('touchEnd', [])
   assert.equal(await page.evaluate(() => window.visualViewport.scale), 1, 'pinch moves the camera rather than magnifying the page')
   await page.screenshot({ path: join(artifacts, 'phone-pan-and-zoom.png') })
-  await page.evaluate(() => [...document.querySelectorAll('.village-controls button')]
-    .find((b) => b.textContent === '마을 전체').click())
-  await page.waitForFunction((y) => Math.abs(window.__village.camera.position.y - y) < 0.01, {}, initialCamera.y)
-  const resetPosition = await cameraPosition()
-  assert.ok(Math.abs(resetPosition[0] - beforePan[0]) < 0.01 && Math.abs(resetPosition[2] - beforePan[2]) < 0.01, 'overview restores the initial framing')
   await touch('touchStart', [[1, 170, 440]])
   await touch('touchCancel', [])
   await touchClient.detach()
@@ -81,7 +76,7 @@ try {
     window.__village.renderer.getPixelRatio() === 2)
   assert.equal(await page.$eval('.stage', (el) => el.clientHeight), 390)
   assert.equal(await page.$eval('.stage', (el) => getComputedStyle(el).touchAction), 'pan-x pan-y')
-  const touchTargets = await page.$$eval('.menu-button, .village-controls button, .top-hit',
+  const touchTargets = await page.$$eval('.corner-button, .shop-button, .top-hit',
     (buttons) => buttons.every((el) => el.getBoundingClientRect().width >= 44 && el.getBoundingClientRect().height >= 44))
   assert.ok(touchTargets, 'phone navigation has 44px touch targets')
   await page.screenshot({ path: join(artifacts, 'phone-landscape.png') })
@@ -90,7 +85,7 @@ try {
   await page.waitForFunction(() => !!window.__village?.scene.getObjectByName('V4_Ground'), { timeout: 30000 })
   const button = async (label) => {
     assert.ok(await page.evaluate((label) => {
-      const b = [...document.querySelectorAll('button')].find((el) => el.textContent.trim() === label || el.querySelector('.menu-button__label')?.textContent.trim() === label)
+      const b = [...document.querySelectorAll('button')].find((el) => el.textContent.trim() === label || el.querySelector('.corner-button__label')?.textContent.trim() === label)
       b?.click()
       return !!b
     }, label), `Button not found: ${label}`)
@@ -101,9 +96,8 @@ try {
     return JSON.parse(JSON.stringify(useGameStore.getState()))
   })
   const before = await state()
-  // The view buttons no longer offer the legacy village or the 30-person preview.
-  const viewButtons = await page.$$eval('.village-controls button', (els) => els.map((el) => el.textContent.trim()))
-  assert.deepEqual(viewButtons, ['마을 전체', '기본 시점', '따라가기'])
+  // The village has no view switcher any more: the camera always frames the whole village.
+  assert.equal(await page.$('.village-controls, .village-days'), null)
   // The 30-person layout check stays reachable at ?preview=30.
   const home = server.resolvedUrls.local[0]
   await page.goto(`${home}?preview=30`, { waitUntil: 'networkidle0' })
@@ -118,10 +112,6 @@ try {
   await page.screenshot({ path: join(artifacts, 'mobile-overview.png') })
   const layout = await page.$eval('.stage', (el) => ({ width: el.clientWidth, height: el.clientHeight }))
   assert.deepEqual(layout, { width: 390, height: 844 })
-  await button('기본 시점')
-  await page.screenshot({ path: join(artifacts, 'mobile-basic.png') })
-  await button('따라가기')
-  await page.screenshot({ path: join(artifacts, 'mobile-follow.png') })
   const afterPreview = await state()
   assert.deepEqual(afterPreview.diaries, before.diaries)
   assert.deepEqual(afterPreview.characters, before.characters)
@@ -132,14 +122,17 @@ try {
     useGameStore.getState().saveDiary(useGameStore.getState().today, '행복하고 감사한 마을 테스트')
   })
   await page.waitForFunction(() => window.__village.instances.size >= 1)
-  // Today's spawn point depends on the date and may lie outside the phone's view; follow it.
-  await button('따라가기')
-  await new Promise((resolve) => setTimeout(resolve, 1200))
-  // Following offers a day picker; today's character is chosen first.
-  const days = await page.$$eval('.village-days [role="option"]', (els) => els.map((el) => ({
-    label: el.getAttribute('aria-label'), selected: el.getAttribute('aria-selected') === 'true' })))
-  assert.ok(days.length >= 1 && days.at(-1).selected, 'the follow view starts on the latest day')
-  await page.screenshot({ path: join(artifacts, 'mobile-follow-days.png') })
+  // The camera stays on the whole village: wait until today's character walks into the phone's view.
+  await page.waitForFunction(async () => {
+    const THREE = await import('/node_modules/.vite/deps/three.js')
+    const { useGameStore } = await import('/src/store/gameStore.ts')
+    const s = useGameStore.getState()
+    const id = s.characters.find((c) => c.diaryDate === s.today)?.id
+    const instance = id && window.__village.instances.get(id)
+    if (!instance) return false
+    const p = new THREE.Box3().setFromObject(instance.object).getCenter(new THREE.Vector3()).project(window.__village.camera)
+    return Math.abs(p.x) < .8 && p.y > -.6 && p.y < .7
+  }, { timeout: 30000, polling: 300 })
   const clicked = await page.evaluate(async () => {
     const THREE = await import('/node_modules/.vite/deps/three.js')
     const { useGameStore } = await import('/src/store/gameStore.ts')
@@ -152,10 +145,9 @@ try {
     return { id, x: rect.left + (p.x + 1) / 2 * rect.width, y: rect.top + (1 - p.y) / 2 * rect.height, sceneObjects: scene.children.length }
   })
   await page.mouse.click(clicked.x, clicked.y)
-  await page.waitForSelector('.modal__text')
+  await page.waitForSelector('.diary-sheet__text')
   assert.equal((await state()).selectedCharacterId, clicked.id)
-  await button('닫기')
-  await button('마을 전체')
+  await page.click('.diary-sheet__close')
   const movement = await page.evaluate(async () => {
     const { villageGround, villagePoint } = await import('/src/systems/villageLayout.ts')
     const { camera, renderer, instances } = window.__village
@@ -173,13 +165,13 @@ try {
     const o = window.__village.instances.get(id).object
     return Math.hypot(o.position.x - initial[0], o.position.z - initial[1]) > .05
   }, { timeout: 10000 }, movement)
-  await button('오늘 기록')
+  // Today is already written here, so there is no prompt: open the editor directly.
+  await page.evaluate(async () => { const { useGameStore } = await import('/src/store/gameStore.ts'); useGameStore.getState().togglePanel('DIARY') })
   await page.waitForSelector('.editor__text')
   const editorSize = await page.$eval('.editor', (el) => ({ width: el.clientWidth, scroll: el.scrollWidth }))
   assert.ok(editorSize.scroll <= editorSize.width + 1)
   await page.keyboard.press('Escape')
   await page.setViewport({ width: 1440, height: 900 })
-  await button('마을 전체')
   // Saved decorations (legacy coordinates) appear as 3D models on the lawn. Not persisted.
   const decorationIds = await page.evaluate(async () => {
     const { useGameStore } = await import('/src/store/gameStore.ts')
@@ -247,7 +239,6 @@ try {
   await page.mouse.move(spotA[0] + 50, spotA[1] + 20, { steps: 5 })
   await page.mouse.up()
   assert.equal((await placedNow()).length, 0, 'dragging the camera does not place a decoration')
-  await button('마을 전체')
   await new Promise((resolve) => setTimeout(resolve, 300))
   await page.mouse.click(...spotA)
   let decorated = await placedNow()
@@ -416,14 +407,12 @@ try {
       { id: 'tile-fountain', itemId: 'fountain', x: chairAt.x + 0.035, y: chairAt.y - 0.06 },
       { id: 'tile-bike', itemId: 'bicycle', x: chairAt.x - 0.05, y: chairAt.y - 0.05 }] } })
   })
-  await button('기본 시점')
   await new Promise((resolve) => setTimeout(resolve, 1200))
   await page.screenshot({ path: join(artifacts, 'decorate-tiles.png') })
   // While placing, the graph-paper grid shows where things may go and what is taken.
   await store('chooseDecoration', 'floor_tile')
   await new Promise((resolve) => setTimeout(resolve, 600))
   await page.screenshot({ path: join(artifacts, 'decorate-grid.png') })
-  await button('마을 전체')
   await new Promise((resolve) => setTimeout(resolve, 1200))
   await page.screenshot({ path: join(artifacts, 'decorate-grid-whole.png') })
   await store('cancelPlacement')
@@ -535,7 +524,7 @@ try {
   console.log(`30 characters spread over ${spread.before} → ${spread.after} m² in 3 minutes`)
   assert.equal((await state()).characters.filter((c) => c.diaryDate === before.today).length, 1)
   assert.deepEqual(errors, [])
-  console.log('PASS GLB load, fullscreen portrait/landscape layout, 2x phone resolution, touch targets, 30-person preview (?preview=30) on lawn areas, 3D decorations, 3D decorating, floor tiles, 3D clothes, pathfinding, roaming spread, save preservation, diary picking, follow day picker, ground movement, responsive editor')
+  console.log('PASS GLB load, fullscreen portrait/landscape layout, 2x phone resolution, touch targets, 30-person preview (?preview=30) on lawn areas, 3D decorations, 3D decorating, floor tiles, 3D clothes, pathfinding, roaming spread, save preservation, diary sheet picking, ground movement, responsive editor')
   console.log(`Screenshots: ${artifacts}`)
 } catch (error) {
   await page?.screenshot({ path: join(artifacts, 'failure.png') }).catch(() => {})

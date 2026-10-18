@@ -1,13 +1,11 @@
 import { useMemo, useState } from 'react'
-import { EMOTIONS } from '@/data/emotions'
-import { formatKoreanDate } from '@/utils/date'
 import { getItem } from '@/data/items'
 import { getWorld } from '@/data/worlds'
 import { useVillagers } from '@/hooks/useVillagers'
 import { useGameStore } from '@/store/gameStore'
 import { toMonthKey } from '@/utils/date'
 import { canPlaceInVillage, fromLegacyPoint, lawnSpots, snapDecoration, toLegacyPoint, villageWorld } from '@/systems/villageLayout'
-import { VillageStage, type StageDecorating, type StageDecoration, type VillageView } from './VillageStage'
+import { VillageStage, type StageDecorating, type StageDecoration } from './VillageStage'
 import type { StageCharacter } from './ThreeStage'
 
 const PREVIEW: StageCharacter[] = lawnSpots(30).map(({ x, y }, i) => ({
@@ -29,8 +27,6 @@ export function VillageWorld() {
   const selectDecoration = useGameStore((s) => s.selectDecoration)
   const moveDecoration = useGameStore((s) => s.moveDecoration)
   const placeAt = useGameStore((s) => s.placeAt)
-  const [view, setView] = useState<VillageView>('whole')
-  const [cameraResetKey, setCameraResetKey] = useState(0)
   const preview = PREVIEW_ON
   const [focusId, setFocusId] = useState<string | null>(null)
   // Existing save coordinates belong to the old background. Remap only the live view.
@@ -75,41 +71,14 @@ export function VillageWorld() {
     }
   }
   const showPreview = preview && !editing
-  // Days of this month with a character, oldest first, for the follow view's day picker.
-  const days = useMemo(() => [...monthly].sort((a, b) => a.diaryDate.localeCompare(b.diaryDate)), [monthly])
-  const followed = monthly.find((c) => c.id === focusId)?.id ?? (monthly.find((c) => c.diaryDate === today) ?? days.at(-1))?.id
+  // The camera always frames the whole village; tapping a character opens its diary sheet.
   return <div className="game-world game-world--village">
     <VillageStage characters={showPreview ? PREVIEW : dressed} decorations={decorations} decorating={decorating}
-      view={view} cameraResetKey={cameraResetKey} focusId={followed ?? null} onGround={onGround} onSelect={(id) => {
+      view="whole" cameraResetKey={0} focusId={focusId} onGround={onGround} onSelect={(id) => {
         setFocusId(id)
         if (!showPreview) selectCharacter(id)
       }} />
-    <div className="village-controls" aria-label="마을 시점">
-      {([['whole', '마을 전체'], ['basic', '기본 시점'], ['follow', '따라가기']] as const).map(([id, label]) =>
-        <button key={id} type="button" aria-pressed={view === id} onClick={() => {
-          setView(id)
-          // Following starts with today's character (or the latest day) unless one is chosen.
-          if (id === 'follow') setFocusId(followed ?? null)
-          setCameraResetKey((key) => key + 1)
-        }}>{label}</button>)}
-    </div>
-    {view === 'follow' && !editing && !showPreview && days.length > 0 && (
-      <div className="village-days" role="listbox" aria-label="따라갈 날짜">
-        {days.map((c) => (
-          <button key={c.id} type="button" role="option" aria-selected={c.id === followed}
-            style={{ ['--mood' as string]: EMOTIONS[c.emotion].color }}
-            aria-label={`${formatKoreanDate(c.diaryDate)} · ${EMOTIONS[c.emotion].label}`}
-            onClick={() => { setFocusId(c.id); setCameraResetKey((key) => key + 1) }}>
-            <span className="village-days__dot" aria-hidden="true" />
-            {Number(c.diaryDate.slice(8))}일
-          </button>
-        ))}
-      </div>
-    )}
-    <p className="village-hint">{editing ? (placing ? '잔디 위를 눌러 놓아요 · 초록색이면 놓을 수 있어요'
-      : '조형물을 꾹 누른 채 끌어서 이동 · 손을 떼면 놓아요')
-      : showPreview ? '배치 확인용 30명 · 일기 데이터에는 저장되지 않아요'
-      : monthly.length ? '짧게 누르면 일기·이동 · 드래그로 화면 이동 · 두 손가락으로 확대·축소'
-      : '오늘 기록을 쓰면 캐릭터가 생겨요 · 드래그로 이동 · 두 손가락으로 확대·축소'}</p>
+    {editing && <p className="village-hint">{placing ? '잔디 위를 눌러 놓아요 · 초록색이면 놓을 수 있어요'
+      : '조형물을 꾹 누른 채 끌어서 이동 · 손을 떼면 놓아요'}</p>}
   </div>
 }

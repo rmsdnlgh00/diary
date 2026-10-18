@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { getWorld } from '@/data/worlds'
 import { useGameStore } from '@/store/gameStore'
 import { toMonthKey } from '@/utils/date'
+import { Icon } from './Icons'
 
 const monthKey = (year: number, month: number) => `${year}-${String(month).padStart(2, '0')}`
 
@@ -29,6 +30,8 @@ export function TopBar() {
   const characters = useGameStore((state) => state.characters)
   const today = useGameStore((state) => state.today)
   const setWorld = useGameStore((state) => state.setWorld)
+  const shopOpen = useGameStore((state) => state.activePanel === 'SHOP')
+  const togglePanel = useGameStore((state) => state.togglePanel)
   const [open, setOpen] = useState(false)
   const world = getWorld(worldId)
   const [year, setYear] = useState(world.year)
@@ -51,6 +54,9 @@ export function TopBar() {
     setWorld(monthKey(date.getFullYear(), date.getMonth() + 1))
   }
   const count = people(worldId)
+  // The village only goes up to this month: no peeking into future months or years.
+  const nextKey = (() => { const d = new Date(world.year, world.month, 1); return monthKey(d.getFullYear(), d.getMonth() + 1) })()
+  const thisYear = Number(thisMonth.slice(0, 4))
 
   return (
     <div className="topbar">
@@ -69,19 +75,19 @@ export function TopBar() {
             <div className="month-panel__head">
               <button type="button" className="month-arrow" onClick={() => shift(-1)} aria-label="이전 달">‹</button>
               <strong>{world.label}</strong>
-              <button type="button" className="month-arrow" onClick={() => shift(1)} aria-label="다음 달">›</button>
+              <button type="button" className="month-arrow" onClick={() => shift(1)} aria-label="다음 달" disabled={nextKey > thisMonth}>›</button>
             </div>
             <p className="month-panel__count">{count === 0 ? '아직 아무도 없어요' : `${count}명이 마을에 있어요`}</p>
             <div className="month-panel__year">
               <button type="button" onClick={() => setYear(year - 1)} aria-label="이전 해">‹</button>
               <span>{year}년</span>
-              <button type="button" onClick={() => setYear(year + 1)} aria-label="다음 해">›</button>
+              <button type="button" onClick={() => setYear(year + 1)} aria-label="다음 해" disabled={year >= thisYear}>›</button>
             </div>
             <div className="month-panel__grid">
               {Array.from({ length: 12 }, (_, i) => {
                 const key = monthKey(year, i + 1)
                 return (
-                  <button key={key} type="button" aria-pressed={key === worldId}
+                  <button key={key} type="button" aria-pressed={key === worldId} disabled={key > thisMonth}
                     className={`month-panel__month${key === thisMonth ? ' is-today' : ''}${people(key) ? ' has-people' : ''}`}
                     onClick={() => { setWorld(key); setOpen(false) }}>
                     {i + 1}월
@@ -93,9 +99,17 @@ export function TopBar() {
         )}
       </div>
 
-      <div className="top-chip top-chip--coin" aria-label={`코인 ${coins.toLocaleString('ko-KR')}개`}>
-        <CoinIcon />
-        {formatCoins(coins)}
+      <div className="top-right">
+        <div className="top-chip top-chip--coin" aria-label={`코인 ${coins.toLocaleString('ko-KR')}개`}>
+          <CoinIcon />
+          {formatCoins(coins)}
+        </div>
+        <button type="button" className="shop-button" aria-pressed={shopOpen} onClick={() => togglePanel('SHOP')}>
+          <span className="top-chip top-chip--shop">
+            <Icon name="shop" />
+            상점
+          </span>
+        </button>
       </div>
     </div>
   )

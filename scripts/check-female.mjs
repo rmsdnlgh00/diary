@@ -106,8 +106,6 @@ try {
   await page.evaluate(async () => {
     const { useGameStore } = await import('/src/store/gameStore.ts')
     useGameStore.getState().closePanel()
-    const b = [...document.querySelectorAll('.village-controls button')].find((b) => b.textContent === '따라가기')
-    b.click()
   })
   await new Promise((r) => setTimeout(r, 1500))
   await page.screenshot({ path: join(artifacts, 'female-village.png') })

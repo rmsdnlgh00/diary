@@ -52,7 +52,7 @@ export function ShopPanel() {
     <div className="shop-top">
       <div className="item-tabs shop-tabs" aria-label="상점 분류">
         <button type="button" data-icon="👕" aria-pressed={category === 'clothes'} onClick={() => setCategory('clothes')}>캐릭터 아이템</button>
-        <button type="button" data-icon="🌷" aria-pressed={category === 'decorations'} onClick={() => setCategory('decorations')}>공간 꾸미기</button>
+        <button type="button" data-icon="🌷" aria-pressed={category === 'decorations'} onClick={() => setCategory('decorations')}>마을 꾸미기</button>
       </div>
       <span className="shop-coins" aria-label={`보유 코인 ${coins}`}><span aria-hidden="true">🪙</span>{coins}</span>
     </div>
