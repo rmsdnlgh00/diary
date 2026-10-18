@@ -1,23 +1,25 @@
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
-import { coveredMaterial } from './characterFaces'
+import { clothesFolder, getItem } from '@/data/items'
+import { itemCoveredMaterial } from './characterFaces'
 
 export const FEMALE_CHARACTER_URL = '/assets/characters/female/character-game.glb'
 
 /**
- * The female body has two materials, each with its own texture, so one body mask per material
- * (scripts/blender/bake_female_body_masks.py), by the material's position in the GLB.
+ * Hides the parts of a female character's body that the worn top and bottom cover. Each has its own
+ * mask next to its model (female-mask.png, scripts/blender/bake_female_body_masks.py); the body's
+ * two materials read their own colour of it, by the material's position in the GLB.
  */
-const FEMALE_BODY_MASKS = ['/assets/characters/female/body-mask-0.png', '/assets/characters/female/body-mask-1.png']
-
-/** Hides the parts of a female character's body that `outfit` covers. */
 export function coverFemaleBody(character: THREE.Object3D, outfit: readonly string[]) {
+  const masks = outfit.map((id) => getItem(id))
+    .filter((item) => item && (item.category === 'top' || item.category === 'bottom'))
+    .map((item) => `${clothesFolder(item!)}/female-mask.png`)
   character.traverse((object) => {
     const mesh = object as THREE.SkinnedMesh
     if (!mesh.isSkinnedMesh || mesh.name.startsWith('Cloth')) return
     const base = (mesh.userData.baseMaterial ??= mesh.material) as THREE.MeshStandardMaterial
-    const mask = FEMALE_BODY_MASKS[base.userData.bodyMaskIndex as number]
-    if (mask) mesh.material = coveredMaterial(base, mask, outfit)
+    const channel = base.userData.bodyMaskIndex
+    if (typeof channel === 'number') mesh.material = itemCoveredMaterial(base, channel, masks)
   })
 }
 

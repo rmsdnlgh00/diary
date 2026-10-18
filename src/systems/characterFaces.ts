@@ -90,17 +90,28 @@ function hideUnderClothes(material: THREE.Material, mask: THREE.Texture, hide: [
 
 const covering = new Map<string, THREE.Material>()
 /**
- * The body material `base` while wearing `outfit`: a shared copy that hides what the clothes cover
- * (texels marked in the mask at `maskUrl`), or `base` itself when nothing is covered.
+ * The body material `base` under the worn items whose masks are at `maskUrls` (one mask per item,
+ * marking the texels it covers; `channel` picks this material's colour: 0 red, 1 green). A shared
+ * copy that skips those texels, or `base` itself when nothing is covered.
  */
-export function coveredMaterial(base: THREE.MeshStandardMaterial, maskUrl: string, outfit: readonly string[] | undefined): THREE.Material {
-  const hide = covered(outfit)
-  if (!hide.some(Boolean)) return base
-  const key = `${base.uuid}|${hide.join('')}`
+export function itemCoveredMaterial(base: THREE.MeshStandardMaterial, channel: number, maskUrls: readonly string[]): THREE.Material {
+  if (!maskUrls.length) return base
+  const key = `${base.uuid}|${channel}|${maskUrls.join('|')}`
   let material = covering.get(key)
   if (!material) {
+    const masks = maskUrls.slice(0, 2).map((url) => loadBodyMask(url, base.map?.wrapS))
+    const pick = new THREE.Vector3(channel === 0 ? 1 : 0, channel === 1 ? 1 : 0, channel === 2 ? 1 : 0)
     material = base.clone()
-    hideUnderClothes(material, loadBodyMask(maskUrl, base.map?.wrapS), hide)
+    material.onBeforeCompile = (shader) => {
+      shader.uniforms.uMaskA = { value: masks[0] }
+      shader.uniforms.uMaskB = { value: masks[1] ?? masks[0] }
+      shader.uniforms.uPick = { value: pick }
+      shader.fragmentShader = shader.fragmentShader
+        .replace('#include <common>', '#include <common>\nuniform sampler2D uMaskA;\nuniform sampler2D uMaskB;\nuniform vec3 uPick;')
+        .replace('#include <map_fragment>', `#include <map_fragment>
+          if (max(dot(texture2D(uMaskA, vMapUv).rgb, uPick), dot(texture2D(uMaskB, vMapUv).rgb, uPick)) > 0.5) discard;`)
+    }
+    material.customProgramCacheKey = () => 'item-masks'
     covering.set(key, material)
   }
   return material

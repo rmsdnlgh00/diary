@@ -24,7 +24,9 @@ dist-ssr
 *.sln
 *.sw?
 
-# Blender automatic backup files; keep only deliberate source files.
+# Blender source files stay out of git (too large; history would grow by the whole file on every
+# save). Keep them backed up separately. Game assets exported from them (GLB, PNG) are committed.
+*.blend
 *.blend[1-9]
 
 # Face bake intermediates (scripts/make-portraits.py --flat, scripts/bake-face-textures.py)

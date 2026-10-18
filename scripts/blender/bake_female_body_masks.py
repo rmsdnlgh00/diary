@@ -1,15 +1,15 @@
-"""Open the female clothes working file in the background, then run this: bakes the female body masks
-for the game body (char_female_game, loaded from the game blend).
+"""Open the female clothes working file in the background, then run this: bakes one body mask per top
+and bottom for the female game body (char_female_game, loaded from the game blend).
 
-Like the male body-mask.png, each mask marks the body texture under clothes: red = covered by every
-top, green = covered by every bottom, blue = covered by every long bottom. The female body has two
-materials, each with its own texture and UV space, so there is one mask per material:
-    public/assets/characters/female/body-mask-<material index>.png
-(material 0 = hair and face texture, 1 = body texture, in the game GLB's order).
+Each mask marks the body texels that item covers, so the game can skip drawing them while it is
+worn: public/assets/clothes/<group>/<kind>/<id>/female-mask.png, next to female.glb. The female
+body has two materials with their own textures and UV spaces: red marks material 0 (body, face and
+hair texture), green material 1 (head texture), in the game GLB's order.
 
-A body vertex is covered by a garment when a ray along its normal meets the garment within REACH
-(rest pose, where the clothes were fitted). Covered sets are intersected over the items of a group,
-eroded so the edge of an opening never loses skin, and painted into the mask through the UVs.
+A body vertex is covered when the garment lies just outside it or surrounds it (rest pose, where the
+clothes were fitted); the covered set is eroded so the edge of an opening never loses skin. Skin that
+pokes out through the garment in the idle and walk poses is added. Coverage is painted into the mask
+through the UVs, blended across each triangle (texels nearer covered corners are hidden).
 
     Blender -b diary-character/diary_character_clothes_female.blend \
         --python scripts/blender/bake_female_body_masks.py
@@ -22,17 +22,14 @@ from mathutils import kdtree
 from mathutils.bvhtree import BVHTree
 
 REPO = Path(__file__).resolve().parents[2] if "__file__" in globals() else Path("/Users/geun-wiho/github/diary")
-OUT = REPO / "public/assets/characters/female"
+CLOTHES = REPO / "public/assets/clothes"
 SIZE = 1024
 REACH = 9.0
 INSIDE = 6.0
 ERODE = 1
 AXES = [Vector(d) for d in ((1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1))]
-GROUPS = {   # channel → items whose shared coverage it marks
-    0: ["striped_tee", "hoodie_gray", "raincoat_yellow", "pajama", "winter_coat"],
-    1: ["basic_pants", "denim_shorts", "jogger_pants", "pajama_pants", "check_shorts"],
-    2: ["basic_pants", "jogger_pants", "pajama_pants"],
-}
+ITEMS = ["striped_tee", "hoodie_gray", "raincoat_yellow", "pajama", "winter_coat",
+         "basic_pants", "denim_shorts", "jogger_pants", "pajama_pants", "check_shorts"]
 
 # Work on the light body the game draws (its UVs and how it bends), brought in from the game blend
 # and driven by this file's rig, next to the clothes.
@@ -47,12 +44,16 @@ for m in body.modifiers:
         stray = m.object
         m.object = rig_obj
         if stray and stray is not rig_obj: bpy.data.objects.remove(stray)
-body.parent = rig_obj
-body.matrix_parent_inverse = rig_obj.matrix_world.inverted()
+body.parent = rig_obj   # same relation to the rig as the clothes (their parent inverse is identity)
+body.matrix_parent_inverse.identity()
 me = body.data
 me.calc_loop_triangles()
 co = [v.co.copy() for v in me.vertices]
 normals = [v.normal.copy() for v in me.vertices]
+FILL_RADIUS = 2.0
+skin_kd = kdtree.KDTree(len(co))
+for i, p in enumerate(co): skin_kd.insert(p, i)
+skin_kd.balance()
 adjacent = [[] for _ in me.vertices]
 for e in me.edges:
     a, b = e.vertices; adjacent[a].append(b); adjacent[b].append(a)
@@ -93,7 +94,8 @@ def covered_by(item):
 # outside, and away from the garment's openings (so skin just past a hem or cuff keeps showing).
 POKE = 3.0
 EDGE = 3.0
-POSES = [("mixamo.com.002", f) for f in (1, 75, 150, 225)] + [("mixamo.com", f) for f in (1, 9, 17, 25)]
+EDGE_RINGS = 3
+POSES = [("mixamo.com.002", f) for f in range(1, 300, 20)] + [("mixamo.com", f) for f in range(1, 33, 4)]
 rig = bpy.data.objects["Armature Female"]
 garments = {o.name: o for o in bpy.data.objects
             if o.type == "MESH" and o.parent is rig and o.name.startswith("Cloth ")}
@@ -137,7 +139,15 @@ def poking(items):
                         for k in range(len(p.vertices)):
                             a, b = sorted((p.vertices[k], p.vertices[(k + 1) % len(p.vertices)]))
                             counts[(a, b)] = counts.get((a, b), 0) + 1
-                    edge_pts += [gp[v] for (a, b), c in counts.items() if c == 1 for v in (a, b)]
+                    # the opening: the open edge plus the folded rim round it (a few rings in), so skin
+                    # just past a cuff or hem counts as outside, not as poking through
+                    ring = {v for (a, b), c in counts.items() if c == 1 for v in (a, b)}
+                    links = {}
+                    for (a, b) in counts:
+                        links.setdefault(a, []).append(b); links.setdefault(b, []).append(a)
+                    for _ in range(EDGE_RINGS):
+                        ring |= {n for v in list(ring) for n in links.get(v, ())}
+                    edge_pts += [gp[v] for v in ring]
                 tree = BVHTree.FromPolygons(verts, polys)
                 edges = kdtree.KDTree(len(edge_pts))
                 for k, p in enumerate(edge_pts): edges.insert(p, k)
@@ -157,7 +167,7 @@ def poking(items):
     return result
 
 
-all_items = sorted({item for items in GROUPS.values() for item in items})
+all_items = ITEMS
 # only skin that already lies close to the garment at rest (not an arm swinging past the shirt)
 REST_NEAR = 4.0
 rest_near = {}
@@ -167,23 +177,45 @@ for item in all_items:
 pokes = poking(all_items)
 print("poking:", {item: int(p.sum()) for item, p in pokes.items()})
 
-cache = {}
-masks = [np.zeros((SIZE, SIZE, 3), np.uint8) for _ in me.materials]
 uv = me.uv_layers.active.data
-for channel, items in GROUPS.items():
-    covered = np.ones(len(co), bool)
-    for item in items:
-        if item not in cache: cache[item] = covered_by(item)
-        covered &= cache[item]
+def past_openings(item):
+    """Skin beyond the garment's reach at rest: past its sleeve ends (arms) or below its hem. Posed, a
+    hanging forearm brushes a coat's side; it must never count as poking through."""
+    tree_pts = []
+    for name in (f"Cloth {item}", f"Cloth {item} cuff"):
+        o = garments.get(name)
+        if o: tree_pts += [v.co for v in o.data.vertices]
+    sleeve = max((abs(p.x) for p in tree_pts if p.z > 75), default=0)
+    hem = min(p.z for p in tree_pts)
+    top = max(p.z for p in tree_pts)
+    out = np.zeros(len(co), bool)
+    for i, p in enumerate(co):
+        if sleeve and p.z > 70 and abs(p.x) > 22 and abs(p.x) > sleeve - 0.5: out[i] = True
+        if p.z < hem + 0.5 or p.z > top - 0.5: out[i] = True   # below the hem, above the collar
+    return out
+
+
+for item in ITEMS:
+    beyond = past_openings(item)
+    pokes[item] &= ~beyond
+    covered = covered_by(item)
     for _ in range(ERODE):   # keep a margin of skin at every opening
         covered = covered & np.array([all(covered[j] for j in adjacent[i]) for i in range(len(co))])
-    # plus skin that pokes out of one of them and is under or poking out of every one
-    poked = np.ones(len(co), bool)
-    for item in items: poked &= cache[item] | pokes[item]
-    covered |= poked & np.logical_or.reduce([pokes[item] for item in items])
+    covered |= pokes[item]
+    # close small holes (the light body has thin rings of tiny triangles): skin near the garment
+    # counts as covered when most of the skin around it is
+    for _ in range(2):
+        filled = covered.copy()
+        for i in np.where(~covered & rest_near[item] & ~beyond)[0]:
+            around = [j for _, j, _ in skin_kd.find_range(co[i], FILL_RADIUS)]
+            if len(around) > 2 and covered[around].mean() >= 0.6: filled[i] = True
+        covered = filled
+    covered &= ~beyond   # some texels are shared (UV islands overlap), so this must hold to the end
+    mask = np.zeros((SIZE, SIZE, 3), np.uint8)
     painted = 0
     for t in me.loop_triangles:
-        if not all(covered[v] for v in t.vertices): continue
+        cov = np.array([covered[v] for v in t.vertices], np.float32)
+        if not cov.any(): continue
         P = np.array([[uv[l].uv.x * SIZE, (1 - uv[l].uv.y) * SIZE] for l in t.loops])  # image rows top-down
         x0, y0 = np.floor(P.min(0)).astype(int); x1, y1 = np.ceil(P.max(0)).astype(int)
         m = np.array([[P[1, 0] - P[0, 0], P[2, 0] - P[0, 0]], [P[1, 1] - P[0, 1], P[2, 1] - P[0, 1]]])
@@ -192,18 +224,25 @@ for channel, items in GROUPS.items():
         Q = np.c_[gx.ravel(), gy.ravel()]
         l12 = np.linalg.solve(m, (Q - P[0]).T).T
         inside = (1 - l12.sum(1) >= -1e-3) & (l12[:, 0] >= -1e-3) & (l12[:, 1] >= -1e-3)
-        px = np.floor(Q[inside]).astype(int) % SIZE
-        masks[me.polygons[t.polygon_index].material_index][px[:, 1], px[:, 0], channel] = 255
+        # low-poly triangles can run from under the cloth to past a cuff: blend the corners' coverage
+        # per texel and hide the covered part only
+        weight = np.c_[1 - l12.sum(1), l12] @ cov
+        px = np.floor(Q[inside & (weight >= 0.5)]).astype(int)
+        # triangles smaller than a texel hold no texel centre: mark the texels under their covered
+        # corners and, when mostly covered, under their middle
+        extra = [P[k] for k in range(3) if cov[k]] + ([P.mean(0)] if cov.sum() >= 2 else [])
+        px = np.vstack([px.reshape(-1, 2), np.floor(np.array(extra)).astype(int)]) % SIZE
+        mask[px[:, 1], px[:, 0], me.polygons[t.polygon_index].material_index] = 255   # red: material 0, green: 1
         painted += 1
-    print(f"channel {'RGB'[channel]}: {int(covered.sum())} vertices, {painted} triangles")
-
-OUT.mkdir(parents=True, exist_ok=True)
-for index, mask in enumerate(masks):
-    img = bpy.data.images.new(f"female mask {index}", SIZE, SIZE, alpha=False)
+    folders = sorted(CLOTHES.glob(f"*/*/{item}"))
+    if not folders:
+        print("no folder for", item); continue
+    out = folders[0] / "female-mask.png"
+    img = bpy.data.images.new(f"mask {item}", SIZE, SIZE, alpha=False)
     rgba = np.concatenate([mask[::-1].astype(np.float32) / 255, np.ones((SIZE, SIZE, 1), np.float32)], axis=2)
     img.pixels.foreach_set(rgba.ravel())
-    img.filepath_raw = str(OUT / f"body-mask-{index}.png")
+    img.filepath_raw = str(out)
     img.file_format = "PNG"
     img.save()
     bpy.data.images.remove(img)
-    print("saved", OUT / f"body-mask-{index}.png", "material", me.materials[index].name)
+    print(f"{item}: {int(covered.sum())} vertices, {painted} triangles → {out.relative_to(REPO)}")
