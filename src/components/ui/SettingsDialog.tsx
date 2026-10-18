@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useSettingsStore, type FrameRate, type GraphicsQuality } from '@/store/settingsStore'
+import { playSfx } from '@/systems/audioSystem'
 
 type Tab = 'graphics' | 'motion' | 'sound'
 
@@ -49,14 +50,14 @@ function Toggle({ label, on, onChange }: { label: string; on: boolean; onChange:
   )
 }
 
-function Volume({ label, value, disabled, onChange }:
-  { label: string; value: number; disabled?: boolean; onChange: (value: number) => void }) {
+function Volume({ label, value, disabled, onChange, onRelease }:
+  { label: string; value: number; disabled?: boolean; onChange: (value: number) => void; onRelease?: () => void }) {
   const percent = Math.round(value * 100)
   return (
     <div className="settings-volume">
       <input type="range" min={0} max={100} step={5} value={percent} disabled={disabled} aria-label={label}
         style={{ ['--fill' as string]: `${percent}%` }}
-        onChange={(event) => onChange(Number(event.target.value) / 100)} />
+        onChange={(event) => onChange(Number(event.target.value) / 100)} onPointerUp={onRelease} onKeyUp={onRelease} />
       <output>{percent}</output>
     </div>
   )
@@ -119,18 +120,20 @@ export function SettingsDialog() {
           </>}
 
           {tab === 'sound' && <>
-            <p className="settings__soon">소리는 곧 마을에 찾아와요. 지금 맞춰 두면 그대로 들려요.</p>
+            <p className="settings__soon">아이폰은 무음 모드에서는 소리가 나지 않아요.</p>
             <Row label="음소거">
               <Toggle label="음소거" on={s.muted} onChange={(v) => s.set('muted', v)} />
             </Row>
             <Row label="전체 음량">
-              <Volume label="전체 음량" value={s.masterVolume} disabled={s.muted} onChange={(v) => s.set('masterVolume', v)} />
+              <Volume label="전체 음량" value={s.masterVolume} disabled={s.muted} onChange={(v) => s.set('masterVolume', v)}
+                onRelease={() => playSfx('coin')} />
             </Row>
             <Row label="배경 음악">
               <Volume label="배경 음악" value={s.musicVolume} disabled={s.muted} onChange={(v) => s.set('musicVolume', v)} />
             </Row>
             <Row label="효과음">
-              <Volume label="효과음" value={s.effectsVolume} disabled={s.muted} onChange={(v) => s.set('effectsVolume', v)} />
+              <Volume label="효과음" value={s.effectsVolume} disabled={s.muted} onChange={(v) => s.set('effectsVolume', v)}
+                onRelease={() => playSfx('coin')} />
             </Row>
           </>}
         </div>

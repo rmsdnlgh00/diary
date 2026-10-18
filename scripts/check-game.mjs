@@ -396,7 +396,30 @@ try {
   assert.ok(locked.nextMonth && locked.nextYear, 'no future month or year')
   assert.equal(locked.future, 12 - Number(realCalendar.slice(5, 7)))
   await click('.top-hit')
-  report('저장 실패 피드백·복구 및 브라우저 런타임 오류 없음')
+  // Sound: unlocked by the taps above; the music plays and opening a panel rings a bell.
+  const peak = (ms) => page.evaluate(async (ms) => {
+    let max = 0
+    for (const end = performance.now() + ms; performance.now() < end;) {
+      max = Math.max(max, window.__audio.level())
+      await new Promise((resolve) => setTimeout(resolve, 20))
+    }
+    return max
+  }, ms)
+  assert.equal(await page.evaluate(() => window.__audio?.ctx.state), 'running', 'sound unlocks on the first tap')
+  assert.ok(await peak(3000) > 0.01, 'background music plays')
+  await page.evaluate(async () => {
+    const { useSettingsStore } = await import('/src/store/settingsStore.ts')
+    useSettingsStore.getState().set('muted', true)
+  })
+  await new Promise((resolve) => setTimeout(resolve, 800))
+  await click('.shop-button')
+  assert.ok(await peak(500) < 0.005, 'muting silences music and effects')
+  await page.evaluate(async () => {
+    const { useSettingsStore } = await import('/src/store/settingsStore.ts')
+    useSettingsStore.getState().reset()
+  })
+  await click('.shop-button')
+  report('저장 실패 피드백·복구, 미래 달 잠금, 소리·음소거, 브라우저 런타임 오류 없음')
   console.log(`\n${checks.length}개 시나리오 통과. 스크린샷: ${artifacts}`)
 } catch (error) {
   if (page) await page.screenshot({ path: join(artifacts, 'failure.png') }).catch(() => {})
