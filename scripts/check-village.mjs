@@ -81,7 +81,7 @@ try {
     window.__village.renderer.getPixelRatio() === 2)
   assert.equal(await page.$eval('.stage', (el) => el.clientHeight), 390)
   assert.equal(await page.$eval('.stage', (el) => getComputedStyle(el).touchAction), 'pan-x pan-y')
-  const touchTargets = await page.$$eval('.menu-button, .village-controls button, .month-arrow',
+  const touchTargets = await page.$$eval('.menu-button, .village-controls button, .top-hit',
     (buttons) => buttons.every((el) => el.getBoundingClientRect().width >= 44 && el.getBoundingClientRect().height >= 44))
   assert.ok(touchTargets, 'phone navigation has 44px touch targets')
   await page.screenshot({ path: join(artifacts, 'phone-landscape.png') })

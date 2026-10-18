@@ -230,6 +230,7 @@ try {
   for (const key of ['coins', 'inventory', 'characters', 'worldDecorations', 'worldId']) assert.deepEqual(s[key], before[key], key)
   report('화면 크기 변경·편집 종료·새로고침 후 전체 상태 유지')
 
+  await click('.top-hit')   // the month arrows live in the month picker
   await click('[aria-label="다음 달"]')
   const nextMonth = (await state()).worldId
   assert.notEqual(month, nextMonth)
@@ -242,6 +243,7 @@ try {
   assert.equal(s.worldDecorations[nextMonth].length, 1)
   await page.reload({ waitUntil: 'networkidle0' })
   assert.equal((await state()).worldId, nextMonth)
+  await click('.top-hit')
   await click('[aria-label="이전 달"]')
   assert.equal(await page.$$eval('.placed-item', (els) => els.length), 2)
   report('월별 마을·장식물 분리 및 선택한 월 저장')
