@@ -2,6 +2,7 @@ import { DiaryDetail } from '@/components/diary/DiaryDetail'
 import { GameWorld } from '@/components/game/GameWorld'
 import { BottomBar } from '@/components/ui/BottomBar'
 import { PanelSheet } from '@/components/ui/PanelSheet'
+import { SettingsDialog } from '@/components/ui/SettingsDialog'
 import { TopBar } from '@/components/ui/TopBar'
 import { useEffect } from 'react'
 import { useGameStore } from '@/store/gameStore'
@@ -30,6 +31,7 @@ export default function App() {
         <PanelSheet />
         <BottomBar />
         <DiaryDetail />
+        <SettingsDialog />
         {storageError && <p className="save-warning" role="alert">기기에 저장하지 못했어요. 저장 공간과 브라우저 설정을 확인해 주세요.</p>}
       </div>
     </div>

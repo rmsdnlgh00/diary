@@ -13,6 +13,7 @@ import { ITEMS, decorationModelUrl } from '@/data/items'
 import { FaceMaterials, bodyOf } from '@/systems/characterFaces'
 import { coverFemaleBody, loadFemaleCharacter } from '@/systems/femaleCharacter'
 import { MALE_WALK_STRIDE } from '@/systems/walkSystem'
+import { useSettingsStore, type GraphicsQuality } from '@/store/settingsStore'
 import { DECORATION_RADIUS, VILLAGE_CAMERA, VILLAGE_CENTER, VILLAGE_CHARACTER_HEIGHT, VILLAGE_POND, VILLAGE_VIEW_DISTANCE,
   VILLAGE_DEPTH, VILLAGE_WALKABLE_AREAS, VILLAGE_WIDTH, FLOOR_TILE_SIZE, isFloorDecoration, snapDecoration, villageGround,
   villagePoint } from '@/systems/villageLayout'
@@ -217,6 +218,19 @@ function isLowPower(): boolean {
   return window.matchMedia('(pointer: coarse)').matches || Math.min(window.innerWidth, window.innerHeight) < 600
 }
 
+/**
+ * What each graphics setting turns on. 'auto' keeps the old behaviour: phones get no ambient
+ * occlusion and a smaller shadow map, desktops get everything.
+ */
+function graphicsProfile(quality: GraphicsQuality) {
+  const coarse = window.matchMedia('(any-pointer: coarse)').matches
+  if (quality === 'low') return { pixelRatio: 1, shadows: false, shadowSize: 1024, ambientOcclusion: false }
+  if (quality === 'medium') return { pixelRatio: 1.5, shadows: true, shadowSize: 2048, ambientOcclusion: false }
+  if (quality === 'high') return { pixelRatio: 2, shadows: true, shadowSize: 4096, ambientOcclusion: true }
+  const low = isLowPower()
+  return { pixelRatio: coarse ? 2 : 1.5, shadows: true, shadowSize: low ? 2048 : 4096, ambientOcclusion: !low }
+}
+
 /** Most footprints the placement grid can mark as taken at once. */
 const GRID_BLOCKERS = 64
 
@@ -334,12 +348,11 @@ export function VillageStage(props: Props) {
       setFailed(true)
       return
     }
-    const lowPower = isLowPower()
-    const pixelRatio = () => Math.min(window.devicePixelRatio || 1,
-      window.matchMedia('(any-pointer: coarse)').matches ? 2 : 1.5)
+    let profile = graphicsProfile(useSettingsStore.getState().quality)
+    const pixelRatio = () => Math.min(window.devicePixelRatio || 1, profile.pixelRatio)
     renderer.setPixelRatio(pixelRatio())
     renderer.outputColorSpace = THREE.SRGBColorSpace
-    renderer.shadowMap.enabled = true
+    renderer.shadowMap.enabled = profile.shadows
     renderer.shadowMap.type = THREE.PCFSoftShadowMap
     host.appendChild(renderer.domElement)
     const scene = new THREE.Scene()
@@ -364,17 +377,18 @@ export function VillageStage(props: Props) {
     key.position.set(-0.551, 0.636, 0.54).multiplyScalar(110).add(VILLAGE_CAMERA.target)
     key.target.position.copy(VILLAGE_CAMERA.target)
     key.castShadow = true
-    key.shadow.mapSize.setScalar(lowPower ? 2048 : 4096)
+    key.shadow.mapSize.setScalar(profile.shadowSize)
     // Covers everything the widened whole-village view can see (about 65 × 60 units of ground).
     Object.assign(key.shadow.camera, { left: -60, right: 60, top: 60, bottom: -60, near: 1, far: 260 })
     key.shadow.bias = -0.0003
     key.shadow.normalBias = 0.035
     key.shadow.radius = 4
     scene.add(key, key.target, new THREE.HemisphereLight(new THREE.Color(0.78, 0.86, 0.95), 0xd9d3a8, SKY_INTENSITY))
-    // Soft contact shadows under trees, fences and characters (desktop only).
+    // Soft contact shadows under trees, fences and characters (high quality only, built on first use).
     let composer: EffectComposer | null = null
     let ambientOcclusion: GTAOPass | null = null
-    if (!lowPower) {
+    const ensureComposer = () => {
+      if (composer) return
       composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(1, 1, { samples: 4, type: THREE.HalfFloatType }))
       composer.addPass(new RenderPass(scene, camera))
       ambientOcclusion = new GTAOPass(scene, camera, 1, 1)
@@ -382,7 +396,12 @@ export function VillageStage(props: Props) {
       ambientOcclusion.updateGtaoMaterial({ radius: 0.9, distanceExponent: 1.5, thickness: 1.5, scale: 1, samples: 8 })
       composer.addPass(ambientOcclusion)
       composer.addPass(new OutputPass())
+      if (host.clientWidth && host.clientHeight) {
+        composer.setPixelRatio(renderer.getPixelRatio())
+        composer.setSize(host.clientWidth, host.clientHeight)
+      }
     }
+    if (profile.ambientOcclusion) ensureComposer()
     const instances = new Map<string, Instance>()
     const waterTime = { value: 0 }
     const draco = new DRACOLoader().setDecoderPath('/draco/').setDecoderConfig({ type: 'wasm' })
@@ -552,7 +571,7 @@ export function VillageStage(props: Props) {
         }
         disposeObject(idle.scene)
         setStatus('')
-        if (import.meta.env.DEV) Object.assign(window, { __village: { scene, camera, renderer, instances, lowPower, clothes: () => clothes } })
+        if (import.meta.env.DEV) Object.assign(window, { __village: { scene, camera, renderer, instances, lowPower: !profile.ambientOcclusion, clothes: () => clothes } })
       } catch (error) {
         if (!disposed) {
           console.error('[VillageStage] 마을 로드 실패', error)
@@ -578,6 +597,26 @@ export function VillageStage(props: Props) {
       }
     }
     const observer = new ResizeObserver(resize)
+    // Settings change live: resolution, shadows and ambient occlusion, without reloading the village.
+    const applyGraphics = () => {
+      profile = graphicsProfile(useSettingsStore.getState().quality)
+      if (profile.ambientOcclusion) ensureComposer()
+      if (key.shadow.mapSize.x !== profile.shadowSize) {
+        key.shadow.mapSize.setScalar(profile.shadowSize)
+        key.shadow.map?.dispose()
+        key.shadow.map = null
+      }
+      if (renderer.shadowMap.enabled !== profile.shadows) {
+        renderer.shadowMap.enabled = profile.shadows
+        // Materials compile with or without shadow code, so they need a rebuild.
+        scene.traverse((o) => {
+          const material = (o as THREE.Mesh).material
+          if (material) for (const m of Array.isArray(material) ? material : [material]) m.needsUpdate = true
+        })
+      }
+      resize()
+    }
+    const stopSettings = useSettingsStore.subscribe((state, prev) => { if (state.quality !== prev.quality) applyGraphics() })
     observer.observe(host)
     resize()
     const raycaster = new THREE.Raycaster()
@@ -844,10 +883,15 @@ export function VillageStage(props: Props) {
     }
     let raf = 0
     let previous = performance.now()
+    let lastFrame = 0
     const tick = () => {
       raf = requestAnimationFrame(tick)
       const now = performance.now()
-      waterTime.value = now / 1000
+      const settings = useSettingsStore.getState()
+      // Battery saver: skip every other frame on a 60 Hz screen.
+      if (settings.frameRate === 30 && now - lastFrame < 1000 / 30 - 4) return
+      lastFrame = now
+      if (settings.waterMotion) waterTime.value = now / 1000
       updateDuck(now / 1000)
       const delta = Math.min(0.05, (now - previous) / 1000)
       previous = now
@@ -935,12 +979,13 @@ export function VillageStage(props: Props) {
       if (!pointers.size) focus.lerp(target, ease)
       distance += (VILLAGE_VIEW_DISTANCE[view] - distance) * ease
       updateCamera()
-      if (composer) composer.render(delta)
+      if (composer && profile.ambientOcclusion) composer.render(delta)
       else renderer.render(scene, camera)
     }
     tick()
     return () => {
       disposed = true
+      stopSettings()
       cancelDrag()
       cancelAnimationFrame(raf)
       observer.disconnect()

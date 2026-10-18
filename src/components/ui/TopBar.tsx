@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { getWorld } from '@/data/worlds'
 import { useGameStore } from '@/store/gameStore'
+import { useSettingsStore } from '@/store/settingsStore'
 import { toMonthKey } from '@/utils/date'
 import { Icon } from './Icons'
 
@@ -32,6 +33,8 @@ export function TopBar() {
   const setWorld = useGameStore((state) => state.setWorld)
   const shopOpen = useGameStore((state) => state.activePanel === 'SHOP')
   const togglePanel = useGameStore((state) => state.togglePanel)
+  const settingsOpen = useSettingsStore((state) => state.open)
+  const setSettingsOpen = useSettingsStore((state) => state.setOpen)
   const [open, setOpen] = useState(false)
   const world = getWorld(worldId)
   const [year, setYear] = useState(world.year)
@@ -100,9 +103,15 @@ export function TopBar() {
       </div>
 
       <div className="top-right">
-        <div className="top-chip top-chip--coin" aria-label={`코인 ${coins.toLocaleString('ko-KR')}개`}>
-          <CoinIcon />
-          {formatCoins(coins)}
+        <div className="top-right__row">
+          <div className="top-chip top-chip--coin" aria-label={`코인 ${coins.toLocaleString('ko-KR')}개`}>
+            <CoinIcon />
+            {formatCoins(coins)}
+          </div>
+          <button type="button" className="settings-button" aria-label="설정" aria-haspopup="dialog"
+            aria-expanded={settingsOpen} onClick={() => setSettingsOpen(true)}>
+            <span className="top-chip top-chip--icon"><Icon name="settings" /></span>
+          </button>
         </div>
         <button type="button" className="shop-button" aria-pressed={shopOpen} onClick={() => togglePanel('SHOP')}>
           <span className="top-chip top-chip--shop">
