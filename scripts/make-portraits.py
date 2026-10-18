@@ -4,7 +4,7 @@ assets/portraits/base.png is the village character's head rendered in Blender (i
 front, 1024 px, transparent; see docs/blender-village.md). Its painted face always smiles,
 so this script paints the eyes, brows and mouth over with the surrounding skin and draws
 each mood's face in the same style (brown eyes, coral mouth, soft blush), then writes
-public/assets/character/portraits/<emotion>.webp at 512 px.
+public/assets/characters/male/portraits/<emotion>.webp at 512 px.
 
 Run: uv run --no-project --with pillow --with numpy python scripts/make-portraits.py
 
@@ -20,7 +20,7 @@ from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parent.parent
 BASE = ROOT / "assets/portraits/base.png"
-OUT = ROOT / "public/assets/character/portraits"
+OUT = ROOT / "public/assets/characters/male/portraits"
 SS = 4  # draw at 4× and scale down for smooth edges
 
 # Measured on base.png (1024 px): centres and sizes of the painted features.

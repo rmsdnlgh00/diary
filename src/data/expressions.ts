@@ -3,10 +3,10 @@ import type { EmotionId } from '@/types'
 export type ExpressionId = 'neutral' | 'happy' | 'sad' | 'angry'
 
 export const EXPRESSIONS: Record<ExpressionId, string> = {
-  neutral: '/assets/character/expressions/neutral.webp',
-  happy: '/assets/character/expressions/happy.webp',
-  sad: '/assets/character/expressions/sad.webp',
-  angry: '/assets/character/expressions/angry.webp',
+  neutral: '/assets/characters/male/expressions/neutral.webp',
+  happy: '/assets/characters/male/expressions/happy.webp',
+  sad: '/assets/characters/male/expressions/sad.webp',
+  angry: '/assets/characters/male/expressions/angry.webp',
 }
 
 /**
@@ -37,4 +37,4 @@ export const expressionFor = (emotion: EmotionId): string =>
  * by scripts/make-portraits.py. The legacy 2D village keeps using EXPRESSIONS above.
  */
 export const portraitFor = (emotion: EmotionId): string =>
-  `/assets/character/portraits/${emotion.toLowerCase()}.webp`
+  `/assets/characters/male/portraits/${emotion.toLowerCase()}.webp`

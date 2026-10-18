@@ -54,6 +54,54 @@ try {
   assert.ok(info.height > 1.5 && info.height < 1.9, JSON.stringify(info))
   assert.ok(Math.abs(info.floor) < 0.12, JSON.stringify(info))
   assert.equal(info.worn, 0); assert.equal(info.face, null)
+  if (process.argv.includes('--clothes')) {
+    const clothing = await page.evaluate(async () => {
+      const { GLTFLoader } = await import('/node_modules/three/examples/jsm/loaders/GLTFLoader.js')
+      const { DRACOLoader } = await import('/node_modules/three/examples/jsm/loaders/DRACOLoader.js')
+      const { loadClothes, dressCharacter } = await import('/src/systems/characterClothes.ts')
+      const draco = new DRACOLoader().setDecoderPath('/draco/').setDecoderConfig({ type: 'wasm' })
+      // public/assets/clothes/…/<id>/female.glb (scripts/export-clothes.py)
+      const { clothes } = await loadClothes(new GLTFLoader().setDRACOLoader(draco), 'female')
+      const character = [...window.__village.instances.values()].find((i) => i.model === 'female').object
+      const ids = [...clothes.keys()]
+      const expected = [...clothes.values()].reduce((sum, parts) => sum + parts.length, 0)
+      const worn = dressCharacter(character, [], ids, clothes)
+      let finite = true
+      character.updateMatrixWorld(true)
+      for (const o of worn) {
+        finite &&= o.matrixWorld.elements.every(Number.isFinite)
+        o.removeFromParent()
+      }
+      draco.dispose()
+      return { ids: ids.length, expected, attached: worn.length, finite }
+    })
+    assert.equal(clothing.ids, 18)
+    assert.equal(clothing.attached, clothing.expected)
+    assert.ok(clothing.finite)
+    console.log('PASS fitted female clothes Draco decode and all parts bind to female game skeleton', clothing)
+  }
+  // Equipped clothes: the village dresses the female character in her own fitted clothes and hides
+  // the body under them.
+  const dressed = await page.evaluate(async () => {
+    const { useGameStore } = await import('/src/store/gameStore.ts')
+    const { emptyEquipment } = await import('/src/data/items.ts')
+    const s = useGameStore.getState()
+    const saved = { characters: s.characters, inventory: s.inventory }
+    const outfit = { ...emptyEquipment(), top: 'striped_tee', bottom: 'denim_shorts', shoes: 'walking_shoes' }
+    useGameStore.setState({ inventory: { ...s.inventory, clothes: ['striped_tee', 'denim_shorts', 'walking_shoes'] },
+      characters: s.characters.map((c) => c.model === 'female' ? { ...c, equippedItems: outfit } : c) })
+    const instance = () => [...window.__village.instances.values()].find((i) => i.model === 'female')
+    for (let k = 0; k < 100 && !instance()?.outfit.length; k++) await new Promise((r) => setTimeout(r, 100))
+    const i = instance()
+    const covered = []
+    i.object.traverse((o) => { if (o.isSkinnedMesh && !o.name.startsWith('Cloth')) covered.push(o.material !== o.userData.baseMaterial) })
+    const result = { parts: i.outfit.length, skinned: i.outfit.filter((o) => o.isSkinnedMesh).length, covered }
+    window.__dressedForScreenshot = saved
+    return result
+  })
+  assert.ok(dressed.parts >= 6 && dressed.skinned >= 3, JSON.stringify(dressed))
+  assert.ok(dressed.covered.some(Boolean), 'the body hides what the clothes cover')
+  console.log('PASS female wears equipped clothes in the village', dressed)
   await page.screenshot({ path: join(artifacts, 'female-wardrobe.png') })
   await page.evaluate(async () => {
     const { useGameStore } = await import('/src/store/gameStore.ts')
@@ -63,6 +111,10 @@ try {
   })
   await new Promise((r) => setTimeout(r, 1500))
   await page.screenshot({ path: join(artifacts, 'female-village.png') })
+  await page.evaluate(async () => {
+    const { useGameStore } = await import('/src/store/gameStore.ts')
+    useGameStore.setState(window.__dressedForScreenshot)
+  })
   const before = await page.evaluate(async () => {
     const { useGameStore } = await import('/src/store/gameStore.ts')
     const s = useGameStore.getState()

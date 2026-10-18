@@ -15,5 +15,14 @@
     25
   ],
   "checked_idle_frame": 150,
-  "master_preserved": true
+  "master_preserved": true,
+  "runtime_asset": "public/assets/characters/female/character-game.glb",
+  "texture_compression": {
+    "before_bytes": 12043524,
+    "after_bytes": 3292288,
+    "reduction_percent": 72.7,
+    "resolution": 2048,
+    "jpeg_quality": 85,
+    "geometry_and_animation_unchanged": true
+  }
 }

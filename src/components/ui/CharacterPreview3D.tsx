@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js'
-import { dressCharacter, loadCharacterKit } from '@/systems/characterClothes'
+import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
+import { dressCharacter, loadCharacterKit, loadClothes } from '@/systems/characterClothes'
 import { bodyOf } from '@/systems/characterFaces'
-import { disposeFemaleCharacter, loadFemaleCharacter } from '@/systems/femaleCharacter'
+import { coverFemaleBody, disposeFemaleCharacter, loadFemaleCharacter } from '@/systems/femaleCharacter'
 import type { EmotionId, CharacterModel } from '@/types'
 
 /**
@@ -55,6 +57,7 @@ export function CharacterPreview3D({ outfit, emotion, fallback, label, model = '
 
     let disposed = false
     let femaleAsset: THREE.Object3D | null = null
+    let femaleClothesAssets: THREE.Object3D[] = []
     let character: THREE.Object3D | null = null
     let mixer: THREE.AnimationMixer | null = null
     let worn: THREE.Object3D[] = []
@@ -66,12 +69,18 @@ export function CharacterPreview3D({ outfit, emotion, fallback, label, model = '
     let faces: Awaited<ReturnType<typeof loadCharacterKit>>['faces'] = null
     let face = ''
 
-    const kitPromise = model === 'female'
-      ? loadFemaleCharacter(1.7).then((kit) => ({ ...kit, clothes: new Map(), faces: null }))
-      : loadCharacterKit()
+    const femaleLoad = async () => {
+      const draco = new DRACOLoader().setDecoderPath('/draco/').setDecoderConfig({ type: 'wasm' })
+      const [kit, wardrobe] = await Promise.all([loadFemaleCharacter(1.7), loadClothes(new GLTFLoader().setDRACOLoader(draco), 'female')])
+      draco.dispose()
+      femaleClothesAssets = wardrobe.scenes
+      return { ...kit, clothes: wardrobe.clothes, faces: null }
+    }
+    const kitPromise = model === 'female' ? femaleLoad() : loadCharacterKit()
     kitPromise.then((kit) => {
       if (disposed) {
         if (model === 'female') disposeFemaleCharacter(kit.template)
+        for (const scene of femaleClothesAssets) disposeFemaleCharacter(scene)
         return
       }
       if (model === 'female') femaleAsset = kit.template
@@ -125,6 +134,7 @@ export function CharacterPreview3D({ outfit, emotion, fallback, label, model = '
       if (key !== wornKey) {
         wornKey = key
         worn = dressCharacter(character, worn, outfitRef.current, clothes)
+        if (model === 'female') coverFemaleBody(character, outfitRef.current)
       }
       // Turn slowly on its own, but give the player a moment after they let go.
       if (!dragging && now - idleSince > 1500) angle += delta * 0.45
@@ -140,6 +150,7 @@ export function CharacterPreview3D({ outfit, emotion, fallback, label, model = '
       observer.disconnect()
       mixer?.stopAllAction()
       if (femaleAsset) disposeFemaleCharacter(femaleAsset)
+      for (const scene of femaleClothesAssets) disposeFemaleCharacter(scene)
       for (const object of [stand, shadow]) {
         object.geometry.dispose()
         ;(object.material as THREE.Material).dispose()

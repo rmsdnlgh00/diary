@@ -94,7 +94,7 @@ export interface GameItem {
   name: string
   category: ItemCategory
   price: number
-  /** /src/assets/... 또는 /assets/... (public). 비어 있거나 누락되면 placeholder. */
+  /** /assets/... (public) 아이콘 경로. 비어 있거나 누락되면 placeholder. */
   assetPath: string
   placeholder: string
   description?: string
@@ -105,6 +105,8 @@ export interface GameItem {
   floor?: boolean
   /** Bottoms that reach the ankles (the body's lower legs are hidden under them). */
   long?: boolean
+  /** Clothes only one body wears; without it both can (one fitted model per body). */
+  onlyFor?: CharacterModel
 }
 
 export interface Inventory {

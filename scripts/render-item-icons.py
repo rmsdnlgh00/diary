@@ -2,8 +2,10 @@
 
 Opens an empty file, appends the clothes (diary_character_clothes.blend) and the
 decorations (diary_village_v4_legacy_view.blend), and renders each item alone on a
-transparent background from the game camera's side (front, looking down) into
-public/assets/items/<item id>.webp. Nothing is saved; reopen your blend afterwards.
+transparent background from the game camera's side (front, looking down). Clothes icons go into
+their item folder (public/assets/clothes/<group>/<kind>/<item id>/icon.webp, made by
+scripts/export-clothes.py); decorations into public/assets/decorations/<item id>/icon.webp.
+Nothing is saved; reopen your blend afterwards.
 """
 import math
 import os
@@ -13,8 +15,7 @@ from mathutils import Vector
 
 repo = Path(os.environ.get("DIARY_REPO_ROOT", "/Users/geun-wiho/github/diary"))
 source = Path.home() / "male_master_3d"
-out = repo / "public/assets/items"
-out.mkdir(parents=True, exist_ok=True)
+decorations = repo / "public/assets/decorations"
 SIZE = 256
 
 bpy.ops.wm.read_homefile(use_empty=True)
@@ -116,7 +117,10 @@ for item in items:
     w = max(abs((p - centre).dot(right)) for p in pts) * 2
     h = max(abs((p - centre).dot(up)) for p in pts) * 2
     cam.data.ortho_scale = max(w, h) * 1.12
-    scene.render.filepath = str(out / f"{item}.webp")
+    folders = sorted((repo / "public/assets/clothes").glob(f"*/*/{item}"))
+    folder = folders[0] if folders else decorations / item
+    folder.mkdir(parents=True, exist_ok=True)
+    scene.render.filepath = str(folder / "icon.webp")
     bpy.ops.render.render(write_still=True)
     print("icon", item)
-print(f"{len(items)} icons in {out}")
+print(f"{len(items)} icons")

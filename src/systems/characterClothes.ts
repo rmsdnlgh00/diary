@@ -1,16 +1,36 @@
 import * as THREE from 'three'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
-import { ITEMS } from '@/data/items'
+import { ITEMS, clothesModelUrl } from '@/data/items'
+import type { CharacterModel } from '@/types'
 import { FaceMaterials, bodyOf } from './characterFaces'
 
 /**
- * Clothes from clothes-v1.glb (scripts/export-clothes.py), by item id. Tops and bottoms are
- * skinned to the same armature as the character, so they are re-bound to each character's
- * own bones; hats, hoods and buttons hang from a bone and are cloned onto that bone.
+ * Clothes by item id, each from its own GLB (public/assets/clothes/…/<id>/<body>.glb, made by
+ * scripts/export-clothes.py). Tops and bottoms are skinned to the same armature as the
+ * character, so they are re-bound to each character's own bones; hats, hoods and buttons hang
+ * from a bone and are cloned onto that bone.
  */
 export type ClothingPart = { skinned: THREE.SkinnedMesh } | { rigid: THREE.Object3D; bone: string }
 const ITEM_IDS = ITEMS.map((item) => item.id).sort((a, b) => b.length - a.length)
+
+/**
+ * Loads every clothing item fitted to `body`. Items whose file is missing are skipped (the
+ * character then wears its painted outfit there). `scenes` are the loaded files, for disposal.
+ */
+export async function loadClothes(loader: GLTFLoader, body: CharacterModel) {
+  const wearable = ITEMS.filter((item) => item.category !== 'decoration' && (!item.onlyFor || item.onlyFor === body))
+  const files = await Promise.all(wearable.map((item) => loader.loadAsync(clothesModelUrl(item, body)).catch(() => null)))
+  const clothes = new Map<string, ClothingPart[]>()
+  const scenes: THREE.Object3D[] = []
+  for (const file of files) {
+    if (!file) continue
+    scenes.push(file.scene)
+    for (const [id, parts] of collectClothes(file.scene)) clothes.set(id, parts)
+  }
+  if (!scenes.length) console.warn(`[characterClothes] ${body} 옷을 하나도 불러오지 못했어요`)
+  return { clothes, scenes }
+}
 
 export function collectClothes(root: THREE.Object3D): Map<string, ClothingPart[]> {
   const clothes = new Map<string, ClothingPart[]>()
@@ -89,10 +109,10 @@ export function loadCharacterKit(height = 1.7): Promise<CharacterKit> {
   kit ??= (async () => {
     const draco = new DRACOLoader().setDecoderPath('/draco/').setDecoderConfig({ type: 'wasm' })
     const loader = new GLTFLoader().setDRACOLoader(draco)
-    const [walk, idle, clothesFile] = await Promise.all([
+    const [walk, idle, wardrobe] = await Promise.all([
       loader.loadAsync('/assets/characters/male/character-walk-light.glb'),
       loader.loadAsync('/assets/characters/male/character-idle-anim.glb'),
-      loader.loadAsync('/assets/characters/male/clothes-v1.glb').catch(() => null),
+      loadClothes(loader, 'male'),
     ])
     draco.dispose()
     const clip = idle.animations[0]?.clone()
@@ -108,7 +128,7 @@ export function loadCharacterKit(height = 1.7): Promise<CharacterKit> {
     const body = bodyOf(raw)
     const faces = body ? new FaceMaterials(body.material as THREE.MeshStandardMaterial) : null
     await faces?.load()
-    return { template, idle: clip, clothes: clothesFile ? collectClothes(clothesFile.scene) : new Map(), faces }
+    return { template, idle: clip, clothes: wardrobe.clothes, faces }
   })()
   kit.catch(() => { kit = null })
   return kit

@@ -51,16 +51,20 @@ function loadAtlas() {
  * bottoms (lower legs). Those parts are not drawn while the character wears such clothes,
  * so the body can't poke through.
  */
-let bodyMask: THREE.Texture | null = null
-function loadBodyMask(): THREE.Texture {
-  if (!bodyMask) {
-    bodyMask = new THREE.TextureLoader().load('/assets/characters/male/body-mask.png')
-    bodyMask.flipY = false
-    bodyMask.colorSpace = THREE.NoColorSpace
-    bodyMask.magFilter = bodyMask.minFilter = THREE.NearestFilter
-    bodyMask.generateMipmaps = false
+const MALE_BODY_MASK = '/assets/characters/male/body-mask.png'
+const bodyMasks = new Map<string, THREE.Texture>()
+function loadBodyMask(url: string, wrap: THREE.Wrapping = THREE.ClampToEdgeWrapping): THREE.Texture {
+  let mask = bodyMasks.get(url)
+  if (!mask) {
+    mask = new THREE.TextureLoader().load(url)
+    mask.flipY = false
+    mask.colorSpace = THREE.NoColorSpace
+    mask.magFilter = mask.minFilter = THREE.NearestFilter
+    mask.generateMipmaps = false
+    mask.wrapS = mask.wrapT = wrap
+    bodyMasks.set(url, mask)
   }
-  return bodyMask
+  return mask
 }
 
 /** Which body parts the outfit covers: [top, bottom, long bottom]. */
@@ -69,6 +73,37 @@ function covered(outfit: readonly string[] | undefined): [number, number, number
   const has = (test: (category: string | undefined, long: boolean) => boolean) =>
     items.some((item) => test(item?.category, !!item?.long)) ? 1 : 0
   return [has((c) => c === 'top'), has((c) => c === 'bottom'), has((c, long) => c === 'bottom' && long)]
+}
+
+/** Makes `material` (a copy) skip the body texels `mask` marks for the covered parts. */
+function hideUnderClothes(material: THREE.Material, mask: THREE.Texture, hide: [number, number, number]) {
+  material.onBeforeCompile = (shader) => {
+    shader.uniforms.uBodyMask = { value: mask }
+    shader.uniforms.uHide = { value: new THREE.Vector3(...hide) }
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform sampler2D uBodyMask;\nuniform vec3 uHide;')
+      .replace('#include <map_fragment>', `#include <map_fragment>
+        if (dot(step(vec3(0.5), texture2D(uBodyMask, vMapUv).rgb), uHide) > 0.5) discard;`)
+  }
+  material.customProgramCacheKey = () => `body-hide-${hide.join('')}`
+}
+
+const covering = new Map<string, THREE.Material>()
+/**
+ * The body material `base` while wearing `outfit`: a shared copy that hides what the clothes cover
+ * (texels marked in the mask at `maskUrl`), or `base` itself when nothing is covered.
+ */
+export function coveredMaterial(base: THREE.MeshStandardMaterial, maskUrl: string, outfit: readonly string[] | undefined): THREE.Material {
+  const hide = covered(outfit)
+  if (!hide.some(Boolean)) return base
+  const key = `${base.uuid}|${hide.join('')}`
+  let material = covering.get(key)
+  if (!material) {
+    material = base.clone()
+    hideUnderClothes(material, loadBodyMask(maskUrl, base.map?.wrapS), hide)
+    covering.set(key, material)
+  }
+  return material
 }
 
 /** Builds mood materials from one character's body material. */
@@ -99,18 +134,7 @@ export class FaceMaterials {
       // its colour: swap that one too, or the old face shows through.
       if (this.base.emissiveMap) material.emissiveMap = face
     }
-    if (hide.some(Boolean)) {
-      const mask = loadBodyMask()
-      material.onBeforeCompile = (shader) => {
-        shader.uniforms.uBodyMask = { value: mask }
-        shader.uniforms.uHide = { value: new THREE.Vector3(...hide) }
-        shader.fragmentShader = shader.fragmentShader
-          .replace('#include <common>', '#include <common>\nuniform sampler2D uBodyMask;\nuniform vec3 uHide;')
-          .replace('#include <map_fragment>', `#include <map_fragment>
-            if (dot(step(vec3(0.5), texture2D(uBodyMask, vMapUv).rgb), uHide) > 0.5) discard;`)
-      }
-      material.customProgramCacheKey = () => `body-hide-${hide.join('')}`
-    }
+    if (hide.some(Boolean)) hideUnderClothes(material, loadBodyMask(MALE_BODY_MASK), hide)
     // Before the face atlas is in, don't keep the faceless copy around.
     if (face || !emotion) this.made.set(key, material)
     return material

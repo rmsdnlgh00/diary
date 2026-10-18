@@ -8,9 +8,10 @@ import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js'
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import type { StageCharacter } from './ThreeStage'
-import { collectClothes, dressCharacter, type ClothingPart } from '@/systems/characterClothes'
+import { dressCharacter, loadClothes, type ClothingPart } from '@/systems/characterClothes'
+import { ITEMS, decorationModelUrl } from '@/data/items'
 import { FaceMaterials, bodyOf } from '@/systems/characterFaces'
-import { loadFemaleCharacter } from '@/systems/femaleCharacter'
+import { coverFemaleBody, loadFemaleCharacter } from '@/systems/femaleCharacter'
 import { MALE_WALK_STRIDE } from '@/systems/walkSystem'
 import { DECORATION_RADIUS, VILLAGE_CAMERA, VILLAGE_CENTER, VILLAGE_CHARACTER_HEIGHT, VILLAGE_POND, VILLAGE_VIEW_DISTANCE,
   VILLAGE_DEPTH, VILLAGE_WALKABLE_AREAS, VILLAGE_WIDTH, FLOOR_TILE_SIZE, isFloorDecoration, snapDecoration, villageGround,
@@ -392,12 +393,21 @@ export function VillageStage(props: Props) {
     let walkClip: THREE.AnimationClip | null = null
     let idleClip: THREE.AnimationClip | null = null
     let female: Awaited<ReturnType<typeof loadFemaleCharacter>> | null = null
+    /** Clothes fitted to the female body (public/assets/clothes/…/female.glb). */
+    let femaleClothes = new Map<string, ClothingPart[]>()
+    let femaleClothesAssets: THREE.Object3D[] = []
     let femaleRequested = false
     const requestFemale = () => {
       if (femaleRequested) return
       femaleRequested = true
-      loadFemaleCharacter(VILLAGE_CHARACTER_HEIGHT).then((asset) => {
-        if (disposed) { disposeObject(asset.template); return }
+      Promise.all([loadFemaleCharacter(VILLAGE_CHARACTER_HEIGHT), loadClothes(loader, 'female')]).then(([asset, wardrobe]) => {
+        if (disposed) {
+          disposeObject(asset.template)
+          for (const scene of wardrobe.scenes) disposeObject(scene)
+          return
+        }
+        femaleClothes = wardrobe.clothes
+        femaleClothesAssets = wardrobe.scenes
         female = asset
       }).catch((error) => {
         if (!disposed) {
@@ -406,8 +416,8 @@ export function VillageStage(props: Props) {
         }
       })
     }
-    let decorationAsset: THREE.Object3D | null = null
-    let clothesAsset: THREE.Object3D | null = null
+    let decorationAssets: THREE.Object3D[] = []
+    let clothesAssets: THREE.Object3D[] = []
     let clothes = new Map<string, ClothingPart[]>()
     let faces: FaceMaterials | null = null
     let facesReady = false
@@ -451,30 +461,27 @@ export function VillageStage(props: Props) {
     const placed = new Map<string, { itemId: string; object: THREE.Object3D }>()
     const load = async () => {
       try {
-        const [village, walk, idle, decorationsFile, clothesFile] = await Promise.all([
+        const [village, walk, idle, decorationFiles, wardrobe] = await Promise.all([
           loader.loadAsync('/assets/village/diary-village-v4.glb'),
           // Light copies made in Blender: 9.4k instead of 31k triangles, JPEG texture, and
           // an idle file that only carries the animation. Bones and tracks match the originals.
           loader.loadAsync('/assets/characters/male/character-walk-light.glb'),
           loader.loadAsync('/assets/characters/male/character-idle-anim.glb'),
-          loader.loadAsync('/assets/village/decorations-v1.glb'),
-          // Without clothes the village still works; characters just wear their painted outfit.
-          loader.loadAsync('/assets/characters/male/clothes-v1.glb').catch((error) => {
-            console.warn('[VillageStage] 옷을 불러오지 못했어요', error)
-            return null
-          }),
+          // One file per decoration (public/assets/decorations/<id>/model.glb); a missing one is just not in the shop's 3D.
+          Promise.all(ITEMS.filter((item) => item.category === 'decoration')
+            .map((item) => loader.loadAsync(decorationModelUrl(item.id)).catch(() => null))),
+          // One file per clothing item; missing ones are skipped and the painted outfit shows there.
+          loadClothes(loader, 'male'),
         ])
         if (disposed) {
-          for (const asset of [village, walk, idle, decorationsFile, clothesFile]) if (asset) disposeObject(asset.scene)
+          for (const asset of [village, walk, idle, ...decorationFiles]) if (asset) disposeObject(asset.scene)
+          for (const scene of wardrobe.scenes) disposeObject(scene)
           return
         }
-        if (clothesFile) {
-          clothesAsset = clothesFile.scene
-          clothesAsset.updateMatrixWorld(true)
-          clothes = collectClothes(clothesAsset)
-        }
-        decorationAsset = decorationsFile.scene
-        for (const model of [...decorationAsset.children]) {
+        clothesAssets = wardrobe.scenes
+        clothes = wardrobe.clothes
+        decorationAssets = decorationFiles.flatMap((file) => file ? [file.scene] : [])
+        for (const model of decorationAssets.flatMap((scene) => [...scene.children])) {
           model.position.set(0, 0, 0)
           const itemId = model.name.replace(/^Deco_/, '')
           model.traverse((o) => {
@@ -889,9 +896,11 @@ export function VillageStage(props: Props) {
             const body = bodyOf(inst.object)
             if (body) body.material = faces.material(c.emotion ?? 'NORMAL', c.outfit)
           }
-          if (model === 'male' && outfitKey !== inst.outfitKey) {
+          if (outfitKey !== inst.outfitKey) {
             inst.outfitKey = outfitKey
-            inst.outfit = dressCharacter(inst.object, inst.outfit, c.outfit ?? [], clothes)
+            inst.outfit = dressCharacter(inst.object, inst.outfit, c.outfit ?? [], model === 'female' ? femaleClothes : clothes)
+            // The male body hides what the clothes cover through its face materials above.
+            if (model === 'female') coverFemaleBody(inst.object, c.outfit ?? [])
           }
           const p = villageGround(c.x, c.y)
           inst.object.position.copy(p)
@@ -952,10 +961,11 @@ export function VillageStage(props: Props) {
       }
       if (template) disposeObject(template)
       if (female) disposeObject(female.template)
+      for (const scene of femaleClothesAssets) disposeObject(scene)
       if (terrain) disposeObject(terrain)
       // Placed decorations are clones that share these geometries and materials.
-      if (decorationAsset) disposeObject(decorationAsset)
-      if (clothesAsset) disposeObject(clothesAsset)
+      for (const scene of decorationAssets) disposeObject(scene)
+      for (const scene of clothesAssets) disposeObject(scene)
       faces?.dispose()
       // The duck left the terrain group, so it is disposed on its own.
       if (duck) disposeObject(duck)

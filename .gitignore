@@ -24,6 +24,9 @@ dist-ssr
 *.sln
 *.sw?
 
+# Blender automatic backup files; keep only deliberate source files.
+*.blend[1-9]
+
 # Face bake intermediates (scripts/make-portraits.py --flat, scripts/bake-face-textures.py)
 assets/portraits/flat/
 assets/portraits/baked/
