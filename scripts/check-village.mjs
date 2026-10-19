@@ -15,6 +15,8 @@ try {
   await server.listen()
   browser = await puppeteer.launch({ executablePath, headless: true, args: ['--enable-unsafe-swiftshader'] })
   page = await browser.newPage()
+  // Past the first-run welcome (checked on its own in check-game).
+  await page.evaluateOnNewDocument(() => localStorage.setItem('haru-village:profile', JSON.stringify({ name: '테스트', model: 'male' })))
   await page.setRequestInterception(true)
   page.on('request', (request) => /https:\/\/fonts\.(googleapis|gstatic)\.com\//.test(request.url())
     ? request.respond({ status: 200, contentType: 'text/css', body: '' }) : request.continue())

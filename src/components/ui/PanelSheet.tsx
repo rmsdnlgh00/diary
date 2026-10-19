@@ -24,6 +24,7 @@ export function PanelSheet() {
   const closePanel = useGameStore((state) => state.closePanel)
   const feedback = useGameStore((state) => state.feedback)
   const today = useGameStore((state) => state.today)
+  const writingDate = useGameStore((state) => state.writingDate)
   const sheetRef = useRef<HTMLElement>(null)
   // Size is per panel: opening another panel starts compact again.
   const [sizing, setSizing] = useState<{ panel: PanelId | null; size: SheetSize }>({ panel: null, size: 'compact' })
@@ -31,7 +32,7 @@ export function PanelSheet() {
   const drag = useRef<{ y: number; height: number; moved: boolean } | null>(null)
 
   if (!activePanel) return null
-  if (activePanel === 'DIARY') return <DiaryEditor date={today} />
+  if (activePanel === 'DIARY') return <DiaryEditor date={writingDate ?? today} />
   const size = sizing.panel === activePanel ? sizing.size : 'compact'
   const setSize = (next: SheetSize) => setSizing({ panel: activePanel, size: next })
 

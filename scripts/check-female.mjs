@@ -13,6 +13,8 @@ try {
   browser = await puppeteer.launch({ executablePath: process.env.CHROME_PATH ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
     headless: true, args: ['--enable-unsafe-swiftshader'] })
   page = await browser.newPage()
+  // Past the first-run welcome (checked on its own in check-game).
+  await page.evaluateOnNewDocument(() => localStorage.setItem('haru-village:profile', JSON.stringify({ name: '테스트', model: 'male' })))
   await page.setViewport({ width: 390, height: 844, isMobile: true, hasTouch: true })
   const errors = []
   page.on('pageerror', (e) => errors.push(e.message))

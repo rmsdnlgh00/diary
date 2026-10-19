@@ -4,6 +4,7 @@ import { EMOTIONS } from '@/data/emotions'
 import { useGameStore } from '@/store/gameStore'
 import { formatKoreanDate } from '@/utils/date'
 import { CoinIcon } from '@/components/ui/TopBar'
+import { useProfileStore } from '@/store/profileStore'
 
 /** Pulling the sheet down further than this closes it. */
 const CLOSE_DRAG = 80
@@ -14,6 +15,10 @@ export function DiaryDetail() {
   const selectedCharacterId = useGameStore((state) => state.selectedCharacterId)
   const selectCharacter = useGameStore((state) => state.selectCharacter)
   const welcome = useGameStore((state) => state.welcome)
+  const today = useGameStore((state) => state.today)
+  const name = useProfileStore((state) => state.profile?.name)
+  // The first arrival (the tour comes next) greets the player by name.
+  const firstArrival = useProfileStore((state) => state.profile?.guide === 'tour')
   const [drag, setDrag] = useState(0)
   const start = useRef<number | null>(null)
 
@@ -54,7 +59,8 @@ export function DiaryDetail() {
           <span className="diary-sheet__handle" aria-hidden="true" />
           {welcome?.id === character.id && (
             <p className="diary-sheet__welcome" role="status">
-              오늘의 내가 마을에 도착했어요
+              {firstArrival && name ? `${name}님, 하루마을에 온 걸 환영해요!`
+                : character.diaryDate < today ? `${formatKoreanDate(character.diaryDate)}의 내가 마을에 도착했어요` : '오늘의 내가 마을에 도착했어요'}
               {welcome.reward > 0 && <span className="diary-sheet__reward"><CoinIcon />+{welcome.reward}</span>}
             </p>
           )}

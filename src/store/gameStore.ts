@@ -5,6 +5,7 @@ import { getWorld } from '@/data/worlds'
 import { canPlaceDecoration } from '@/systems/decorationSystem'
 import { diaryReward, writeDiary } from '@/systems/diarySystem'
 import { isMonthKey, loadSave, persistSave } from '@/systems/saveSystem'
+import { useProfileStore } from '@/store/profileStore'
 import type { Point } from '@/systems/worldSystem'
 import type { ClothingCategory, DecorationData, DiaryCharacterData, DiaryEntry, EmotionId, GameItem, Inventory, PanelId,
   PlacedDecoration, WorldDecorations, CharacterModel } from '@/types'
@@ -30,6 +31,8 @@ interface GameState {
   selectedCharacterId: string | null
   /** A character on its way in by boat (just written); not saved. */
   arrivingId: string | null
+  /** The day the diary editor is open for when it isn't today (a past day); not saved. */
+  writingDate: string | null
   /** The welcome line on a just-arrived character's diary (with the coins it earned); not saved. */
   welcome: { id: string; reward: number } | null
   activePanel: PanelId | null
@@ -37,6 +40,8 @@ interface GameState {
   lastWrittenDate: string | null
   selectCharacter: (id: string | null) => void
   togglePanel: (panel: PanelId) => void
+  /** Opens the diary editor on a day: today or a past one (never the future). */
+  openDiary: (date: string) => void
   closePanel: () => void
   /**
    * `picked`: a mood the player chose; otherwise the text decides. Returns the coins earned:
@@ -107,6 +112,7 @@ export const useGameStore = create<GameState>((set, get) => {
     decorations: getWorld(saved.worldId).decorations,
     selectedCharacterId: null,
     arrivingId: null,
+    writingDate: null,
     welcome: null,
     activePanel: null,
     lastWrittenDate: null,
@@ -114,9 +120,15 @@ export const useGameStore = create<GameState>((set, get) => {
     // The welcome stays with its own character's diary and goes once that diary is closed.
     selectCharacter: (id) => set((s) => ({ selectedCharacterId: id, welcome: id && s.welcome?.id === id ? s.welcome : null })),
     togglePanel: (panel) =>
-      set((state) => ({ activePanel: state.activePanel === panel ? null : panel,
+      set((state) => ({ activePanel: state.activePanel === panel ? null : panel, writingDate: null,
         selectedCharacterId: null, selectedDecorationId: null, placementTool: null, feedback: '' })),
-    closePanel: () => set({ activePanel: null, selectedDecorationId: null, placementTool: null, feedback: '' }),
+    openDiary: (date) => {
+      const { today } = get()
+      if (date > today) return
+      set({ activePanel: 'DIARY', writingDate: date === today ? null : date,
+        selectedCharacterId: null, selectedDecorationId: null, placementTool: null, feedback: '' })
+    },
+    closePanel: () => set({ activePanel: null, writingDate: null, selectedDecorationId: null, placementTool: null, feedback: '' }),
     clearLastWritten: () => set({ lastWrittenDate: null }),
     startArrival: (characterId, reward = 0) => set({ arrivingId: characterId, welcome: { id: characterId, reward } }),
     finishArrival: () => set({ arrivingId: null }),
@@ -125,10 +137,14 @@ export const useGameStore = create<GameState>((set, get) => {
       const { diaries, characters, coins } = get()
       const month = toMonthKey(date)
       const result = writeDiary(getWorld(month), diaries, characters, date, text, undefined, picked)
-      const reward = result.created ? diaryReward(text) : 0
+      // A new entry pays; a past day a flat amount, without the length bonus.
+      const reward = result.created ? diaryReward(text, date < get().today) : 0
+      // A new day's character takes the look chosen in the first-run welcome.
+      const model = useProfileStore.getState().profile?.model
+      const id = result.characters.find((c) => c.diaryDate === date)?.id
       commit({
         diaries: result.diaries,
-        characters: result.characters,
+        characters: result.created && model ? result.characters.map((c) => c.id === id ? { ...c, model } : c) : result.characters,
         coins: coins + reward,
         lastWrittenDate: date,
         worldId: month,

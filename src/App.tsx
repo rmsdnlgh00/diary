@@ -1,5 +1,7 @@
 import { DiaryDetail } from '@/components/diary/DiaryDetail'
 import { GameWorld } from '@/components/game/GameWorld'
+import { Onboarding } from '@/components/onboarding/Onboarding'
+import { Tour } from '@/components/onboarding/Tour'
 import { BottomBar } from '@/components/ui/BottomBar'
 import { PanelSheet } from '@/components/ui/PanelSheet'
 import { SettingsDialog } from '@/components/ui/SettingsDialog'
@@ -32,6 +34,8 @@ export default function App() {
         <BottomBar />
         <DiaryDetail />
         <SettingsDialog />
+        <Onboarding />
+        <Tour />
         {storageError && <p className="save-warning" role="alert">기기에 저장하지 못했어요. 저장 공간과 브라우저 설정을 확인해 주세요.</p>}
       </div>
     </div>

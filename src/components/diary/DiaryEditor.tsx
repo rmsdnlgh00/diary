@@ -3,6 +3,7 @@ import { DIARY_PROMPTS, promptIndexFor } from '@/data/diaryPrompts'
 import { EMOTIONS, EMOTION_IDS } from '@/data/emotions'
 import { portraitFor } from '@/data/expressions'
 import { diaryForDate, useGameStore } from '@/store/gameStore'
+import { useProfileStore } from '@/store/profileStore'
 import { DIARY_REWARD, diaryReward } from '@/systems/diarySystem'
 import { analyzeDiary } from '@/systems/emotionAnalyzer'
 import type { EmotionId } from '@/types'
@@ -40,11 +41,17 @@ export function DiaryEditor({ date }: Props) {
   const saveDiary = useGameStore((s) => s.saveDiary)
   const closePanel = useGameStore((s) => s.closePanel)
   const startArrival = useGameStore((s) => s.startArrival)
+  const name = useProfileStore((s) => s.profile?.name)
+  const today = useGameStore((s) => s.today)
+  // A past day: the prompts talk about "that day", the entry pays a flat reward and isn't part of the streak.
+  const past = date < today
+  const firstDiary = useProfileStore((s) => s.profile?.guide === 'diary') && !past
+  const setGuide = useProfileStore((s) => s.setGuide)
 
   const existing = diaryForDate(diaries, date)
   const [text, setText] = useState(() => readDraft(date) ?? existing?.text ?? '')
   const [picked, setPicked] = useState<EmotionId | null>(existing?.emotionPicked ? existing.emotion : null)
-  const [promptIndex, setPromptIndex] = useState(() => promptIndexFor(date))
+  const [promptIndex, setPromptIndex] = useState(() => firstDiary ? 0 : promptIndexFor(date))
   // 저장하고 나면 existing 이 생기므로, 저장 시점에 신규였는지를 따로 기억해 둔다
   const [saved, setSaved] = useState<'created' | 'updated' | null>(null)
   const [reward, setReward] = useState(0)
@@ -56,7 +63,7 @@ export function DiaryEditor({ date }: Props) {
     const entry = diaryForDate(diaries, date)
     setText(readDraft(date) ?? entry?.text ?? '')
     setPicked(entry?.emotionPicked ? entry.emotion : null)
-    setPromptIndex(promptIndexFor(date))
+    setPromptIndex(firstDiary ? 0 : promptIndexFor(date))
     setSaved(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date])
@@ -72,7 +79,7 @@ export function DiaryEditor({ date }: Props) {
   const analyzed = trimmed ? analyzeDiary(trimmed).emotion : null
   const mood = picked ?? analyzed
   const emotion = mood ? EMOTIONS[mood] : null
-  const prompt = DIARY_PROMPTS[promptIndex]
+  const prompt = past ? DIARY_PROMPTS[promptIndex].replace(/^오늘/, '그날') : DIARY_PROMPTS[promptIndex]
   const isDraft = !!existing && trimmed !== existing.text
 
   const change = (next: string) => {
@@ -91,6 +98,8 @@ export function DiaryEditor({ date }: Props) {
       // A new day's character comes to the village by boat: close the notebook and watch it arrive.
       const arrived = useGameStore.getState().characters.find((c) => c.diaryDate === date)
       if (arrived) {
+        // The first diary is written: next comes the welcome and the short tour.
+        if (firstDiary) setGuide('tour')
         startArrival(arrived.id, earned)
         closePanel()
         return
@@ -127,11 +136,20 @@ export function DiaryEditor({ date }: Props) {
       <div className="editor__header">
         <h2>
           {formatKoreanDate(date)}<small>{koreanWeekday(date)}</small>
+          {past && <span className="editor__past">지난 날</span>}
         </h2>
         <button type="button" className="icon-button" onClick={closePanel} aria-label="닫기">
           ✕
         </button>
       </div>
+
+      {firstDiary && !existing && (
+        <div className="editor__guide" role="note">
+          <strong>{name ? `${name}님의 첫 일기예요` : '첫 일기예요'}</strong>
+          <span>오늘 있었던 일 하나면 충분해요. 아래 질문을 누르면 그 질문으로 시작해요.</span>
+          <span>기분은 글을 보고 알아서 골라요. 저장하면 오늘의 내가 배를 타고 마을에 와요.</span>
+        </div>
+      )}
 
       <div className="editor__prompt">
         <span aria-hidden="true">💭</span>
@@ -150,7 +168,7 @@ export function DiaryEditor({ date }: Props) {
           className="editor__text"
           value={text}
           onChange={(e) => change(e.target.value)}
-          placeholder="오늘 어떤 하루였나요? 짧게 써도 괜찮아요."
+          placeholder={past ? '그날은 어떤 하루였나요? 기억나는 만큼만 써도 괜찮아요.' : '오늘 어떤 하루였나요? 짧게 써도 괜찮아요.'}
           rows={6}
         />
         <span className="editor__count" aria-live="polite">
@@ -181,10 +199,12 @@ export function DiaryEditor({ date }: Props) {
         </div>
       </div>
 
-      {!existing && <p className="editor__reward-hint">
-        기록하면 🪙 {diaryReward(trimmed)}
-        {trimmed.length < DIARY_REWARD.bonusLength && ` · ${DIARY_REWARD.bonusLength}자를 넘기면 +${DIARY_REWARD.bonus}`}
-      </p>}
+      {!existing && (past
+        ? <p className="editor__reward-hint">기록하면 🪙 {DIARY_REWARD.past} · 그날의 내가 마을에 와요. 연속 기록에는 들어가지 않아요.</p>
+        : <p className="editor__reward-hint">
+          기록하면 🪙 {diaryReward(trimmed)}
+          {trimmed.length < DIARY_REWARD.bonusLength && ` · ${DIARY_REWARD.bonusLength}자를 넘기면 +${DIARY_REWARD.bonus}`}
+        </p>)}
 
       <button
         type="button"

@@ -12,13 +12,20 @@ function shiftMonth(month: string, by: number): string {
   return toMonthKey(toDateKey(new Date(year, m - 1 + by, 1)))
 }
 
-/** Days in a row with an entry, ending today (or yesterday while today is still unwritten). */
-function streakOf(byDate: Map<string, DiaryEntry>, today: string): number {
+/** Written on the day itself, not filled in afterwards. */
+const writtenOnTheDay = (entry: DiaryEntry) => toDateKey(new Date(entry.createdAt)) === entry.date
+
+/**
+ * Days in a row written on the day itself, ending today (or yesterday while today is still
+ * unwritten). Days filled in later don't count.
+ */
+function streakOf(diaries: readonly DiaryEntry[], today: string): number {
+  const onTheDay = new Set(diaries.filter(writtenOnTheDay).map((d) => d.date))
   const [year, month, day] = today.split('-').map(Number)
   const cursor = new Date(year, month - 1, day)
-  if (!byDate.has(today)) cursor.setDate(cursor.getDate() - 1)
+  if (!onTheDay.has(today)) cursor.setDate(cursor.getDate() - 1)
   let streak = 0
-  while (byDate.has(toDateKey(cursor))) {
+  while (onTheDay.has(toDateKey(cursor))) {
     streak += 1
     cursor.setDate(cursor.getDate() - 1)
   }
@@ -33,7 +40,7 @@ export function JournalPanel() {
   const diaries = useGameStore((s) => s.diaries)
   const today = useGameStore((s) => s.today)
   const worldId = useGameStore((s) => s.worldId)
-  const togglePanel = useGameStore((s) => s.togglePanel)
+  const openDiary = useGameStore((s) => s.openDiary)
   const closePanel = useGameStore((s) => s.closePanel)
   const setWorld = useGameStore((s) => s.setWorld)
   const selectCharacter = useGameStore((s) => s.selectCharacter)
@@ -53,7 +60,7 @@ export function JournalPanel() {
     `${month}-${String(i + 1).padStart(2, '0')}`)]
   const counts = EMOTION_IDS.map((id) => ({ id, count: inMonth.filter((d) => d.emotion === id).length }))
     .filter((c) => c.count > 0)
-  const streak = streakOf(byDate, today)
+  const streak = streakOf(diaries, today)
 
   const meet = (diary: DiaryEntry) => {
     const month = toMonthKey(diary.date)
@@ -105,13 +112,16 @@ export function JournalPanel() {
         ? <>
           <p className="journal-entry__text">{entry.text}</p>
           <div className="journal-entry__actions">
-            {entry.date === today && <button type="button" className="item-action" onClick={() => togglePanel('DIARY')}>고쳐 쓰기</button>}
+            <button type="button" className="item-action" onClick={() => openDiary(entry.date)}>고쳐 쓰기</button>
             <button type="button" className="item-action journal-entry__meet" onClick={() => meet(entry)}>마을에서 만나기</button>
           </div>
         </>
-        : selected === today
-          ? <button type="button" className="primary-button journal-entry__write" onClick={() => togglePanel('DIARY')}>오늘 일기 쓰기</button>
-          : <p className="panel-hint">이 날은 기록이 없어요.</p>}
+        : <>
+          {selected < today && <p className="panel-hint">이 날은 기록이 없어요. 지금이라도 남겨 볼까요?</p>}
+          <button type="button" className="primary-button journal-entry__write" onClick={() => openDiary(selected)}>
+            {selected === today ? '오늘 일기 쓰기' : '이 날 일기 쓰기'}
+          </button>
+        </>}
     </article>
   </>
 }

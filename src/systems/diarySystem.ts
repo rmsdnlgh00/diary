@@ -5,9 +5,10 @@ import { CHARACTER_RADIUS, characterIdForDate, pickSpawnPoint } from './characte
 import { analyzeDiary, type DiaryAnalyzer } from './emotionAnalyzer'
 
 /** Coins for a new day's entry: a base reward, and a little more for a longer one. */
-export const DIARY_REWARD = { base: 10, bonus: 5, bonusLength: 100 }
-export const diaryReward = (text: string): number =>
-  DIARY_REWARD.base + (text.trim().length >= DIARY_REWARD.bonusLength ? DIARY_REWARD.bonus : 0)
+/** `past`: a flat reward for filling in a day gone by (no length bonus). */
+export const DIARY_REWARD = { base: 10, bonus: 5, bonusLength: 100, past: 10 }
+export const diaryReward = (text: string, past = false): number => past ? DIARY_REWARD.past
+  : DIARY_REWARD.base + (text.trim().length >= DIARY_REWARD.bonusLength ? DIARY_REWARD.bonus : 0)
 
 export interface DiaryWriteResult {
   diaries: DiaryEntry[]

@@ -1084,3 +1084,105 @@
 }
 .diary-sheet__reward .coin-icon { width: 14px; height: 14px; }
 @keyframes welcome-in { from { opacity: 0; transform: scale(.85); } }
+
+/* ---------- 첫 실행 안내: a welcome card over the village ---------- */
+.onboarding {
+  position: absolute; inset: 0; z-index: 60;
+  display: flex; align-items: flex-end; justify-content: center;
+  padding: calc(16px + var(--safe-top)) calc(16px + var(--safe-right)) calc(16px + var(--safe-bottom)) calc(16px + var(--safe-left));
+  background: linear-gradient(to bottom, rgba(255, 247, 235, 0) 25%, rgba(255, 241, 222, 0.55) 70%);
+}
+.onboarding__card {
+  width: min(440px, 100%);
+  padding: 22px 22px 20px; border-radius: 26px;
+  background: var(--paper); border: 2px solid #f0dcc2;
+  box-shadow: 0 14px 40px rgba(60, 44, 34, 0.22);
+  text-align: center;
+  animation: onboarding-in .4s cubic-bezier(.2, .9, .3, 1.15);
+}
+@keyframes onboarding-in { from { opacity: 0; transform: translateY(24px); } }
+.onboarding__dots { display: flex; justify-content: center; gap: 6px; margin: 0 0 14px; padding: 0; list-style: none; }
+.onboarding__dots li { width: 7px; height: 7px; border-radius: 50%; background: #ead9c4; transition: background .2s, width .2s; }
+.onboarding__dots li[data-on] { background: var(--accent); }
+.onboarding__dots li[data-current] { width: 18px; border-radius: 4px; }
+.onboarding__title { margin: 4px 0 10px; font-size: 34px; font-weight: 400; color: #b06a2c; letter-spacing: 0.06em; }
+.onboarding__lead { margin: 0 0 8px; font-family: 'Gowun Dodum', sans-serif; font-size: 17px; line-height: 1.6; color: var(--ink); }
+.onboarding__sub { margin: 0 0 20px; font-size: 13px; color: var(--ink-soft); }
+.onboarding__question { margin: 2px 0 16px; font-size: 20px; font-weight: 400; }
+.onboarding__hint { margin: 10px 0 18px; font-size: 13px; color: var(--ink-soft); min-height: 1.2em; }
+.onboarding__looks { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.stage .onboarding__look {
+  position: relative; display: grid; gap: 4px; padding: 8px 8px 10px; min-height: 0;
+  border: 2px solid transparent; border-radius: 20px; background: var(--paper-warm);
+  font: inherit; font-size: 15px; color: var(--ink); cursor: pointer;
+  transition: border-color .15s, background .15s, transform .15s;
+}
+.onboarding__look .character-preview-3d { width: 100%; height: clamp(150px, 26vh, 220px); border-radius: 14px; background: #fffaf2; }
+.onboarding__look[aria-checked='true'] { border-color: var(--accent); background: #fff3df; }
+.onboarding__look[aria-checked='true']::after {
+  content: '✓'; position: absolute; top: 10px; right: 10px; width: 24px; height: 24px; line-height: 24px;
+  border-radius: 50%; background: var(--accent); color: #fff; font-size: 14px;
+}
+.onboarding__look:active { transform: scale(.98); }
+.onboarding__name {
+  width: 100%; box-sizing: border-box; min-height: 50px; padding: 0 16px;
+  border: 2px solid #ead9c4; border-radius: 16px; background: #fffaf2;
+  font: inherit; font-size: 18px; text-align: center; color: var(--ink); outline: none;
+}
+.onboarding__name:focus { border-color: var(--accent); }
+.onboarding__actions { display: flex; gap: 10px; }
+.stage .onboarding__next {
+  flex: 1; width: 100%; min-height: 50px; border: 0; border-radius: 999px;
+  background: var(--accent); color: #fff; font: inherit; font-size: 17px; cursor: pointer;
+  box-shadow: 0 4px 12px rgba(242, 147, 74, 0.3);
+}
+.stage .onboarding__next:disabled { background: #ead9c4; box-shadow: none; cursor: default; }
+.stage .onboarding__back {
+  flex: none; min-height: 50px; padding: 0 18px; border: 0; border-radius: 999px;
+  background: transparent; color: var(--ink-soft); font: inherit; font-size: 15px; cursor: pointer;
+}
+/* Nothing else to tap while the welcome is up. */
+.stage:has(.onboarding) :is(.topbar, .today-prompt, .more-menu, .journal-button) { visibility: hidden; }
+
+/* The very first diary: a short note on how it works. */
+.editor__guide {
+  display: grid; gap: 3px; margin-bottom: 10px; padding: 10px 14px; border-radius: 14px;
+  background: #fff8ec; border: 1.5px dashed #f2c58e;
+  font-size: 13px; line-height: 1.5; color: var(--ink-soft);
+}
+.editor__guide strong { font-weight: 400; font-size: 15px; color: #b06a2c; }
+
+/* ---------- 둘러보기: a spotlight over one control at a time ---------- */
+.tour { position: absolute; inset: 0; z-index: 58; }
+.tour__spot {
+  position: absolute; border-radius: 999px; pointer-events: none;
+  box-shadow: 0 0 0 9999px rgba(60, 44, 34, 0.5), 0 0 0 3px rgba(255, 210, 150, 0.9);
+  transition: left .3s ease, top .3s ease, width .3s ease, height .3s ease;
+}
+.tour__shade { position: absolute; inset: 0; background: rgba(60, 44, 34, 0.35); }
+.tour__bubble {
+  position: absolute; box-sizing: border-box; padding: 14px 16px 12px; border-radius: 18px;
+  background: var(--paper); box-shadow: 0 10px 30px rgba(60, 44, 34, 0.25);
+  animation: tour-in .3s cubic-bezier(.2, .9, .3, 1.2);
+}
+.tour__bubble--center { left: 50%; top: 50%; width: min(300px, calc(100% - 32px)); transform: translate(-50%, -50%); animation-name: tour-in-center; }
+@keyframes tour-in { from { opacity: 0; transform: translateY(8px) scale(.96); } }
+@keyframes tour-in-center { from { opacity: 0; transform: translate(-50%, -46%) scale(.96); } }
+.tour__step { margin: 0 0 2px; font-size: 11px; color: var(--ink-soft); }
+.tour__bubble h2 { margin: 0 0 4px; font-size: 17px; font-weight: 400; color: #b06a2c; }
+.tour__bubble p:not(.tour__step) { margin: 0; font-family: 'Gowun Dodum', sans-serif; font-size: 14px; line-height: 1.6; color: var(--ink); }
+.tour__actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 10px; }
+.stage .tour__next {
+  min-height: 40px; padding: 0 20px; border: 0; border-radius: 999px;
+  background: var(--accent); color: #fff; font: inherit; font-size: 15px; cursor: pointer;
+}
+.stage .tour__skip {
+  min-height: 40px; padding: 0 12px; border: 0; border-radius: 999px;
+  background: transparent; color: var(--ink-soft); font: inherit; font-size: 13px; cursor: pointer;
+}
+
+/* Writing for a day gone by. */
+.editor__past {
+  display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px; vertical-align: middle;
+  background: #eef1e4; color: #6b7d4a; font-size: 12px; font-weight: 400;
+}
