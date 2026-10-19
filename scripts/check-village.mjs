@@ -161,6 +161,21 @@ try {
   }, clicked.id)
   assert.ok(framed.y > 0 && framed.y < framed.sheetTop - 40, `the character stays above the diary (${Math.round(framed.y)} < ${Math.round(framed.sheetTop)})`)
   assert.ok(Math.abs(framed.x - framed.width / 2) < framed.width * 0.2, 'the character is centred')
+  // It stands still and looks at the camera while its diary is read.
+  const pose = () => page.evaluate((id) => {
+    const { camera, instances } = window.__village
+    const o = instances.get(id).object
+    const toCamera = { x: camera.position.x - o.position.x, z: camera.position.z - o.position.z }
+    const length = Math.hypot(toCamera.x, toCamera.z)
+    return { at: [o.position.x, o.position.z],
+      facing: (Math.sin(o.rotation.y) * toCamera.x + Math.cos(o.rotation.y) * toCamera.z) / length }
+  }, clicked.id)
+  await new Promise((resolve) => setTimeout(resolve, 1200))
+  const still = await pose()
+  await new Promise((resolve) => setTimeout(resolve, 1000))
+  const later = await pose()
+  assert.ok(later.facing > 0.95, `the character faces the camera (${later.facing.toFixed(2)})`)
+  assert.ok(Math.hypot(later.at[0] - still.at[0], later.at[1] - still.at[1]) < 0.01, 'the character stands still while read')
   await page.screenshot({ path: join(artifacts, 'diary-closeup.png') })
   await page.click('.diary-sheet__close')
   await page.waitForFunction((y) => Math.abs(window.__village.camera.position.y - y) < y * 0.05, { timeout: 5000 }, overviewY)
@@ -539,6 +554,87 @@ try {
   assert.ok(spread.after > spread.before * 5, `characters spread out (${spread.before} → ${spread.after} m²)`)
   console.log(`30 characters spread over ${spread.before} → ${spread.after} m² in 3 minutes`)
   assert.equal((await state()).characters.filter((c) => c.diaryDate === before.today).length, 1)
+  // Arrival: the dock stands on the north shore; the boat sails in and the overview watches it.
+  await page.waitForFunction(() => !!window.__village.arrival(), { timeout: 30000 })
+  const sailing = await page.evaluate(async () => {
+    const { BOAT_MOORING } = await import('/src/systems/arrivalBoat.ts')
+    const { scene, camera } = window.__village
+    const arrival = window.__village.arrival()
+    const dockPlanks = []
+    scene.traverse((o) => { if (o.name.startsWith('Dock_plank')) dockPlanks.push(o) })
+    const cameraBefore = camera.position.clone()
+    arrival.play('#ffd166')
+    const start = arrival.boatPosition().clone()
+    await new Promise((resolve) => setTimeout(resolve, 2500))
+    const now = arrival.boatPosition()
+    return { planks: dockPlanks.length, phase: arrival.phase(),
+      closer: start.distanceTo(BOAT_MOORING) - now.distanceTo(BOAT_MOORING),
+      cameraMoved: camera.position.distanceTo(cameraBefore) }
+  })
+  assert.ok(sailing.planks > 10, 'the dock is in the village')
+  assert.equal(sailing.phase, 'arriving')
+  assert.ok(sailing.closer > 5, `the boat sails towards the dock (${sailing.closer.toFixed(1)} m)`)
+  assert.ok(sailing.cameraMoved > 3, 'the camera watches the boat')
+  await page.screenshot({ path: join(artifacts, 'arrival-boat.png') })
+  // With a passenger: today's character rides in, a tap skips the voyage, it steps onto the dock
+  // (its diary opens and the camera follows) and walks up to the lawn, where it roams on.
+  const passenger = await page.evaluate(async () => {
+    const { useGameStore } = await import('/src/store/gameStore.ts')
+    const s = useGameStore.getState()
+    const id = s.characters.find((c) => c.diaryDate === s.today).id
+    s.closePanel()
+    s.selectCharacter(null)
+    s.startArrival(id, 10)
+    return id
+  })
+  await page.waitForFunction((id) => {
+    const o = window.__village.instances.get(id)?.object
+    return o && o.position.z < -40
+  }, { timeout: 10000 }, passenger)
+  await page.screenshot({ path: join(artifacts, 'arrival-passenger.png') })
+  const canvas = await page.$eval('.village-stage canvas', (el) => { const r = el.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 3] })
+  await page.mouse.click(...canvas)
+  await page.waitForFunction(async (id) => {
+    const { useGameStore } = await import('/src/store/gameStore.ts')
+    return useGameStore.getState().selectedCharacterId === id
+  }, { timeout: 4000 }, passenger)
+  assert.ok(await page.$('.diary-sheet__text'), 'stepping onto the dock opens the diary')
+  assert.match(await page.$eval('.diary-sheet__welcome', (el) => el.textContent), /도착했어요\+10/, 'the diary welcomes the new arrival')
+  await page.screenshot({ path: join(artifacts, 'arrival-landed.png') })
+  await page.waitForFunction(async () => {
+    const { useGameStore } = await import('/src/store/gameStore.ts')
+    return useGameStore.getState().arrivingId === null
+  }, { timeout: 30000, polling: 250 })
+  const landed = await page.evaluate(async (id) => {
+    const { villagePoint, VILLAGE_WALKABLE_AREAS } = await import('/src/systems/villageLayout.ts')
+    const { isInsideAnyArea } = await import('/src/systems/worldSystem.ts')
+    return isInsideAnyArea(villagePoint(window.__village.instances.get(id).object.position), VILLAGE_WALKABLE_AREAS)
+  }, passenger)
+  assert.ok(landed, 'the walk ends on the lawn')
+  await page.click('.diary-sheet__close')
+  assert.equal(await page.$('.diary-sheet__welcome'), null)
+  // 움직임 줄이기: no voyage, the character is on the lawn with its diary open at once.
+  const reduced = await page.evaluate(async () => {
+    const { useGameStore } = await import('/src/store/gameStore.ts')
+    const { useSettingsStore } = await import('/src/store/settingsStore.ts')
+    const s = useGameStore.getState()
+    // Another day of this month (written here if there is none yet).
+    const otherDate = `${s.worldId}-${s.today.endsWith('-01') ? '02' : '01'}`
+    if (!s.characters.some((c) => c.diaryDate === otherDate)) s.saveDiary(otherDate, '조용하고 편안한 하루였다.')
+    const other = useGameStore.getState().characters.find((c) => c.diaryDate === otherDate)
+    if (!other) return null
+    useSettingsStore.getState().set('reduceMotion', true)
+    s.startArrival(other.id)
+    await new Promise((resolve) => setTimeout(resolve, 600))
+    const after = useGameStore.getState()
+    useSettingsStore.getState().set('reduceMotion', false)
+    const result = { arriving: after.arrivingId, selected: after.selectedCharacterId === other.id,
+      boat: window.__village.arrival().phase() }
+    after.selectCharacter(null)
+    return result
+  })
+  if (reduced) assert.deepEqual(reduced, { arriving: null, selected: true, boat: 'away' }, 'reduced motion skips the voyage')
+  console.log(reduced ? 'reduced-motion arrival checked' : 'reduced-motion arrival skipped: no other character this month')
   // Settings: a window over the village (not a page); graphics change live and survive a reload.
   await page.click('.settings-button')
   await page.waitForSelector('.settings')
@@ -566,7 +662,7 @@ try {
   await page.click('.settings__close')
   assert.equal(await page.evaluate(() => window.__village.renderer.shadowMap.enabled), true, 'reset restores the defaults')
   assert.deepEqual(errors, [])
-  console.log('PASS GLB load, fullscreen portrait/landscape layout, 2x phone resolution, touch targets, 30-person preview (?preview=30) on lawn areas, 3D decorations, 3D decorating, floor tiles, 3D clothes, pathfinding, roaming spread, save preservation, diary sheet picking with close-up, ground movement, responsive editor, settings window')
+  console.log('PASS GLB load, fullscreen portrait/landscape layout, 2x phone resolution, touch targets, 30-person preview (?preview=30) on lawn areas, 3D decorations, 3D decorating, floor tiles, 3D clothes, pathfinding, roaming spread, save preservation, diary sheet picking with close-up, ground movement, responsive editor, arrival dock, boat and passenger walk, settings window')
   console.log(`Screenshots: ${artifacts}`)
 } catch (error) {
   await page?.screenshot({ path: join(artifacts, 'failure.png') }).catch(() => {})

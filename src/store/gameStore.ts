@@ -28,6 +28,10 @@ interface GameState {
   characters: DiaryCharacterData[]
   decorations: DecorationData[]
   selectedCharacterId: string | null
+  /** A character on its way in by boat (just written); not saved. */
+  arrivingId: string | null
+  /** The welcome line on a just-arrived character's diary (with the coins it earned); not saved. */
+  welcome: { id: string; reward: number } | null
   activePanel: PanelId | null
   /** 방금 일기를 써서 감정이 정해진 날짜. 결과를 잠깐 보여주는 데 쓴다. */
   lastWrittenDate: string | null
@@ -40,6 +44,8 @@ interface GameState {
    */
   saveDiary: (date: string, text: string, picked?: EmotionId) => number
   clearLastWritten: () => void
+  startArrival: (characterId: string, reward?: number) => void
+  finishArrival: () => void
   buyItem: (itemId: string) => void
   equipItem: (characterId: string, category: ClothingCategory, itemId: string | null) => void
   setCharacterModel: (characterId: string, model: CharacterModel) => void
@@ -100,15 +106,20 @@ export const useGameStore = create<GameState>((set, get) => {
     characters: saved.characters,
     decorations: getWorld(saved.worldId).decorations,
     selectedCharacterId: null,
+    arrivingId: null,
+    welcome: null,
     activePanel: null,
     lastWrittenDate: null,
 
-    selectCharacter: (id) => set({ selectedCharacterId: id }),
+    // The welcome stays with its own character's diary and goes once that diary is closed.
+    selectCharacter: (id) => set((s) => ({ selectedCharacterId: id, welcome: id && s.welcome?.id === id ? s.welcome : null })),
     togglePanel: (panel) =>
       set((state) => ({ activePanel: state.activePanel === panel ? null : panel,
         selectedCharacterId: null, selectedDecorationId: null, placementTool: null, feedback: '' })),
     closePanel: () => set({ activePanel: null, selectedDecorationId: null, placementTool: null, feedback: '' }),
     clearLastWritten: () => set({ lastWrittenDate: null }),
+    startArrival: (characterId, reward = 0) => set({ arrivingId: characterId, welcome: { id: characterId, reward } }),
+    finishArrival: () => set({ arrivingId: null }),
 
     saveDiary: (date, text, picked) => {
       const { diaries, characters, coins } = get()

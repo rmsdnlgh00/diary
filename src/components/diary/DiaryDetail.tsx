@@ -3,6 +3,7 @@ import { portraitFor } from '@/data/expressions'
 import { EMOTIONS } from '@/data/emotions'
 import { useGameStore } from '@/store/gameStore'
 import { formatKoreanDate } from '@/utils/date'
+import { CoinIcon } from '@/components/ui/TopBar'
 
 /** Pulling the sheet down further than this closes it. */
 const CLOSE_DRAG = 80
@@ -12,6 +13,7 @@ export function DiaryDetail() {
   const characters = useGameStore((state) => state.characters)
   const selectedCharacterId = useGameStore((state) => state.selectedCharacterId)
   const selectCharacter = useGameStore((state) => state.selectCharacter)
+  const welcome = useGameStore((state) => state.welcome)
   const [drag, setDrag] = useState(0)
   const start = useRef<number | null>(null)
 
@@ -50,6 +52,12 @@ export function DiaryDetail() {
         onClick={(event) => event.stopPropagation()}>
         <div className="diary-sheet__grab" {...grab}>
           <span className="diary-sheet__handle" aria-hidden="true" />
+          {welcome?.id === character.id && (
+            <p className="diary-sheet__welcome" role="status">
+              오늘의 내가 마을에 도착했어요
+              {welcome.reward > 0 && <span className="diary-sheet__reward"><CoinIcon />+{welcome.reward}</span>}
+            </p>
+          )}
           <header className="diary-sheet__head">
             <img className="diary-sheet__portrait" src={portraitFor(character.emotion)} alt="" />
             <div className="diary-sheet__title">

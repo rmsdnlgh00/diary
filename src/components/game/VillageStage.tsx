@@ -14,6 +14,9 @@ import { FaceMaterials, bodyOf } from '@/systems/characterFaces'
 import { coverFemaleBody, loadFemaleCharacter } from '@/systems/femaleCharacter'
 import { MALE_WALK_STRIDE } from '@/systems/walkSystem'
 import { useSettingsStore, type GraphicsQuality } from '@/store/settingsStore'
+import { ARRIVAL_WALK, DOCK_LANDING, createArrival, type Arrival } from '@/systems/arrivalBoat'
+import { playSfx } from '@/systems/audioSystem'
+import { EMOTIONS } from '@/data/emotions'
 import { DECORATION_RADIUS, VILLAGE_CAMERA, VILLAGE_CENTER, VILLAGE_CHARACTER_HEIGHT, VILLAGE_POND, VILLAGE_VIEW_DISTANCE,
   VILLAGE_DEPTH, VILLAGE_WALKABLE_AREAS, VILLAGE_WIDTH, FLOOR_TILE_SIZE, isFloorDecoration, snapDecoration, villageGround,
   villagePoint } from '@/systems/villageLayout'
@@ -42,6 +45,12 @@ interface Props {
   view: VillageView
   cameraResetKey: number
   focusId: string | null
+  /** Today's new character, brought in by boat; null when nobody is arriving. */
+  arriving?: { id: string; color: string } | null
+  /** The arriving character stepped onto the dock. */
+  onLanded?: (id: string) => void
+  /** The arriving character reached the lawn at this village point; it roams from there. */
+  onArrived?: (id: string, point: { x: number; y: number }) => void
   onSelect: (id: string) => void
   onGround: (point: { x: number; y: number }) => void
 }
@@ -234,6 +243,10 @@ function graphicsProfile(quality: GraphicsQuality) {
 /** The close-up looks at a character's middle, not its feet. */
 const BODY_CENTER = new THREE.Vector3(0, VILLAGE_CHARACTER_HEIGHT / 2, 0)
 
+/** A little quicker than roaming: the new arrival is keen to get to the village. */
+const ARRIVAL_WALK_SPEED = 1.7
+const HOP_SECONDS = 0.55
+
 /** Most footprints the placement grid can mark as taken at once. */
 const GRID_BLOCKERS = 64
 
@@ -409,6 +422,71 @@ export function VillageStage(props: Props) {
     const waterTime = { value: 0 }
     const draco = new DRACOLoader().setDecoderPath('/draco/').setDecoderConfig({ type: 'wasm' })
     const loader = new GLTFLoader().setDRACOLoader(draco)
+    // The dock on the north shore and the boat that brings each day's character.
+    let arrival: Arrival | null = null
+    let arrivalFailed = false
+    // The arriving character: standing in the boat, hopping onto the dock, then walking to the lawn.
+    let script: { id: string; stage: 'boat' | 'hop' | 'walk'; clock: number; leg: number } | null = null
+    const started = new Set<string>()
+    const scriptFrom = new THREE.Vector3()
+    const scriptPosition = new THREE.Vector3()
+    /** Moves the arrival on by `delta`; returns where the character is, which way it faces and how fast it walks. */
+    const stepScript = (delta: number) => {
+      if (!script || !arrival) return null
+      const { onLanded, onArrived } = dataRef.current
+      if (script.stage === 'boat') {
+        const angle = arrival.seat(scriptPosition)
+        if (arrival.phase() === 'moored') {
+          script.stage = 'hop'
+          script.clock = 0
+          scriptFrom.copy(scriptPosition)
+          playSfx('hop')
+        }
+        return { angle, speed: 0, snap: true }
+      }
+      if (script.stage === 'hop') {
+        script.clock += delta
+        const t = Math.min(1, script.clock / HOP_SECONDS)
+        scriptPosition.lerpVectors(scriptFrom, DOCK_LANDING, t)
+        scriptPosition.y += 0.55 * Math.sin(Math.PI * t)
+        const angle = Math.atan2(DOCK_LANDING.x - scriptFrom.x, DOCK_LANDING.z - scriptFrom.z)
+        if (t >= 1) {
+          script.stage = 'walk'
+          script.leg = 0
+          script.clock = 0
+          arrival.leave()
+          onLanded?.(script.id)
+        }
+        return { angle, speed: 0, snap: false }
+      }
+      // Walk the path at a steady pace, leg by leg.
+      let step = ARRIVAL_WALK_SPEED * delta
+      while (script.leg < ARRIVAL_WALK.length - 1) {
+        const a = ARRIVAL_WALK[script.leg]
+        const b = ARRIVAL_WALK[script.leg + 1]
+        const length = a.distanceTo(b)
+        if (script.clock + step < length) {
+          script.clock += step
+          scriptPosition.lerpVectors(a, b, script.clock / length)
+          return { angle: Math.atan2(b.x - a.x, b.z - a.z), speed: ARRIVAL_WALK_SPEED, snap: false }
+        }
+        step -= length - script.clock
+        script.clock = 0
+        script.leg += 1
+      }
+      const end = ARRIVAL_WALK[ARRIVAL_WALK.length - 1]
+      scriptPosition.copy(end)
+      const id = script.id
+      script = null
+      onArrived?.(id, villagePoint(end))
+      return { angle: null, speed: 0, snap: false }
+    }
+    createArrival(scene, loader).then((made) => {
+      if (disposed) { made.dispose(); return }
+      arrival = made
+      // Layout check: ?arrival plays the boat once after loading.
+      if (new URLSearchParams(window.location.search).has('arrival')) made.play(EMOTIONS.HAPPY.color)
+    }).catch(() => { arrivalFailed = true /* the village works without the dock */ })
     let disposed = false
     let terrain: THREE.Object3D | null = null
     let template: THREE.Group | null = null
@@ -574,7 +652,7 @@ export function VillageStage(props: Props) {
         }
         disposeObject(idle.scene)
         setStatus('')
-        if (import.meta.env.DEV) Object.assign(window, { __village: { scene, camera, renderer, instances, lowPower: !profile.ambientOcclusion, clothes: () => clothes } })
+        if (import.meta.env.DEV) Object.assign(window, { __village: { scene, camera, renderer, instances, lowPower: !profile.ambientOcclusion, clothes: () => clothes, arrival: () => arrival } })
       } catch (error) {
         if (!disposed) {
           console.error('[VillageStage] 마을 로드 실패', error)
@@ -698,6 +776,8 @@ export function VillageStage(props: Props) {
     }
     const pointerDown = (event: PointerEvent) => {
       if (event.button !== 0) return
+      // A tap while the boat is still on its way brings it straight to the dock.
+      if (script?.stage === 'boat') arrival?.skip()
       if (!pointers.size) gesturing = false
       pointers.set(event.pointerId, { x: event.clientX, y: event.clientY,
         startX: event.clientX, startY: event.clientY, time: performance.now() })
@@ -897,12 +977,26 @@ export function VillageStage(props: Props) {
       lastFrame = now
       if (settings.waterMotion) waterTime.value = now / 1000
       updateDuck(now / 1000)
+      arrival?.update(now / 1000, Math.min(0.05, (now - previous) / 1000))
       const delta = Math.min(0.05, (now - previous) / 1000)
       previous = now
       const { characters, decorations, decorating, view, focusId } = dataRef.current
       if (decorationModels.size) {
         syncDecorations(decorations)
         updateDecorating(decorating, delta)
+      }
+      const wanted = dataRef.current.arriving
+      const still = useSettingsStore.getState().reduceMotion
+      if (wanted && !script && !started.has(wanted.id) && (arrival || arrivalFailed || still)) {
+        started.add(wanted.id)
+        if (arrival && !still) {
+          arrival.play(wanted.color, { hold: true })
+          script = { id: wanted.id, stage: 'boat', clock: 0, leg: 0 }
+        } else {
+          // 움직임 줄이기 (or no boat): no voyage; the character is simply on the lawn with its diary open.
+          dataRef.current.onArrived?.(wanted.id, villagePoint(ARRIVAL_WALK[ARRIVAL_WALK.length - 1]))
+          dataRef.current.onLanded?.(wanted.id)
+        }
       }
       if (template && walkClip && idleClip) {
         const ids = new Set(characters.map((c) => c.id))
@@ -950,21 +1044,27 @@ export function VillageStage(props: Props) {
             // The male body hides what the clothes cover through its face materials above.
             if (model === 'female') coverFemaleBody(inst.object, c.outfit ?? [])
           }
-          const p = villageGround(c.x, c.y)
+          const scripted = script?.id === c.id ? stepScript(delta) : null
+          const p = scripted ? scriptPosition.clone() : villageGround(c.x, c.y)
           inst.object.position.copy(p)
-          const moving = c.phase === 'WALK'
+          const moving = scripted ? scripted.speed > 0 : c.phase === 'WALK'
           const moved = Math.max(0, c.walkDistance - inst.lastDistance)
           inst.lastDistance = c.walkDistance
-          const speed = delta > 0 ? moved * VILLAGE_WIDTH / delta : 0
+          const speed = scripted ? scripted.speed : delta > 0 ? moved * VILLAGE_WIDTH / delta : 0
           inst.walk.timeScale = Math.max(0.001, speed / (MALE_WALK_STRIDE * 2 * VILLAGE_WIDTH) * characterWalk.duration)
           inst.blend += ((moving ? 1 : 0) - inst.blend) * Math.min(1, delta / 0.25)
           inst.walk.setEffectiveWeight(inst.blend)
           inst.idle.setEffectiveWeight(1 - inst.blend)
-          if (moving) {
-            const destination = villageGround(c.targetX, c.targetY)
-            const angle = Math.atan2(destination.x - p.x, destination.z - p.z)
+          // Walking faces the way it goes; the character whose diary is open turns to the camera.
+          const facing = scripted ? null : moving ? villageGround(c.targetX, c.targetY)
+            : view === 'follow' && c.id === focusId ? camera.position : null
+          if (scripted?.angle != null) {
+            const difference = Math.atan2(Math.sin(scripted.angle - inst.angle), Math.cos(scripted.angle - inst.angle))
+            inst.angle = scripted.snap ? scripted.angle : inst.angle + difference * Math.min(1, 9 * delta)
+          } else if (facing) {
+            const angle = Math.atan2(facing.x - p.x, facing.z - p.z)
             const difference = Math.atan2(Math.sin(angle - inst.angle), Math.cos(angle - inst.angle))
-            inst.angle += difference * Math.min(1, 9 * delta)
+            inst.angle += difference * Math.min(1, (moving ? 9 : 5) * delta)
           }
           inst.object.rotation.y = inst.angle
           inst.mixer.update(delta)
@@ -977,11 +1077,15 @@ export function VillageStage(props: Props) {
         pan.set(0, 0, 0)
       }
       // Every view keeps the legacy angle; only the look-at point and distance change.
-      const target = view === 'whole' ? VILLAGE_CAMERA.target
-        : view === 'follow' && tracked ? villageGround(tracked.x, tracked.y).add(BODY_CENTER) : villageGround(0.5, 0.5)
-      const ease = Math.min(1, delta * 6)
+      // While the boat is out, the overview watches it come in (or sail away).
+      const boat = view === 'whole' ? arrival?.boatPosition() ?? null : null
+      const target = boat ? boat
+        : view === 'whole' ? VILLAGE_CAMERA.target
+        : view === 'follow' && tracked ? (instances.get(tracked.id)?.object.position.clone() ?? villageGround(tracked.x, tracked.y)).add(BODY_CENTER)
+        : villageGround(0.5, 0.5)
+      const ease = Math.min(1, delta * (boat ? 2.5 : 6))
       if (!pointers.size) focus.lerp(target, ease)
-      distance += (VILLAGE_VIEW_DISTANCE[view] - distance) * ease
+      distance += ((boat ? VILLAGE_VIEW_DISTANCE.basic : VILLAGE_VIEW_DISTANCE[view]) - distance) * ease
       // A sheet over the bottom of the screen (the diary): frame the followed character above it.
       const sheet = view === 'follow' ? document.querySelector('.diary-sheet') : null
       lift += ((sheet ? sheet.getBoundingClientRect().height / 2 : 0) - lift) * ease
@@ -1021,6 +1125,7 @@ export function VillageStage(props: Props) {
       for (const scene of decorationAssets) disposeObject(scene)
       for (const scene of clothesAssets) disposeObject(scene)
       faces?.dispose()
+      arrival?.dispose()
       // The duck left the terrain group, so it is disposed on its own.
       if (duck) disposeObject(duck)
       for (const { ring } of wakeRings) {

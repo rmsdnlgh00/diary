@@ -277,6 +277,9 @@ try {
   s = await state()
   const today = s.today
   assert.equal(s.characters.filter((c) => c.diaryDate === today).length, 1)
+  // A new day: the notebook closes and the character comes in by boat.
+  assert.equal(s.activePanel, null, 'saving a new day closes the editor')
+  assert.equal(s.arrivingId, s.characters.find((c) => c.diaryDate === today).id, 'the new character is on its way')
   await action('saveDiary', today, '슬프고 눈물이 났다.')
   s = await state()
   assert.equal(s.characters.filter((c) => c.diaryDate === today).length, 1)
@@ -299,11 +302,11 @@ try {
   s = await state()
   assert.equal(s.characters.find((c) => c.diaryDate === today).emotion, 'ANGRY')
   assert.equal(s.diaries.find((d) => d.date === today).emotionPicked, true)
-  assert.ok(await page.$('.editor--done'), 'the arrival card shows after saving')
+  assert.ok(await page.$('.editor--done'), 'an edit shows the card after saving')
   assert.equal(await page.evaluate((d) => localStorage.getItem(`haru-village:draft:${d}`), today), null, 'draft cleared')
   await button('마을에서 보기')
   assert.equal((await state()).activePanel, null)
-  report('일기장: 임시 저장·기분 직접 고르기·저장 후 도착 카드')
+  report('일기장: 새 일기는 배 도착으로, 고친 일기는 카드로·임시 저장·기분 직접 고르기')
   assert.equal((await state()).coins, beforeDiary.coins + 10, 'edits earn no extra coins')
 
   // Past diaries: the calendar shows today's mood; the entry opens the character's diary.

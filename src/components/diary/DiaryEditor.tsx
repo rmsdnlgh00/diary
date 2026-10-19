@@ -32,12 +32,14 @@ function writeDraft(date: string, text: string | null) {
 /**
  * The day's diary: a lined notebook page with a gentle question to start from, a live
  * preview of the character's face (the text decides the mood, or the player picks one),
- * a soft length guide and a draft that survives closing. Saving shows the arrival card.
+ * a soft length guide and a draft that survives closing. Saving a new day sends its character in by
+ * boat (see VillageStage); saving an edit shows the card below.
  */
 export function DiaryEditor({ date }: Props) {
   const diaries = useGameStore((s) => s.diaries)
   const saveDiary = useGameStore((s) => s.saveDiary)
   const closePanel = useGameStore((s) => s.closePanel)
+  const startArrival = useGameStore((s) => s.startArrival)
 
   const existing = diaryForDate(diaries, date)
   const [text, setText] = useState(() => readDraft(date) ?? existing?.text ?? '')
@@ -82,8 +84,18 @@ export function DiaryEditor({ date }: Props) {
   const handleSave = () => {
     if (!trimmed) return
     const isNew = !existing
-    setReward(saveDiary(date, trimmed, picked ?? undefined))
+    const earned = saveDiary(date, trimmed, picked ?? undefined)
+    setReward(earned)
     writeDraft(date, null)
+    if (isNew) {
+      // A new day's character comes to the village by boat: close the notebook and watch it arrive.
+      const arrived = useGameStore.getState().characters.find((c) => c.diaryDate === date)
+      if (arrived) {
+        startArrival(arrived.id, earned)
+        closePanel()
+        return
+      }
+    }
     setSaved(isNew ? 'created' : 'updated')
   }
   const startWithPrompt = () => {

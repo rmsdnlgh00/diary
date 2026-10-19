@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { EMOTIONS } from '@/data/emotions'
 import { getItem } from '@/data/items'
 import { getWorld } from '@/data/worlds'
 import { useVillagers } from '@/hooks/useVillagers'
@@ -28,6 +29,8 @@ export function VillageWorld() {
   const selectDecoration = useGameStore((s) => s.selectDecoration)
   const moveDecoration = useGameStore((s) => s.moveDecoration)
   const placeAt = useGameStore((s) => s.placeAt)
+  const arrivingId = useGameStore((s) => s.arrivingId)
+  const finishArrival = useGameStore((s) => s.finishArrival)
   const preview = PREVIEW_ON
   const [focusId, setFocusId] = useState<string | null>(null)
   // Existing save coordinates belong to the old background. Remap only the live view.
@@ -37,7 +40,14 @@ export function VillageWorld() {
     .map((d) => ({ id: d.id, itemId: d.itemId, ...fromLegacyPoint(d) })), [worldDecorations, worldId])
   // Placed decorations are blocked squares, so characters walk around them.
   const world = useMemo(() => villageWorld(getWorld(worldId), decorations), [worldId, decorations])
-  const { agents, commandWalk } = useVillagers(world, monthly)
+  // While a character's diary is open it stops walking and faces the camera (see VillageStage).
+  const reading = !editing && !!selectedId && monthly.some((c) => c.id === selectedId)
+  // Today's character comes in by boat: it is only shown in this month's village.
+  const arriving = monthly.find((c) => c.id === arrivingId) ?? null
+  useEffect(() => { if (arrivingId && !arriving) finishArrival() }, [arrivingId, arriving, finishArrival])
+  const holding = useMemo(() => [reading ? selectedId : null, arriving?.id ?? null]
+    .filter((id): id is string => !!id), [reading, selectedId, arriving?.id])
+  const { agents, commandWalk, place } = useVillagers(world, monthly, undefined, holding)
   // What each character wears, for the 3D clothes.
   const outfits = useMemo(() => new Map(monthly.map((c) => [c.id,
     Object.values(c.equippedItems).filter((id): id is string => !!id)])), [monthly])
@@ -74,9 +84,12 @@ export function VillageWorld() {
   const showPreview = preview && !editing
   // The whole village, until a character's diary is open: then the camera closes in on it and
   // follows it around; closing the diary goes back to the whole village.
-  const reading = !editing && !!selectedId && monthly.some((c) => c.id === selectedId)
   return <div className="game-world game-world--village">
     <VillageStage characters={showPreview ? PREVIEW : dressed} decorations={decorations} decorating={decorating}
+      arriving={arriving && !editing ? { id: arriving.id, color: EMOTIONS[arriving.emotion].color } : null}
+      /* Stepping onto the dock opens the diary (the camera follows the walk); the walk ends on the lawn. */
+      onLanded={(id) => selectCharacter(id)}
+      onArrived={(id, point) => { place(id, point); finishArrival() }}
       view={reading ? 'follow' : 'whole'} cameraResetKey={reading ? 1 : 0} focusId={reading ? selectedId : focusId} onGround={onGround} onSelect={(id) => {
         setFocusId(id)
         if (!showPreview) selectCharacter(id)

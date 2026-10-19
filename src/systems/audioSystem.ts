@@ -10,6 +10,7 @@ import { useSettingsStore, soundVolume } from '@/store/settingsStore'
  */
 
 export type Sfx = 'tap' | 'open' | 'close' | 'select' | 'coin' | 'save' | 'error' | 'place' | 'recall' | 'equip' | 'page' | 'toggle'
+  | 'dock' | 'hop'
 
 let ctx: AudioContext | null = null
 let master: GainNode
@@ -214,6 +215,53 @@ export function playSfx(name: Sfx) {
     case 'error': blip(c, out, 330, 300, t, 0.12, 0.13, 'triangle'); blip(c, out, 262, 240, t + 0.13, 0.16, 0.13, 'triangle'); break
     case 'place': blip(c, out, 220, 110, t, 0.16, 0.3); puff(c, out, t, 0.14, 0.12, 900, 300); break
     case 'recall': blip(c, out, 330, 660, t, 0.14, 0.14); puff(c, out, t, 0.12, 0.08, 600, 1800); break
+    // The boat bumps the dock: a wooden knock and a ship's bell, "통".
+    case 'dock':
+      blip(c, out, 150, 70, t, 0.22, 0.32)
+      puff(c, out, t, 0.1, 0.1, 700, 250)
+      bell(c, out, send, 67, t + 0.04, { gain: 0.16, decay: 2.2, bright: 0.8 })
+      bell(c, out, send, 74, t + 0.04, { gain: 0.06, decay: 1.6, bright: 0.8 })
+      break
+    // A little jump onto the planks.
+    case 'hop': blip(c, out, 420, 900, t, 0.16, 0.12, 'triangle'); blip(c, out, 140, 90, t + 0.5, 0.1, 0.18); break
+  }
+}
+
+/**
+ * The sea while the boat is out: filtered noise that swells slowly like waves on the shore.
+ * Returns a function that fades it out again.
+ */
+export function playWaves(): () => void {
+  if (!ctx || ctx.state !== 'running') return () => {}
+  const c = ctx
+  const buffer = c.createBuffer(1, c.sampleRate * 3, c.sampleRate)
+  const data = buffer.getChannelData(0)
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1
+  const noise = c.createBufferSource()
+  noise.buffer = buffer
+  noise.loop = true
+  const filter = c.createBiquadFilter()
+  filter.type = 'lowpass'
+  filter.frequency.value = 520
+  const level = c.createGain()
+  level.gain.setValueAtTime(0, c.currentTime)
+  level.gain.linearRampToValueAtTime(0.11, c.currentTime + 2)
+  // Each wave rolls in and out over about seven seconds.
+  const swell = c.createOscillator()
+  swell.frequency.value = 0.14
+  const depth = c.createGain()
+  depth.gain.value = 0.06
+  swell.connect(depth).connect(level.gain)
+  noise.connect(filter).connect(level).connect(effectsBus)
+  noise.start()
+  swell.start()
+  return () => {
+    const now = c.currentTime
+    level.gain.cancelScheduledValues(now)
+    level.gain.setValueAtTime(level.gain.value, now)
+    level.gain.linearRampToValueAtTime(0, now + 2.5)
+    noise.stop(now + 2.6)
+    swell.stop(now + 2.6)
   }
 }
 

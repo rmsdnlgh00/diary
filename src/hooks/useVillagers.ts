@@ -13,13 +13,17 @@ export function useVillagers(
   world: WorldDefinition,
   characters: readonly DiaryCharacterData[],
   speed: number = WALK_CONFIG.speed,
+  /** Characters that stand still (a diary is open, or one is arriving); they walk on once released. */
+  holdIds: readonly string[] = [],
 ) {
   const agentsRef = useRef<Agent[]>([])
   const [agents, setAgents] = useState<Agent[]>([])
   const worldRef = useRef(world)
   const speedRef = useRef(speed)
+  const holdRef = useRef(holdIds)
   worldRef.current = world
   speedRef.current = speed
+  holdRef.current = holdIds
 
   // 캐릭터가 늘거나 감정이 바뀌면 에이전트 목록을 맞춰준다.
   // 이미 있는 캐릭터의 현재 위치는 건드리지 않는다.
@@ -63,7 +67,17 @@ export function useVillagers(
       previous = now
 
       if (delta > 0 && agentsRef.current.length > 0) {
-        stepAgents(agentsRef.current, worldRef.current, delta, speedRef.current)
+        const held = agentsRef.current.filter((a) => holdRef.current.includes(a.id))
+        for (const agent of held) {
+          agent.phase = 'IDLE'
+          agent.targetX = agent.x
+          agent.targetY = agent.y
+          agent.path = []
+          agent.commanded = false
+          agent.partnerId = null
+        }
+        stepAgents(held.length ? agentsRef.current.filter((a) => !held.includes(a)) : agentsRef.current,
+          worldRef.current, delta, speedRef.current)
         // 렌더는 얕은 복사본으로. 에이전트 객체는 루프가 계속 들고 쓴다.
         setAgents(agentsRef.current.map((a) => ({ ...a })))
       }
@@ -75,5 +89,15 @@ export function useVillagers(
     return () => cancelAnimationFrame(raf)
   }, [])
 
-  return { agents, commandWalk }
+  /** Puts a character down at a point (where an arrival walk ended). */
+  const place = useCallback((id: string, point: { x: number; y: number }) => {
+    const agent = agentsRef.current.find((a) => a.id === id)
+    if (!agent) return
+    agent.x = agent.targetX = point.x
+    agent.y = agent.targetY = point.y
+    agent.path = []
+    agent.phase = 'IDLE'
+  }, [])
+
+  return { agents, commandWalk, place }
 }
