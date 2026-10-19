@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { SEED_DIARIES } from '@/data/seedDiaries'
-import { getItem, ownsItem, priceOf } from '@/data/items'
+import { freeCopies, getItem, ownsItem, priceOf } from '@/data/items'
 import { getWorld } from '@/data/worlds'
 import { canPlaceDecoration } from '@/systems/decorationSystem'
 import { diaryReward, writeDiary } from '@/systems/diarySystem'
@@ -130,7 +130,8 @@ export const useGameStore = create<GameState>((set, get) => {
       const { coins, inventory } = get()
       const item = getItem(itemId)
       if (!item) return
-      if (ownsItem(inventory, item)) { set({ feedback: '보유 중' }); return }
+      // Clothes can be bought again for another character; a decoration is owned once.
+      if (item.category === 'decoration' && ownsItem(inventory, item)) { set({ feedback: '보유 중' }); return }
       const price = priceOf(item)
       if (coins < price) { set({ feedback: '코인이 부족해요' }); return }
       const group = item.category === 'decoration' ? 'decorations' : 'clothes'
@@ -147,6 +148,10 @@ export const useGameStore = create<GameState>((set, get) => {
       const { characters, inventory } = get()
       if (!characters.some((c) => c.id === characterId)) return
       if (itemId !== null && (!inventory.clothes.includes(itemId) || getItem(itemId)?.category !== category)) return
+      // Every copy is on someone else: buy another one first.
+      if (itemId !== null && freeCopies(inventory, characters, itemId, characterId) <= 0) {
+        set({ feedback: '다른 캐릭터가 입고 있어요' }); return
+      }
       commit({ characters: characters.map((c) => c.id === characterId
         ? { ...c, equippedItems: { ...c.equippedItems, [category]: itemId } } : c),
         feedback: itemId ? '장착했어요!' : '장착을 해제했어요' })

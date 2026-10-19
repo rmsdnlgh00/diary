@@ -1,4 +1,4 @@
-import type { CharacterModel, ClothingCategory, EquippedItems, GameItem, Inventory } from '@/types'
+import type { CharacterModel, ClothingCategory, DiaryCharacterData, EquippedItems, GameItem, Inventory } from '@/types'
 
 export const CLOTHING_CATEGORIES: Record<ClothingCategory, string> = {
   hat: '모자', top: '상의', bottom: '하의', shoes: '신발', bag: '가방', accessory: '액세서리',
@@ -75,6 +75,21 @@ export const priceOf = (item: GameItem): number => SHOP.free ? 0 : item.price
 export const getItem = (id: string): GameItem | undefined => ITEMS.find((item) => item.id === id)
 export const ownsItem = (inventory: Inventory, item: GameItem): boolean =>
   (item.category === 'decoration' ? inventory.decorations : inventory.clothes).includes(item.id)
+
+/**
+ * Clothes are real pieces: `inventory.clothes` lists one entry per copy, so buying a raincoat
+ * twice lets two characters wear one each. A copy worn by one character can't be worn by another.
+ */
+export const copiesOf = (inventory: Inventory, id: string): number =>
+  inventory.clothes.filter((owned) => owned === id).length
+
+/** Characters (of any month) wearing `id`, leaving out `exceptId`. */
+export const wearersOf = (characters: readonly DiaryCharacterData[], id: string, exceptId?: string) =>
+  characters.filter((c) => c.id !== exceptId && Object.values(c.equippedItems).includes(id))
+
+/** Copies of `id` that `forId` could put on now (its own copy counts as free). */
+export const freeCopies = (inventory: Inventory, characters: readonly DiaryCharacterData[], id: string, forId?: string) =>
+  copiesOf(inventory, id) - wearersOf(characters, id, forId).length
 
 export function normalizeEquipment(value: unknown, clothes: readonly string[]): EquippedItems {
   const result = emptyEquipment()

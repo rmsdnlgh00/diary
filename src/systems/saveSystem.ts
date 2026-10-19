@@ -32,13 +32,31 @@ function emptySave(): SaveData {
 const record = (value: unknown): Record<string, unknown> =>
   value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
 
+/** Decorations are owned once; clothes keep one entry per copy bought. */
 function ownedIds(value: unknown, decoration: boolean): string[] {
   if (!Array.isArray(value)) return []
-  return [...new Set(value.filter((id): id is string => {
+  const ids = value.filter((id): id is string => {
     if (typeof id !== 'string') return false
     const item = getItem(id)
     return !!item && (item.category === 'decoration') === decoration
-  }))]
+  })
+  return decoration ? [...new Set(ids)] : ids
+}
+
+/**
+ * Saves from before clothes had copies let any number of characters share one piece. Nobody gets
+ * undressed: the wardrobe gains as many copies as are being worn.
+ */
+function coverWornClothes(clothes: string[], characters: readonly DiaryCharacterData[]): string[] {
+  const result = [...clothes]
+  const worn = new Map<string, number>()
+  for (const c of characters) {
+    for (const id of Object.values(c.equippedItems)) if (id) worn.set(id, (worn.get(id) ?? 0) + 1)
+  }
+  for (const [id, count] of worn) {
+    for (let owned = result.filter((x) => x === id).length; owned < count; owned++) result.push(id)
+  }
+  return result
 }
 
 /** 같은 저장 키에서 v1 일기를 보존하고 구매/장착/월별 공간 필드를 보완한다. */
@@ -58,6 +76,7 @@ export function loadSave(): SaveData {
       ? parsed.characters.filter((c) => c && typeof c.id === 'string' && typeof c.diaryDate === 'string')
         .map((c) => ({ ...c, equippedItems: normalizeEquipment(c.equippedItems, inventory.clothes) }))
       : []
+    inventory.clothes = coverWornClothes(inventory.clothes, characters)
     const worldDecorations: WorldDecorations = {}
     for (const [month, entries] of Object.entries(record(parsed.worldDecorations))) {
       if (!isMonthKey(month) || !Array.isArray(entries)) continue

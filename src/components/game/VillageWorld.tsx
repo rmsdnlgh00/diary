@@ -20,6 +20,7 @@ export function VillageWorld() {
   const characters = useGameStore((s) => s.characters)
   const today = useGameStore((s) => s.today)
   const selectCharacter = useGameStore((s) => s.selectCharacter)
+  const selectedId = useGameStore((s) => s.selectedCharacterId)
   const worldDecorations = useGameStore((s) => s.worldDecorations)
   const editing = useGameStore((s) => s.activePanel === 'DECORATE')
   const placementTool = useGameStore((s) => s.placementTool)
@@ -71,10 +72,12 @@ export function VillageWorld() {
     }
   }
   const showPreview = preview && !editing
-  // The camera always frames the whole village; tapping a character opens its diary sheet.
+  // The whole village, until a character's diary is open: then the camera closes in on it and
+  // follows it around; closing the diary goes back to the whole village.
+  const reading = !editing && !!selectedId && monthly.some((c) => c.id === selectedId)
   return <div className="game-world game-world--village">
     <VillageStage characters={showPreview ? PREVIEW : dressed} decorations={decorations} decorating={decorating}
-      view="whole" cameraResetKey={0} focusId={focusId} onGround={onGround} onSelect={(id) => {
+      view={reading ? 'follow' : 'whole'} cameraResetKey={reading ? 1 : 0} focusId={reading ? selectedId : focusId} onGround={onGround} onSelect={(id) => {
         setFocusId(id)
         if (!showPreview) selectCharacter(id)
       }} />

@@ -91,16 +91,19 @@ try {
   const clothing = ['basic_hat', 'hoodie_gray', 'basic_pants', 'walking_shoes', 'backpack', 'scarf']
   for (const id of clothing) await click(`[data-item-id="${id}"] button`)
   assert.equal((await state()).coins, 25)
-  assert.equal(await page.$eval('[data-item-id="hoodie_gray"] button', (el) => el.disabled), true)
-  await action('buyItem', 'hoodie_gray')
-  assert.equal((await state()).coins, 25)
+  // Clothes are counted pieces: an owned one can be bought again for another character.
+  assert.equal(await page.$eval('[data-item-id="hoodie_gray"] button', (el) => el.disabled), false)
+  assert.equal(await page.$eval('[data-item-id="hoodie_gray"] button', (el) => el.textContent.trim()), '하나 더 사기')
+  assert.equal(await page.$eval('[data-item-id="hoodie_gray"] .shop-card__ribbon', (el) => el.textContent), '보유 1')
   assert.equal((await state()).inventory.clothes.length, 6)
-  report('정확한 코인 차감·잔액 부족·중복 구매 차단')
+  report('정확한 코인 차감·잔액 부족·옷은 여러 벌, 장식물은 한 번')
 
-  await button('마을 꾸미기')
+  await button('장식물')
   await click('[data-item-id="flower_pot"] button')
   await click('[data-item-id="small_lamp"] button')
   assert.equal((await state()).coins, 0)
+  // A decoration is owned once.
+  assert.equal(await page.$eval('[data-item-id="flower_pot"] button', (el) => el.disabled), true)
   await openMore('CHARACTER')
   const firstCharacter = await page.$eval('.character-picker select', (el) => el.value)
   const categoryItems = [
@@ -117,7 +120,18 @@ try {
   await page.select('.character-picker select', secondCharacter)
   await settle()
   await button('상의')
+  // The only hoodie is on the first character: the second can't wear it, only try it on.
+  assert.ok(await page.$('button[data-item-id="hoodie_gray"][data-taken]'), 'a worn piece shows as taken')
   await click('button[data-item-id="hoodie_gray"]')
+  assert.equal((await state()).characters.find((c) => c.id === secondCharacter).equippedItems.top, null)
+  await action('equipItem', secondCharacter, 'top', 'hoodie_gray')
+  assert.equal((await state()).feedback, '다른 캐릭터가 입고 있어요')
+  // A second hoodie lets both wear one.
+  await page.evaluate(async () => { (await import('/src/data/items.ts')).SHOP.free = true })
+  await action('buyItem', 'hoodie_gray')
+  await page.evaluate(async () => { (await import('/src/data/items.ts')).SHOP.free = false })
+  await action('equipItem', secondCharacter, 'top', 'hoodie_gray')
+  assert.equal((await state()).characters.find((c) => c.id === secondCharacter).equippedItems.top, 'hoodie_gray')
   await click('[aria-label="상의 장착 해제"]')
   await action('equipItem', secondCharacter, 'top', 'winter_coat')
   await action('equipItem', secondCharacter, 'top', 'basic_hat')
@@ -128,7 +142,7 @@ try {
   await settle()
   assert.equal(await page.$$eval('.wardrobe-preview .equipment-summary > span', (els) => els.length), 6)
   await page.screenshot({ path: join(artifacts, 'wardrobe.png') })
-  report('6개 의상 슬롯·날짜별 장착 분리·해제·미보유/잘못된 분류 차단')
+  report('6개 의상 슬롯·날짜별 장착 분리·해제·한 벌은 한 캐릭터만·미보유/잘못된 분류 차단')
 
   // Try on clothes not owned yet: only the preview changes until "받고 입기".
   await page.evaluate(async () => { (await import('/src/data/items.ts')).SHOP.free = true })
@@ -331,13 +345,24 @@ try {
         worldDecorations: { '2026-09': [{ id: 'bad', itemId: 'flower_pot', x: 99, y: 0.5 }] },
         calendarMonth: '2000-01', worldId: '2000-01' }))
       const normalized = loadSave()
-      return { broken, normalized }
+      // Older saves let two characters share one piece: loading gives them a copy each.
+      const [a, b] = data.characters
+      const sharing = { ...data.characters[0].equippedItems, top: 'hoodie_gray' }
+      localStorage.setItem('haru-village:v1', JSON.stringify({ ...data,
+        inventory: { ...data.inventory, clothes: ['hoodie_gray'] },
+        characters: [{ ...a, equippedItems: { ...sharing } }, { ...b, equippedItems: { top: 'hoodie_gray' } },
+          ...data.characters.slice(2).map((c) => ({ ...c, equippedItems: { ...c.equippedItems, top: null } }))] }))
+      const shared = loadSave()
+      return { broken, normalized, shared: { copies: shared.inventory.clothes.filter((id) => id === 'hoodie_gray').length,
+        worn: shared.characters.slice(0, 2).map((c) => c.equippedItems.top) } }
     } finally { restore() }
   }, saved)
   assert.equal(migration.broken.coins, 1000)
   assert.equal(migration.normalized.coins, 1000)
-  assert.deepEqual(migration.normalized.inventory.clothes, ['hoodie_gray'])
+  // Two copies stay two (clothes are counted); unknown ids are dropped.
+  assert.deepEqual(migration.normalized.inventory.clothes, ['hoodie_gray', 'hoodie_gray'])
   assert.deepEqual(migration.normalized.worldDecorations['2026-09'], [])
+  assert.deepEqual(migration.shared, { copies: 2, worn: ['hoodie_gray', 'hoodie_gray'] }, 'nobody is undressed by the copy rule')
   assert.equal(migration.normalized.worldId, today.slice(0, 7))
   const realCalendar = (await state()).calendarMonth
   await page.evaluate(async () => {

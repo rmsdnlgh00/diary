@@ -144,10 +144,26 @@ try {
     const rect = renderer.domElement.getBoundingClientRect()
     return { id, x: rect.left + (p.x + 1) / 2 * rect.width, y: rect.top + (1 - p.y) / 2 * rect.height, sceneObjects: scene.children.length }
   })
+  const overviewY = await page.evaluate(() => window.__village.camera.position.y)
   await page.mouse.click(clicked.x, clicked.y)
   await page.waitForSelector('.diary-sheet__text')
   assert.equal((await state()).selectedCharacterId, clicked.id)
+  // Reading a diary closes in on its character and keeps it above the sheet.
+  await page.waitForFunction((y) => window.__village.camera.position.y < y * 0.4, { timeout: 5000 }, overviewY)
+  await new Promise((resolve) => setTimeout(resolve, 800))
+  const framed = await page.evaluate(async (id) => {
+    const THREE = await import('/node_modules/.vite/deps/three.js')
+    const { camera, renderer, instances } = window.__village
+    const p = new THREE.Box3().setFromObject(instances.get(id).object).getCenter(new THREE.Vector3()).project(camera)
+    const rect = renderer.domElement.getBoundingClientRect()
+    return { y: rect.top + (1 - p.y) / 2 * rect.height, x: rect.left + (p.x + 1) / 2 * rect.width,
+      sheetTop: document.querySelector('.diary-sheet').getBoundingClientRect().top, width: rect.width }
+  }, clicked.id)
+  assert.ok(framed.y > 0 && framed.y < framed.sheetTop - 40, `the character stays above the diary (${Math.round(framed.y)} < ${Math.round(framed.sheetTop)})`)
+  assert.ok(Math.abs(framed.x - framed.width / 2) < framed.width * 0.2, 'the character is centred')
+  await page.screenshot({ path: join(artifacts, 'diary-closeup.png') })
   await page.click('.diary-sheet__close')
+  await page.waitForFunction((y) => Math.abs(window.__village.camera.position.y - y) < y * 0.05, { timeout: 5000 }, overviewY)
   const movement = await page.evaluate(async () => {
     const { villageGround, villagePoint } = await import('/src/systems/villageLayout.ts')
     const { camera, renderer, instances } = window.__village
@@ -550,7 +566,7 @@ try {
   await page.click('.settings__close')
   assert.equal(await page.evaluate(() => window.__village.renderer.shadowMap.enabled), true, 'reset restores the defaults')
   assert.deepEqual(errors, [])
-  console.log('PASS GLB load, fullscreen portrait/landscape layout, 2x phone resolution, touch targets, 30-person preview (?preview=30) on lawn areas, 3D decorations, 3D decorating, floor tiles, 3D clothes, pathfinding, roaming spread, save preservation, diary sheet picking, ground movement, responsive editor, settings window')
+  console.log('PASS GLB load, fullscreen portrait/landscape layout, 2x phone resolution, touch targets, 30-person preview (?preview=30) on lawn areas, 3D decorations, 3D decorating, floor tiles, 3D clothes, pathfinding, roaming spread, save preservation, diary sheet picking with close-up, ground movement, responsive editor, settings window')
   console.log(`Screenshots: ${artifacts}`)
 } catch (error) {
   await page?.screenshot({ path: join(artifacts, 'failure.png') }).catch(() => {})

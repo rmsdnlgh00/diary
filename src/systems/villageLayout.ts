@@ -46,7 +46,8 @@ export const VILLAGE_CAMERA = {
  * Camera distance per view, as a fraction of the whole-village distance. Same angle
  * for all; basic and follow keep the close-ups they had before the map was widened.
  */
-export const VILLAGE_VIEW_DISTANCE = { whole: 1, basic: 0.48, follow: 0.35 } as const
+// `follow` is the close-up on a character whose diary is open.
+export const VILLAGE_VIEW_DISTANCE = { whole: 1, basic: 0.48, follow: 0.22 } as const
 
 export function villageGround(x: number, y: number): THREE.Vector3 {
   return new THREE.Vector3(

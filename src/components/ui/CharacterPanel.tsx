@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { CharacterEquipment } from '@/components/game/CharacterEquipment'
-import { CLOTHING_CATEGORIES, ITEMS } from '@/data/items'
+import { CLOTHING_CATEGORIES, ITEMS, copiesOf, freeCopies } from '@/data/items'
 import { portraitFor } from '@/data/expressions'
 import { useGameStore } from '@/store/gameStore'
 import type { ClothingCategory } from '@/types'
@@ -35,8 +35,10 @@ export function CharacterPanel() {
   const outfit = outfitWith(character.equippedItems, trying)
   const items = ITEMS.filter((item) => item.category === category)
   const owned = items.filter((item) => inventory.clothes.includes(item.id))
+  // A copy this character can put on: owned, and not every copy worn by someone else.
+  const spare = (id: string) => freeCopies(inventory, characters, id, character.id) > 0
   const choose = (id: string | null) => {
-    if (id && !inventory.clothes.includes(id)) {
+    if (id && !spare(id)) {
       setTrying(trying[category] === id ? without(category) : { ...trying, [category]: id })
       return
     }
@@ -44,8 +46,11 @@ export function CharacterPanel() {
     equipItem(character.id, category, id)
   }
   const getAndWear = (slot: ClothingCategory, id: string) => {
-    buyItem(id)
-    if (!useGameStore.getState().inventory.clothes.includes(id)) return
+    if (!spare(id)) {
+      const before = copiesOf(useGameStore.getState().inventory, id)
+      buyItem(id)
+      if (copiesOf(useGameStore.getState().inventory, id) === before) return
+    }
     equipItem(character.id, slot, id)
     setTrying(without(slot))
   }
@@ -71,7 +76,7 @@ export function CharacterPanel() {
       </div>
     </div>
     {character.model === 'female' && <p className="panel-hint">여자 캐릭터는 현재 기본 복장과 기본 표정으로 표시돼요. 장착 아이템은 보관되며 남자 외형으로 바꾸면 다시 표시돼요.</p>}
-    <TryOnBar trying={trying} coins={coins} onGet={getAndWear} onTakeOff={(slot) => setTrying(without(slot))} />
+    <TryOnBar trying={trying} coins={coins} spare={spare} onGet={getAndWear} onTakeOff={(slot) => setTrying(without(slot))} />
     <div className="item-tabs item-tabs--clothes" aria-label="의상 분류">
       {(Object.entries(CLOTHING_CATEGORIES) as [ClothingCategory, string][]).map(([id, label]) =>
         <button key={id} type="button" aria-pressed={category === id} onClick={() => setCategory(id)}>{label}</button>)}
@@ -84,14 +89,16 @@ export function CharacterPanel() {
       </button>
       {items.map((item) => {
         const has = inventory.clothes.includes(item.id)
+        const free = spare(item.id)
         const worn = character.equippedItems[category] === item.id
         const tryingIt = trying[category] === item.id
-        return <button key={item.id} type="button" className={`item-card${has ? '' : ' item-card--try'}`}
-          data-item-id={item.id} aria-pressed={tryingIt || (worn && !trying[category])}
+        return <button key={item.id} type="button" className={`item-card${free ? '' : ' item-card--try'}`}
+          data-item-id={item.id} data-taken={(has && !free) || undefined} aria-pressed={tryingIt || (worn && !trying[category])}
           onClick={() => choose(item.id)}>
           {!has && <span className="item-card__tag">미보유</span>}
+          {has && !free && <span className="item-card__tag item-card__tag--taken">다른 캐릭터가 입는 중</span>}
           <ItemArtwork item={item} /><strong>{item.name}</strong>
-          <span>{has ? (worn ? '장착 중' : '장착하기') : tryingIt ? '입어보는 중' : '입어보기'}</span>
+          <span>{free ? (worn ? '장착 중' : '장착하기') : tryingIt ? '입어보는 중' : has ? '하나 더 사서 입기' : '입어보기'}</span>
         </button>
       })}
     </div>

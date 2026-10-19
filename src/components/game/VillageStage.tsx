@@ -231,6 +231,9 @@ function graphicsProfile(quality: GraphicsQuality) {
   return { pixelRatio: coarse ? 2 : 1.5, shadows: true, shadowSize: low ? 2048 : 4096, ambientOcclusion: !low }
 }
 
+/** The close-up looks at a character's middle, not its feet. */
+const BODY_CENTER = new THREE.Vector3(0, VILLAGE_CHARACTER_HEIGHT / 2, 0)
+
 /** Most footprints the placement grid can mark as taken at once. */
 const GRID_BLOCKERS = 64
 
@@ -884,6 +887,7 @@ export function VillageStage(props: Props) {
     let raf = 0
     let previous = performance.now()
     let lastFrame = 0
+    let lift = 0
     const tick = () => {
       raf = requestAnimationFrame(tick)
       const now = performance.now()
@@ -974,10 +978,15 @@ export function VillageStage(props: Props) {
       }
       // Every view keeps the legacy angle; only the look-at point and distance change.
       const target = view === 'whole' ? VILLAGE_CAMERA.target
-        : view === 'follow' && tracked ? villageGround(tracked.x, tracked.y) : villageGround(0.5, 0.5)
+        : view === 'follow' && tracked ? villageGround(tracked.x, tracked.y).add(BODY_CENTER) : villageGround(0.5, 0.5)
       const ease = Math.min(1, delta * 6)
       if (!pointers.size) focus.lerp(target, ease)
       distance += (VILLAGE_VIEW_DISTANCE[view] - distance) * ease
+      // A sheet over the bottom of the screen (the diary): frame the followed character above it.
+      const sheet = view === 'follow' ? document.querySelector('.diary-sheet') : null
+      lift += ((sheet ? sheet.getBoundingClientRect().height / 2 : 0) - lift) * ease
+      if (lift > 0.5 && host.clientHeight) camera.setViewOffset(host.clientWidth, host.clientHeight, 0, lift, host.clientWidth, host.clientHeight)
+      else if (camera.view?.enabled) camera.clearViewOffset()
       updateCamera()
       if (composer && profile.ambientOcclusion) composer.render(delta)
       else renderer.render(scene, camera)

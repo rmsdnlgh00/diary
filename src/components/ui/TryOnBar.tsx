@@ -18,13 +18,15 @@ export function outfitWith(equipped: Partial<Record<ClothingCategory, string | n
 }
 
 /**
- * Clothes being tried on (not owned yet): get one and wear it at once, or take it off.
- * `canWear` is false when there is no character to dress; then the button only gets it.
+ * Clothes being tried on: get one and wear it at once, or take it off. A piece with a spare copy
+ * (`spare`) is simply put on. `canWear` is false when there is no character to dress; then the
+ * button only gets it.
  */
-export function TryOnBar({ trying, coins, canWear = true, onGet, onTakeOff }: {
+export function TryOnBar({ trying, coins, canWear = true, spare = () => false, onGet, onTakeOff }: {
   trying: TryOn
   coins: number
   canWear?: boolean
+  spare?: (itemId: string) => boolean
   onGet: (slot: ClothingCategory, itemId: string) => void
   onTakeOff: (slot: ClothingCategory) => void
 }) {
@@ -37,12 +39,13 @@ export function TryOnBar({ trying, coins, canWear = true, onGet, onTakeOff }: {
     {rows.map(({ slot, item }) => {
       const price = priceOf(item)
       const verb = canWear ? '입기' : ''
+      const ready = canWear && spare(item.id)
       return <div className="try-on__row" key={slot}>
         <ItemArtwork item={item} />
         <span><small>입어보는 중</small>{item.name}</span>
-        <button type="button" className="item-action try-on__get" disabled={coins < price}
+        <button type="button" className="item-action try-on__get" disabled={!ready && coins < price}
           onClick={() => onGet(slot, item.id)}>
-          {coins < price ? '코인이 부족해요' : price === 0 ? `받고 ${verb}`.trim() : `🪙 ${price} 사고 ${verb}`.trim()}
+          {ready ? '입기' : coins < price ? '코인이 부족해요' : price === 0 ? `받고 ${verb}`.trim() : `🪙 ${price} 사고 ${verb}`.trim()}
         </button>
         <button type="button" className="item-action" onClick={() => onTakeOff(slot)}>벗기</button>
       </div>

@@ -4,7 +4,7 @@ import { useGameStore } from '@/store/gameStore'
 import { useSettingsStore } from '@/store/settingsStore'
 
 /** Feedback lines that mean "that didn't work". */
-const REFUSED = /부족|놓을 수 없어요/
+const REFUSED = /부족|놓을 수 없어요|입고 있어요/
 
 /**
  * Connects the game to its sounds. Sounds follow what changed in the store rather than which

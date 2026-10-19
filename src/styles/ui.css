@@ -1065,3 +1065,8 @@
   animation-duration: 0.001ms !important; animation-delay: 0s !important;
   transition-duration: 0.001ms !important;
 }
+
+/* ---------- clothes are counted: copies owned, and who is wearing them ---------- */
+.shop-card__worn { display: block; margin-top: -2px; font-size: 11px; color: var(--ink-soft); }
+.item-card__tag--taken { background: #f3e4d2; color: #9a6a43; }
+.item-card[data-taken] .item-artwork { opacity: 0.55; }
