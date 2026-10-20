@@ -13,6 +13,11 @@ import { useSettingsStore } from '@/store/settingsStore'
  */
 
 const SEA_Y = -0.08
+/**
+ * The boat floats a little high, so that even rocking on the swell its floor stays above the sea
+ * (the sea is one flat plane and would otherwise show inside the boat).
+ */
+const BOAT_LIFT = 0.16
 /** Where the boat ties up: across the end of the dock, bow to the west. */
 export const BOAT_MOORING = new THREE.Vector3(-9, SEA_Y, -47.65)
 /** The end of the dock, where a passenger steps off. */
@@ -200,9 +205,9 @@ export async function createArrival(scene: THREE.Scene, loader: GLTFLoader): Pro
         if (t >= 1) { phase = 'away'; boat.visible = false; stopWaves?.(); stopWaves = null }
       }
       // Bobbing on the swell, a little more while under way (still when the water is still).
-      const sway = !useSettingsStore.getState().waterMotion ? 0 : moving ? 1.6 : 1
-      boat.position.set(position.x, SEA_Y + 0.04 * sway * Math.sin(time * 1.7), position.z)
-      boat.rotation.set(0.025 * sway * Math.sin(time * 1.3), heading, 0.035 * sway * Math.sin(time * 1.1 + 1))
+      const sway = !useSettingsStore.getState().waterMotion ? 0 : moving ? 1.4 : 1
+      boat.position.set(position.x, SEA_Y + BOAT_LIFT + 0.03 * sway * Math.sin(time * 1.7), position.z)
+      boat.rotation.set(0.02 * sway * Math.sin(time * 1.3), heading, 0.03 * sway * Math.sin(time * 1.1 + 1))
       stern.set(Math.sin(heading) * 1.7, 0, Math.cos(heading) * 1.7).add(position)
       wake.update(delta, moving ? stern : null)
     },
